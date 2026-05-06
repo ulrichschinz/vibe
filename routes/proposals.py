@@ -157,7 +157,7 @@ def proposal_document(proposal_id: int, session: Session = Depends(get_session),
     if not proposal:
         raise HTTPException(status_code=404)
     lead = session.get(Lead, proposal.lead_id)
-    return HTMLResponse(render_proposal_html(proposal, lead))
+    return HTMLResponse(render_proposal_html(proposal, lead, for_print=False))
 
 
 @router.post("/proposals/{proposal_id}/mark-sent", response_class=RedirectResponse)

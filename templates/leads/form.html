@@ -28,6 +28,15 @@
       </div>
 
       <div class="ar-field">
+        <label class="ar-eyebrow" for="salutation">Anrede</label>
+        <select id="salutation" name="salutation" class="app-select">
+          <option value="" {% if not lead or not lead.salutation %}selected{% endif %}>—</option>
+          <option value="Frau" {% if lead and lead.salutation == 'Frau' %}selected{% endif %}>Frau</option>
+          <option value="Herr" {% if lead and lead.salutation == 'Herr' %}selected{% endif %}>Herr</option>
+        </select>
+      </div>
+
+      <div class="ar-field">
         <label class="ar-eyebrow" for="email">E-Mail</label>
         <input type="email" id="email" name="email" class="app-input"
                value="{{ lead.email or '' }}" placeholder="kontakt@firma.de">

@@ -115,6 +115,7 @@ class Lead(SQLModel, table=True):
     company: Optional[str] = Field(default=None, sa_column=Column(String, nullable=True))
     email: Optional[str] = None
     phone: Optional[str] = None
+    salutation: Optional[str] = None    # "Frau" / "Herr" / ""
     source: LeadSource = LeadSource.manual
     stage: LeadStage = LeadStage.new
     notes: Optional[str] = None

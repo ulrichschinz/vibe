@@ -2,254 +2,653 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>{{ proposal.number }} · {{ lead.name }}</title>
+  <title>{{ proposal.number }} · {{ lead.name or lead.company }}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@1,300&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,300;1,9..144,400&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    /* === Brand tokens === */
+    /* === Tokens === */
     :root {
-      --ar-coral: #FF7A6B;
-      --ar-plum: #3D2B5C;
-      --ar-yellow: #F4C84A;
-      --ar-ink: #1B1428;
-      --ar-bg: #FBF6EE;
-      --ar-bg-alt: #F4ECE0;
-      --ar-paper: #FFFFFF;
-      --ar-mute: rgba(27,20,40,.62);
-      --ar-mute-soft: rgba(27,20,40,.40);
+      --ar-coral:    #FF7A6B;
+      --ar-plum:     #3D2B5C;
+      --ar-ink:      #1B1428;
+      --ar-bg:       #FDFBF6;
+      --ar-paper:    #FFFFFF;
+      --ar-mute:     rgba(27,20,40,.62);
       --ar-hairline: rgba(27,20,40,.10);
-      --ar-font-sans: 'Space Grotesk', system-ui, sans-serif;
+      --ar-line:     rgba(27,20,40,.18);
+      --ar-font-sans:  'Space Grotesk', system-ui, sans-serif;
       --ar-font-serif: 'Fraunces', Georgia, serif;
-      --ar-font-mono: 'JetBrains Mono', ui-monospace, monospace;
-      --ar-radius-lg: 18px;
-      --ar-shadow-sm: 0 1px 0 rgba(27,20,40,.06), 0 4px 14px rgba(27,20,40,.06);
+      --ar-font-mono:  'JetBrains Mono', ui-monospace, monospace;
     }
 
-    *, *::before, *::after { box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     html, body {
-      margin: 0; padding: 0;
-      background: var(--ar-bg);
+      background: #ddd8ce;
       color: var(--ar-ink);
       font-family: var(--ar-font-sans);
-      font-size: 15px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* === @page === */
+    @page { size: A4; margin: 0; }
+
+    /* === Page container === */
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      padding: 16mm 18mm 14mm;
+      background: var(--ar-bg);
+      display: flex;
+      flex-direction: column;
+      break-after: page;
+      page-break-after: always;
+    }
+    .page:last-child {
+      break-after: auto;
+      page-break-after: auto;
+    }
+
+    @media screen {
+      body { padding: 28px; display: flex; flex-direction: column; align-items: center; gap: 28px; }
+      .page { box-shadow: 0 4px 32px rgba(0,0,0,0.18); }
+    }
+
+    /* === Shared: header band === */
+    .page-hd {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--ar-ink);
+    }
+    .page-hd-logo { height: 28px; display: block; }
+    .page-hd-right {
+      font-family: var(--ar-font-mono);
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ar-mute);
+      text-align: right;
+      line-height: 1.9;
+    }
+    .page-hd-right .slash { color: var(--ar-coral); }
+
+    /* === Shared: page footer === */
+    .page-ft {
+      margin-top: auto;
+      padding-top: 14px;
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--ar-font-mono);
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--ar-mute);
+    }
+
+    /* === Shared: eyebrow with optional coral slash === */
+    .ew {
+      font-family: var(--ar-font-mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ar-mute);
+    }
+    .ew .slash { color: var(--ar-coral); }
+
+    /* ─────────────────────────────────────────
+       PAGE 1 · ANSCHREIBEN
+    ───────────────────────────────────────── */
+
+    /* Proposal number block */
+    .p1-meta {
+      margin-top: 52px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+    }
+    .p1-nr-ew {
+      font-family: var(--ar-font-mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ar-mute);
+      margin-bottom: 4px;
+    }
+    .p1-nr {
+      font-family: var(--ar-font-serif);
+      font-size: 34px;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+      color: var(--ar-ink);
+      line-height: 1;
+    }
+    .p1-nr-sub {
+      font-size: 13px;
+      color: var(--ar-mute);
+      margin-top: 5px;
+    }
+    .p1-details {
+      display: grid;
+      grid-template-columns: 90px 1fr;
+      row-gap: 0;
+      align-content: start;
+      font-family: var(--ar-font-mono);
+      font-size: 11px;
+      line-height: 1.9;
+    }
+    .p1-dl { color: var(--ar-mute); }
+    .p1-dv { color: var(--ar-ink); }
+
+    /* Recipient card */
+    .p1-recipient {
+      margin-top: 40px;
+      padding: 20px 22px;
+      background: var(--ar-paper);
+      border: 1px solid var(--ar-hairline);
+    }
+    .p1-rcp-ew { margin-bottom: 10px; }
+    .p1-rcp-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--ar-ink);
+    }
+    .p1-rcp-company {
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--ar-ink);
+    }
+    .p1-rcp-email {
+      font-family: var(--ar-font-mono);
+      font-size: 11px;
+      color: var(--ar-mute);
+      margin-top: 4px;
+    }
+
+    /* Letter body */
+    .p1-letter { margin-top: 38px; flex: 1; }
+    .p1-salutation {
+      font-family: var(--ar-font-serif);
+      font-size: 22px;
+      font-weight: 400;
+      color: var(--ar-ink);
+      margin-bottom: 14px;
+    }
+    .p1-body {
+      font-size: 11.5px;
+      line-height: 1.75;
+      color: var(--ar-ink);
+    }
+    .p1-body p + p { margin-top: 14px; }
+
+    /* Signature */
+    .p1-sig {
+      margin-top: 36px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .p1-portrait {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .p1-sig-name {
+      font-family: var(--ar-font-serif);
+      font-style: italic;
+      font-size: 20px;
+      font-weight: 300;
+      color: var(--ar-plum);
+      line-height: 1;
+    }
+    .p1-sig-role {
+      font-size: 11px;
+      color: var(--ar-mute);
+      margin-top: 4px;
+    }
+
+    /* ─────────────────────────────────────────
+       PAGE 2 · LEISTUNGSVERZEICHNIS
+    ───────────────────────────────────────── */
+
+    .p2-h2 {
+      font-family: var(--ar-font-serif);
+      font-size: 28px;
+      font-weight: 400;
+      color: var(--ar-ink);
+      margin: 40px 0 22px;
+    }
+
+    /* Services as plain table for WeasyPrint safety */
+    .svc-tbl {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    .svc-tbl col.c-pos   { width: 40px; }
+    .svc-tbl col.c-body  { width: auto; }
+    .svc-tbl col.c-price { width: 110px; }
+
+    .svc-tbl thead tr {
+      border-top: 1px solid var(--ar-ink);
+      border-bottom: 1px solid var(--ar-line);
+    }
+    .svc-tbl thead th {
+      font-family: var(--ar-font-mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ar-mute);
+      font-weight: 400;
+      padding: 9px 0;
+      vertical-align: bottom;
+    }
+    .svc-tbl thead th.th-price { text-align: right; }
+
+    .svc-tbl tbody tr { border-bottom: 1px solid var(--ar-hairline); }
+    .svc-tbl tbody td { padding: 18px 0; vertical-align: top; }
+
+    .td-pos {
+      font-family: var(--ar-font-mono);
+      font-size: 11px;
+      color: var(--ar-mute);
+      padding-top: 20px !important;
+    }
+    .td-price {
+      font-family: var(--ar-font-mono);
+      font-size: 13px;
+      color: var(--ar-ink);
+      text-align: right;
+      padding-top: 20px !important;
+    }
+    .svc-title {
+      font-family: var(--ar-font-serif);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--ar-ink);
+      margin-bottom: 5px;
+    }
+    .svc-desc {
+      font-size: 10px;
       line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
+      color: var(--ar-ink);
+      margin-bottom: 8px;
+    }
+    .svc-dl {
+      padding-left: 14px;
+      margin: 0;
+    }
+    .svc-dl li {
+      font-size: 9.5px;
+      line-height: 1.6;
+      color: var(--ar-ink);
     }
 
-    @page { size: A4; margin: 20mm 18mm; }
-
-    /* === Layout === */
-    .doc-page { max-width: 720px; margin: 0 auto; padding: 48px 40px; }
-
-    /* === Cover === */
-    .doc-cover { margin-bottom: 48px; padding-bottom: 32px; border-bottom: 1px solid var(--ar-hairline); }
-    .doc-logo { height: 32px; margin-bottom: 40px; }
-    .doc-eyebrow {
-      font-family: var(--ar-font-mono); font-size: 11px; font-weight: 500;
-      letter-spacing: .06em; text-transform: uppercase; color: var(--ar-mute-soft);
-      margin: 0 0 8px;
+    /* Total row */
+    .svc-tbl tfoot tr { border-top: 2px solid var(--ar-ink); }
+    .svc-tbl tfoot td { padding: 14px 0; }
+    .td-total-label {
+      font-family: var(--ar-font-serif);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--ar-ink);
     }
-    .doc-number {
-      font-family: var(--ar-font-mono); font-size: 13px; color: var(--ar-coral);
-      margin: 0 0 4px;
+    .td-total-amount {
+      font-family: var(--ar-font-mono);
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--ar-ink);
+      text-align: right;
     }
-    .doc-title {
-      font-family: var(--ar-font-sans); font-size: 28px; font-weight: 500;
-      letter-spacing: -.025em; color: var(--ar-ink); margin: 0 0 24px;
-    }
-    .doc-meta { display: flex; gap: 32px; }
-    .doc-meta-item { display: flex; flex-direction: column; gap: 2px; }
-    .doc-meta-label { font-family: var(--ar-font-mono); font-size: 10px; text-transform: uppercase;
-      letter-spacing: .06em; color: var(--ar-mute-soft); }
-    .doc-meta-value { font-size: 14px; font-weight: 500; color: var(--ar-ink); }
-
-    /* === Recipient === */
-    .doc-recipient {
-      margin-bottom: 40px; padding: 24px 28px;
-      background: var(--ar-paper); border: 1px solid var(--ar-hairline);
-      border-radius: var(--ar-radius-lg);
-    }
-    .doc-recipient-name { font-weight: 500; font-size: 16px; margin: 0 0 2px; }
-    .doc-recipient-company { color: var(--ar-mute); font-size: 14px; margin: 0; }
-
-    /* === Intro === */
-    .doc-intro { margin-bottom: 40px; font-size: 15px; color: var(--ar-ink); line-height: 1.7; }
-
-    /* === Service blocks === */
-    .doc-services { display: flex; flex-direction: column; gap: 24px; margin-bottom: 40px; }
-    .doc-service {
-      background: var(--ar-paper); border: 1px solid var(--ar-hairline);
-      border-radius: var(--ar-radius-lg); padding: 28px 32px;
-    }
-    .doc-svc-eyebrow {
-      font-family: var(--ar-font-mono); font-size: 11px; font-weight: 500;
-      letter-spacing: .06em; text-transform: uppercase; color: var(--ar-coral);
-      margin: 0 0 6px;
-    }
-    .doc-svc-title { font-size: 20px; font-weight: 500; margin: 0 0 12px; letter-spacing: -.02em; }
-    .doc-svc-description { font-size: 14px; color: var(--ar-ink); line-height: 1.65; margin: 0 0 16px; }
-    .doc-svc-deliverables { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
-    .doc-svc-deliverables li {
-      font-family: var(--ar-font-mono); font-size: 12px; color: var(--ar-mute);
-      padding-left: 20px; position: relative;
-    }
-    .doc-svc-deliverables li::before { content: '//'; color: var(--ar-coral); position: absolute; left: 0; }
-    .doc-svc-price {
-      margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--ar-hairline);
-      font-family: var(--ar-font-mono); font-size: 13px; color: var(--ar-ink);
+    .svc-vat {
+      font-family: var(--ar-font-mono);
+      font-size: 10px;
+      color: var(--ar-mute);
+      text-align: right;
+      margin-top: 5px;
     }
 
-    /* === Konditionen === */
-    .doc-conditions {
-      background: var(--ar-ink); color: var(--ar-bg); border-radius: var(--ar-radius-lg);
-      padding: 32px 36px; margin-bottom: 48px;
-    }
-    .doc-conditions-eyebrow {
-      font-family: var(--ar-font-mono); font-size: 11px; letter-spacing: .06em;
-      text-transform: uppercase; color: rgba(251,246,238,.50); margin: 0 0 20px;
-    }
-    .doc-conditions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    .doc-cond-item { display: flex; flex-direction: column; gap: 4px; }
-    .doc-cond-label {
-      font-family: var(--ar-font-mono); font-size: 10px; letter-spacing: .06em;
-      text-transform: uppercase; color: rgba(251,246,238,.50);
-    }
-    .doc-cond-value { font-size: 15px; font-weight: 500; }
-    .doc-cond-value--total { font-size: 22px; color: var(--ar-coral); }
-    .doc-cond-value--small { font-size: 13px; color: rgba(251,246,238,.80); }
+    /* ─────────────────────────────────────────
+       PAGE 3 · KONDITIONEN & UNTERSCHRIFT
+    ───────────────────────────────────────── */
 
-    /* === Footer / Signature === */
-    .doc-footer {
-      padding-top: 32px; border-top: 1px solid var(--ar-hairline);
-      display: flex; justify-content: space-between; align-items: flex-start;
+    .p3-h2 {
+      font-family: var(--ar-font-serif);
+      font-size: 28px;
+      font-weight: 400;
+      color: var(--ar-ink);
+      margin: 40px 0 22px;
     }
-    .doc-sender { display: flex; flex-direction: column; gap: 2px; }
-    .doc-sender-name { font-weight: 500; font-size: 15px; }
-    .doc-sender-role { font-size: 13px; color: var(--ar-mute); }
-    .doc-sender-email { font-family: var(--ar-font-mono); font-size: 12px; color: var(--ar-mute); margin-top: 4px; }
-    .doc-signature-box {
-      border-top: 1px solid var(--ar-hairline); padding-top: 8px;
-      width: 200px; text-align: center;
+
+    /* 3-col conditions grid */
+    .kond-wrap {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1px;
+      background: var(--ar-line);
+      margin-bottom: 40px;
     }
-    .doc-signature-label { font-family: var(--ar-font-mono); font-size: 10px;
-      text-transform: uppercase; letter-spacing: .06em; color: var(--ar-mute-soft); }
-    .doc-validity {
-      margin-top: 24px; text-align: center;
-      font-family: var(--ar-font-mono); font-size: 11px; color: var(--ar-mute-soft);
+    .kond-card { background: var(--ar-paper); padding: 22px; }
+    .kond-title {
+      font-family: var(--ar-font-serif);
+      font-size: 22px;
+      font-weight: 400;
+      color: var(--ar-ink);
+      margin: 8px 0 4px;
+      line-height: 1.1;
+    }
+    .kond-sub { font-size: 10.5px; color: var(--ar-mute); }
+
+    /* General terms */
+    .terms-h3 {
+      font-family: var(--ar-font-serif);
+      font-size: 18px;
+      font-weight: 400;
+      color: var(--ar-ink);
+      margin-bottom: 14px;
+    }
+    .terms-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px 32px;
+      font-size: 10px;
+      line-height: 1.7;
+      color: var(--ar-ink);
+    }
+    .terms-label {
+      display: block;
+      font-family: var(--ar-font-mono);
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--ar-mute);
+      margin-bottom: 4px;
+    }
+
+    /* Signature blocks */
+    .sig-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 56px;
+      margin-top: 52px;
+    }
+    .sig-line {
+      height: 70px;
+      border-bottom: 1px solid var(--ar-ink);
+      position: relative;
+    }
+    .sig-cursive {
+      font-family: var(--ar-font-serif);
+      font-style: italic;
+      font-size: 28px;
+      font-weight: 300;
+      color: var(--ar-plum);
+      transform: rotate(-2deg);
+      transform-origin: left bottom;
+      display: inline-block;
+      position: absolute;
+      bottom: 6px;
+      left: 0;
+    }
+    .sig-meta {
+      font-family: var(--ar-font-mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ar-mute);
+      margin-top: 8px;
+    }
+    .sig-name {
+      font-size: 11px;
+      color: var(--ar-ink);
+      margin-top: 4px;
     }
   </style>
 </head>
 <body>
-<div class="doc-page">
 
-  <!-- Cover -->
-  <div class="doc-cover">
-    <img class="doc-logo"
-         src="{% if brand_base_url %}{{ brand_base_url }}/logos/lockup-horizontal-color.svg{% else %}/static/brand/logos/lockup-horizontal-color.svg{% endif %}"
+{# ═══════════════════════════════════════════════
+   PAGE 1 · ANSCHREIBEN
+══════════════════════════════════════════════════ #}
+{% set valid_until = proposal.created_at + timedelta(days=proposal.validity_days) %}
+{% set lead_lastname = (lead.name or "").split()[-1] if lead.name else (lead.company or "") %}
+
+<div class="page">
+
+  <!-- Header band -->
+  <div class="page-hd">
+    <img class="page-hd-logo"
+         src="{{ asset_base }}/logos/lockup-horizontal-color.svg"
          alt="Agentic Reach">
-
-    <p class="doc-eyebrow">Angebot</p>
-    <p class="doc-number">{{ proposal.number }}</p>
-    <h1 class="doc-title">{{ proposal.title }}</h1>
-
-    <div class="doc-meta">
-      <div class="doc-meta-item">
-        <span class="doc-meta-label">Datum</span>
-        <span class="doc-meta-value">{{ proposal.created_at.strftime('%d. %B %Y') }}</span>
-      </div>
-      <div class="doc-meta-item">
-        <span class="doc-meta-label">Gültig bis</span>
-        <span class="doc-meta-value">
-          {{ (proposal.created_at + timedelta(days=proposal.validity_days)).strftime('%d. %B %Y') }}
-        </span>
-      </div>
+    <div class="page-hd-right">
+      Agentic Reach<br>
+      München · Deutschland<br>
+      ulrich@agentic-reach.com
     </div>
   </div>
 
-  <!-- Recipient -->
-  <div class="doc-recipient">
-    <p class="doc-recipient-name">{{ lead.name }}</p>
-    {% if lead.company %}<p class="doc-recipient-company">{{ lead.company }}</p>{% endif %}
-    {% if lead.email %}<p class="doc-recipient-company">{{ lead.email }}</p>{% endif %}
-  </div>
-
-  <!-- Intro -->
-  {% if proposal.intro_text %}
-  <div class="doc-intro">{{ proposal.intro_text }}</div>
-  {% endif %}
-
-  <!-- Service blocks -->
-  {% set enabled = proposal.get_enabled_services() %}
-  {% if enabled %}
-  <div class="doc-services">
-    {% for svc in enabled %}
-    <div class="doc-service">
-      <p class="doc-svc-eyebrow">{{ svc.eyebrow }}</p>
-      <h2 class="doc-svc-title">{{ svc.title }}</h2>
-      {% if svc.description %}
-      <p class="doc-svc-description">{{ svc.description }}</p>
-      {% endif %}
-      {% if svc.deliverables %}
-      <ul class="doc-svc-deliverables">
-        {% for d in svc.deliverables %}<li>{{ d }}</li>{% endfor %}
-      </ul>
-      {% endif %}
-      {% if svc.price %}
-      <div class="doc-svc-price">{{ "%.0f"|format(svc.price) }} €</div>
-      {% endif %}
+  <!-- Proposal number + meta -->
+  <div class="p1-meta">
+    <div>
+      <div class="p1-nr-ew">Angebot Nr.</div>
+      <div class="p1-nr">{{ proposal.number }}</div>
+      <div class="p1-nr-sub">{{ proposal.title }}</div>
     </div>
-    {% endfor %}
-  </div>
-  {% endif %}
-
-  <!-- Konditionen -->
-  <div class="doc-conditions">
-    <p class="doc-conditions-eyebrow">// konditionen</p>
-    <div class="doc-conditions-grid">
-      {% if proposal.total_value %}
-      <div class="doc-cond-item">
-        <span class="doc-cond-label">Investition gesamt</span>
-        <span class="doc-cond-value doc-cond-value--total">{{ "%.0f"|format(proposal.total_value) }} €</span>
-      </div>
-      {% endif %}
-      {% if proposal.duration_months %}
-      <div class="doc-cond-item">
-        <span class="doc-cond-label">Laufzeit</span>
-        <span class="doc-cond-value">{{ proposal.duration_months }} Monat{% if proposal.duration_months != 1 %}e{% endif %}</span>
-      </div>
-      {% endif %}
-      {% if proposal.payment_terms %}
-      <div class="doc-cond-item">
-        <span class="doc-cond-label">Zahlung</span>
-        <span class="doc-cond-value doc-cond-value--small">{{ proposal.payment_terms }}</span>
-      </div>
-      {% endif %}
-      <div class="doc-cond-item">
-        <span class="doc-cond-label">Gültigkeit</span>
-        <span class="doc-cond-value doc-cond-value--small">{{ proposal.validity_days }} Tage</span>
-      </div>
+    <div class="p1-details">
+      <span class="p1-dl">Datum</span>
+      <span class="p1-dv">{{ proposal.created_at | date_de }}</span>
+      <span class="p1-dl">Gültig bis</span>
+      <span class="p1-dv">{{ valid_until | date_de }}</span>
+      <span class="p1-dl">Kontakt</span>
+      <span class="p1-dv">Ulrich Schinz</span>
     </div>
   </div>
 
-  <!-- Footer -->
-  <div class="doc-footer">
-    <div class="doc-sender">
-      <span class="doc-sender-name">Ulrich Schinz</span>
-      <span class="doc-sender-role">Gründer · Agentic Reach</span>
-      <span class="doc-sender-email">ulrich@agentic-reach.com</span>
+  <!-- Recipient card -->
+  <div class="p1-recipient">
+    <div class="ew p1-rcp-ew"><span class="slash">//</span> Empfänger</div>
+    {% if lead.name %}<div class="p1-rcp-name">{{ lead.name }}</div>{% endif %}
+    {% if lead.company %}<div class="p1-rcp-company">{{ lead.company }}</div>{% endif %}
+    {% if lead.email %}<div class="p1-rcp-email">{{ lead.email }}</div>{% endif %}
+  </div>
+
+  <!-- Letter -->
+  <div class="p1-letter">
+    <div class="p1-salutation">
+      {% if lead.salutation == 'Frau' %}Sehr geehrte Frau {{ lead_lastname }},
+      {% elif lead.salutation == 'Herr' %}Sehr geehrter Herr {{ lead_lastname }},
+      {% else %}Sehr geehrte Damen und Herren,
+      {% endif %}
     </div>
-    <div class="doc-signature-box">
-      <br><br>
-      <span class="doc-signature-label">Unterschrift · Datum</span>
+    <div class="p1-body">
+      {% if proposal.intro_text %}
+        {% for para in proposal.intro_text.split('\n\n') %}
+          <p>{{ para }}</p>
+        {% endfor %}
+      {% endif %}
     </div>
   </div>
 
-  <p class="doc-validity">
-    Dieses Angebot ist gültig bis
-    {{ (proposal.created_at + timedelta(days=proposal.validity_days)).strftime('%d. %B %Y') }}.
-    Agentic Reach · ulrich@agentic-reach.com
-  </p>
+  <!-- Signature -->
+  <div class="p1-sig">
+    <img class="p1-portrait"
+         src="{{ asset_base }}/portrait/ulrich.jpg"
+         alt="Ulrich Schinz">
+    <div>
+      <div class="p1-sig-name">U. Schinz</div>
+      <div class="p1-sig-role">Gründer · Agentic Reach</div>
+    </div>
+  </div>
+
+  <!-- Page footer -->
+  <div class="page-ft">
+    <span>Anschreiben</span>
+    <span>{{ proposal.number }}</span>
+    <span>Seite 1 / 3</span>
+  </div>
 
 </div>
+
+
+{# ═══════════════════════════════════════════════
+   PAGE 2 · LEISTUNGSVERZEICHNIS
+══════════════════════════════════════════════════ #}
+<div class="page">
+
+  <!-- Header band -->
+  <div class="page-hd">
+    <img class="page-hd-logo"
+         src="{{ asset_base }}/logos/lockup-horizontal-color.svg"
+         alt="Agentic Reach">
+    <div class="page-hd-right">
+      <span class="slash">//</span> {{ proposal.number }}
+    </div>
+  </div>
+
+  <h2 class="p2-h2">Leistungsumfang</h2>
+
+  {% set enabled = proposal.get_enabled_services() %}
+  <table class="svc-tbl">
+    <colgroup>
+      <col class="c-pos">
+      <col class="c-body">
+      <col class="c-price">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>Pos.</th>
+        <th>Leistung</th>
+        <th class="th-price">Honorar</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for svc in enabled %}
+      <tr>
+        <td class="td-pos">{{ "%02d" % loop.index }}</td>
+        <td>
+          <div class="svc-title">{{ svc.title }}</div>
+          {% if svc.description %}
+          <div class="svc-desc">{{ svc.description }}</div>
+          {% endif %}
+          {% if svc.deliverables %}
+          <ul class="svc-dl">
+            {% for d in svc.deliverables %}<li>{{ d }}</li>{% endfor %}
+          </ul>
+          {% endif %}
+        </td>
+        <td class="td-price">
+          {% if svc.price %}{{ svc.price | eur }}{% else %}—{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td></td>
+        <td class="td-total-label">Gesamt · netto</td>
+        <td class="td-total-amount">{{ proposal.total_value | eur }}</td>
+      </tr>
+    </tfoot>
+  </table>
+  <div class="svc-vat">zzgl. ges. USt.</div>
+
+  <!-- Page footer -->
+  <div class="page-ft">
+    <span>Leistungsverzeichnis</span>
+    <span>{{ proposal.number }}</span>
+    <span>Seite 2 / 3</span>
+  </div>
+
+</div>
+
+
+{# ═══════════════════════════════════════════════
+   PAGE 3 · KONDITIONEN & UNTERSCHRIFT
+══════════════════════════════════════════════════ #}
+{% set terms = proposal.terms_overrides if proposal.terms_overrides is defined and proposal.terms_overrides else {} %}
+
+<div class="page">
+
+  <!-- Header band -->
+  <div class="page-hd">
+    <img class="page-hd-logo"
+         src="{{ asset_base }}/logos/lockup-horizontal-color.svg"
+         alt="Agentic Reach">
+    <div class="page-hd-right">
+      <span class="slash">//</span> {{ proposal.number }}
+    </div>
+  </div>
+
+  <h2 class="p3-h2">Konditionen</h2>
+
+  <!-- 3-col conditions grid -->
+  <div class="kond-wrap">
+    <div class="kond-card">
+      <div class="ew"><span class="slash">//</span> Investition</div>
+      <div class="kond-title">{{ proposal.total_value | eur }}</div>
+      <div class="kond-sub">netto, zzgl. USt.</div>
+    </div>
+    <div class="kond-card">
+      <div class="ew"><span class="slash">//</span> Zahlung</div>
+      <div class="kond-title">50 / 50</div>
+      <div class="kond-sub">{{ proposal.payment_terms or "50 % bei Projektstart, 50 % bei Abschluss" }}</div>
+    </div>
+    <div class="kond-card">
+      <div class="ew"><span class="slash">//</span> Gültigkeit</div>
+      <div class="kond-title">{{ proposal.validity_days }} Tage</div>
+      <div class="kond-sub">bis {{ valid_until | date_de }}</div>
+    </div>
+  </div>
+
+  <!-- General terms -->
+  <h3 class="terms-h3">Allgemeine Bedingungen</h3>
+  <div class="terms-grid">
+    <div>
+      <strong class="terms-label">Leistungserbringung</strong>
+      Die Leistungen werden remote oder vor Ort erbracht – nach Absprache. Termine werden gemeinsam abgestimmt.
+    </div>
+    <div>
+      <strong class="terms-label">Vertraulichkeit</strong>
+      Sämtliche Informationen werden vertraulich behandelt. Eine NDA kann bei Bedarf separat geschlossen werden.
+    </div>
+    <div>
+      <strong class="terms-label">Reisekosten</strong>
+      Reisekosten werden nach Aufwand und vorheriger Abstimmung gesondert in Rechnung gestellt.
+    </div>
+    <div>
+      <strong class="terms-label">Annahme</strong>
+      Mit Unterschrift wird das Angebot verbindlich angenommen. Der Projektstart erfolgt nach Eingang der Anzahlung.
+    </div>
+  </div>
+
+  <!-- Signature blocks -->
+  <div class="sig-grid">
+    <div>
+      <div class="sig-line"></div>
+      <div class="sig-meta">Auftraggeber · Datum</div>
+      <div class="sig-name">{{ lead.name or lead.company }}{% if lead.name and lead.company %}, {{ lead.company }}{% endif %}</div>
+    </div>
+    <div>
+      <div class="sig-line">
+        <span class="sig-cursive">U. Schinz</span>
+      </div>
+      <div class="sig-meta">Auftragnehmer · {{ proposal.created_at | date_de }}</div>
+      <div class="sig-name">Ulrich Schinz, Agentic Reach</div>
+    </div>
+  </div>
+
+  <!-- Page footer -->
+  <div class="page-ft">
+    <span>Konditionen &amp; Annahme</span>
+    <span>{{ proposal.number }}</span>
+    <span>Seite 3 / 3</span>
+  </div>
+
+</div>
+
 </body>
 </html>

@@ -70,6 +70,7 @@ def lead_create(
     company: str = Form(""),
     email: str = Form(""),
     phone: str = Form(""),
+    salutation: str = Form(""),
     source: str = Form("manual"),
     notes: str = Form(""),
     session: Session = Depends(get_session),
@@ -82,6 +83,7 @@ def lead_create(
         company=company.strip() or None,
         email=email.strip() or None,
         phone=phone.strip() or None,
+        salutation=salutation.strip() or None,
         source=LeadSource(source),
         notes=notes.strip() or None,
     )
@@ -152,6 +154,7 @@ def lead_update(
     company: str = Form(""),
     email: str = Form(""),
     phone: str = Form(""),
+    salutation: str = Form(""),
     source: str = Form("manual"),
     notes: str = Form(""),
     session: Session = Depends(get_session),
@@ -166,6 +169,7 @@ def lead_update(
     lead.company = company.strip() or None
     lead.email = email.strip() or None
     lead.phone = phone.strip() or None
+    lead.salutation = salutation.strip() or None
     lead.source = LeadSource(source)
     lead.notes = notes.strip() or None
     lead.updated_at = datetime.utcnow()
