@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}{% if user %}Benutzer bearbeiten{% else %}Neuer Benutzer{% endif %}{% endblock %}
+
+{% block content %}
+<div class="ar-container app-page app-page-narrow">
+  <div class="app-page-head">
+    <div>
+      <span class="ar-eyebrow">{% if user %}// bearbeiten{% else %}// neuer benutzer{% endif %}</span>
+      <h1 class="ar-display-s">{% if user %}{{ user.name }}{% else %}Benutzer anlegen{% endif %}</h1>
+    </div>
+    <a href="/admin/users" class="ar-btn ar-btn-ghost ar-btn-sm">← Zurück</a>
+  </div>
+
+  {% if error %}
+  <p class="app-field-error" style="display:block; margin-bottom:1rem;">{{ error }}</p>
+  {% endif %}
+
+  <form method="post" action="{{ action }}" class="ar-card app-form">
+    <div class="ar-form-grid">
+
+      <div class="ar-field">
+        <label class="ar-eyebrow" for="name">Name</label>
+        <input type="text" id="name" name="name" class="app-input" required
+               value="{{ user.name if user else '' }}">
+      </div>
+
+      <div class="ar-field">
+        <label class="ar-eyebrow" for="email">E-Mail</label>
+        <input type="email" id="email" name="email" class="app-input" required
+               value="{{ user.email if user else '' }}">
+      </div>
+
+      <div class="ar-field">
+        <label class="ar-eyebrow" for="password">
+          Passwort{% if user %} <span class="app-field-hint">(leer lassen = unverändert)</span>{% endif %}
+        </label>
+        <input type="password" id="password" name="password" class="app-input"
+               {% if not user %}required{% endif %}>
+      </div>
+
+      <div class="ar-field">
+        <label class="ar-eyebrow" for="role">Rolle</label>
+        <select id="role" name="role" class="app-select">
+          {% for r in UserRole %}
+          <option value="{{ r.value }}" {% if user and user.role == r %}selected{% endif %}>
+            {{ USER_ROLE_LABELS[r] }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {% if user %}
+      <div class="ar-field ar-field--full">
+        <label class="ar-eyebrow" style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+          <input type="checkbox" name="is_active" value="on" {% if user.is_active %}checked{% endif %}>
+          Benutzer aktiv
+        </label>
+      </div>
+      {% endif %}
+
+    </div>
+
+    <div class="app-form-actions">
+      <button type="submit" class="ar-btn ar-btn-coral">
+        {% if user %}Speichern{% else %}Benutzer anlegen{% endif %}
+      </button>
+      <a href="/admin/users" class="ar-btn ar-btn-ghost">Abbrechen</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

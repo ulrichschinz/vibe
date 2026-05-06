@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Vibe{% endblock %} · Agentic Reach</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@1,300&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/brand/brand-kit.css">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+
+<nav class="ar-nav">
+  <div class="ar-nav-row ar-container">
+    <a href="/" class="ar-nav-logo">
+      <img src="/static/brand/logos/mark-color.svg" alt="Agentic Reach" height="32">
+    </a>
+    {% if request.state.user %}
+    <div class="ar-nav-links">
+      <a href="/" class="ar-nav-link {% if request.url.path == '/' %}ar-nav-link--active{% endif %}">Dashboard</a>
+      <a href="/leads" class="ar-nav-link {% if '/leads' in request.url.path %}ar-nav-link--active{% endif %}">Leads</a>
+      {% if request.state.user.role.value == 'admin' %}
+      <a href="/admin/users" class="ar-nav-link {% if '/admin' in request.url.path and '/admin/ai' not in request.url.path %}ar-nav-link--active{% endif %}">Admin</a>
+      <a href="/admin/ai" class="ar-nav-link {% if '/admin/ai' in request.url.path %}ar-nav-link--active{% endif %}">KI</a>
+      {% endif %}
+    </div>
+    <div style="display:flex; align-items:center; gap:0.75rem;">
+      <span class="ar-mono" style="font-size:0.75rem; opacity:0.7;">{{ request.state.user.name }}</span>
+      <form method="post" action="/logout" style="display:inline;">
+        <button type="submit" class="ar-btn ar-btn-ghost ar-btn-sm">Abmelden</button>
+      </form>
+      {% if request.state.user.role.value != 'viewer' %}
+      <a href="/leads/new" class="ar-btn ar-btn-coral ar-btn-sm">+ Neuer Lead</a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</nav>
+
+<main class="ar-main">
+  {% block content %}{% endblock %}
+</main>
+
+<script src="/static/brand/components.js"></script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Benutzer{% endblock %}
+
+{% block content %}
+<div class="ar-container app-page">
+  <div class="app-page-head">
+    <div>
+      <span class="ar-eyebrow">// admin · benutzer</span>
+      <h1 class="ar-display-s">Benutzer</h1>
+    </div>
+    <div style="display:flex; gap:0.75rem;">
+      <a href="/admin/ai" class="ar-btn ar-btn-primary ar-btn-sm">KI-Einstellungen</a>
+      <a href="/admin/api-keys" class="ar-btn ar-btn-primary ar-btn-sm">API-Keys</a>
+      <a href="/admin/users/new" class="ar-btn ar-btn-coral">+ Benutzer anlegen</a>
+    </div>
+  </div>
+
+  <div class="app-table-wrap ar-card">
+    <table class="app-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>E-Mail</th>
+          <th>Rolle</th>
+          <th>Status</th>
+          <th>Angelegt</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>{{ u.name }}</td>
+          <td><span class="ar-mono app-email">{{ u.email }}</span></td>
+          <td><span class="app-stage-badge">{{ USER_ROLE_LABELS[u.role] }}</span></td>
+          <td>
+            {% if u.is_active %}
+            <span class="app-stage-badge app-stage-won">Aktiv</span>
+            {% else %}
+            <span class="app-stage-badge app-stage-lost">Inaktiv</span>
+            {% endif %}
+          </td>
+          <td><span class="ar-mono app-date">{{ u.created_at.strftime('%d.%m.%Y') }}</span></td>
+          <td style="display:flex; gap:0.5rem; align-items:center;">
+            <a href="/admin/users/{{ u.id }}/edit" class="ar-btn ar-btn-ghost ar-btn-sm">Bearbeiten</a>
+            {% if u.id != request.state.user.id %}
+            <form method="post" action="/admin/users/{{ u.id }}/delete" style="display:inline"
+                  onsubmit="return confirm('{{ u.name }} wirklich löschen?')">
+              <button type="submit" class="ar-btn ar-btn-ghost ar-btn-sm" style="color:var(--ar-coral);">Löschen</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./leads.db:/app/leads.db
+      - ./generated_pdfs:/app/generated_pdfs
+      - ../brand:/brand:ro
+    environment:
+      - DATABASE_URL=sqlite:///./leads.db
+      - API_KEY=${API_KEY}
+    env_file:
+      - .env
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:

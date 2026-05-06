@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Leads{% endblock %}
+
+{% block content %}
+<div class="ar-container app-page">
+
+  <div class="app-page-head">
+    <div>
+      <span class="ar-eyebrow">// leads</span>
+      <h1 class="ar-display-s">Alle Leads</h1>
+    </div>
+    <a href="/leads/new" class="ar-btn ar-btn-coral">+ Neuer Lead</a>
+  </div>
+
+  <!-- Filters -->
+  <form method="get" action="/leads" class="app-filters">
+    <div class="app-filter-group">
+      <label class="ar-eyebrow">Stage</label>
+      <select name="stage" class="app-select" onchange="this.form.submit()">
+        <option value="">Alle</option>
+        {% for s in STAGE_ORDER %}
+        <option value="{{ s.value }}" {% if filter_stage == s.value %}selected{% endif %}>{{ STAGE_LABELS[s] }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="app-filter-group">
+      <label class="ar-eyebrow">Quelle</label>
+      <select name="source" class="app-select" onchange="this.form.submit()">
+        <option value="">Alle</option>
+        {% for src in LeadSource %}
+        <option value="{{ src.value }}" {% if filter_source == src.value %}selected{% endif %}>{{ SOURCE_LABELS[src] }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% if filter_stage or filter_source %}
+    <a href="/leads" class="ar-btn ar-btn-ghost ar-btn-sm">Filter aufheben</a>
+    {% endif %}
+  </form>
+
+  {% if leads %}
+  <div class="app-table-wrap ar-card">
+    <table class="app-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Firma</th>
+          <th>E-Mail</th>
+          <th>Stage</th>
+          <th>Quelle</th>
+          <th>Datum</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for lead in leads %}
+        <tr>
+          <td><a href="/leads/{{ lead.id }}" class="app-lead-name">{{ lead.display_name() }}</a></td>
+          <td>{% if lead.name and lead.company %}{{ lead.company }}{% else %}—{% endif %}</td>
+          <td>
+            {% if lead.email %}
+            <a href="mailto:{{ lead.email }}" class="ar-mono app-email">{{ lead.email }}</a>
+            {% else %}—{% endif %}
+          </td>
+          <td><span class="app-stage-badge app-stage-{{ lead.stage.value }}">{{ STAGE_LABELS[lead.stage] }}</span></td>
+          <td><span class="ar-mono app-source">{{ SOURCE_LABELS[lead.source] }}</span></td>
+          <td><span class="ar-mono app-date">{{ lead.created_at.strftime('%d.%m.%Y') }}</span></td>
+          <td><a href="/leads/{{ lead.id }}" class="app-row-action">→</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="ar-card app-empty">
+    <span class="ar-eyebrow">// keine leads</span>
+    <p class="ar-body">Keine Leads gefunden.</p>
+    <a href="/leads/new" class="ar-btn ar-btn-coral">Ersten Lead anlegen</a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

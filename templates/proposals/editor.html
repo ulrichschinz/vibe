@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+{% block title %}{% if proposal %}Angebot bearbeiten{% else %}Neues Angebot{% endif %}{% endblock %}
+
+{% block content %}
+<div class="ar-container app-page">
+
+  <div class="app-page-head">
+    <div>
+      <span class="ar-eyebrow">// angebot · {{ lead.display_name() }}</span>
+      <h1 class="ar-display-s">{% if proposal %}{{ proposal.number }}{% else %}Neues Angebot{% endif %}</h1>
+    </div>
+    <a href="/leads/{{ lead.id }}" class="ar-btn ar-btn-ghost ar-btn-sm">← Lead</a>
+  </div>
+
+  <form method="post" action="{{ action }}" id="proposal-form">
+    <input type="hidden" name="services_json" id="services_json" value="">
+
+    <div class="app-editor-grid">
+
+      <!-- Left: Form -->
+      <div class="app-editor-left">
+
+        <div class="ar-card app-form-section">
+          <span class="ar-eyebrow">// grunddaten</span>
+          <div class="ar-form-grid">
+
+            <div class="ar-field ar-field--full">
+              <label class="ar-eyebrow" for="title">Titel des Angebots</label>
+              <input type="text" id="title" name="title" class="app-input" required
+                     value="{{ proposal.title if proposal else 'Angebot KI-Strategie & Umsetzung' }}"
+                     placeholder="Angebot …">
+            </div>
+
+            <div class="ar-field ar-field--full">
+              <div class="ai-field-head">
+                <label class="ar-eyebrow" for="intro_text">Intro-Text</label>
+                {% if ai_active %}
+                <button type="button" class="ai-gen-btn ar-btn ar-btn-ghost ar-btn-sm"
+                        data-field="intro_text" data-target="#intro_text"
+                        data-lead-name="{{ lead.name or '' }}"
+                        data-lead-company="{{ lead.company or '' }}">✦ KI</button>
+                <button type="button" class="ai-undo-btn ar-btn ar-btn-ghost ar-btn-sm" style="display:none;">↩</button>
+                {% endif %}
+              </div>
+              <textarea id="intro_text" name="intro_text" class="app-textarea" rows="4"
+                placeholder="Stichpunkte eingeben → KI ausformulieren lassen, oder direkt schreiben …">{{ proposal.intro_text or '' }}</textarea>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Service blocks -->
+        <div class="ar-card app-form-section" id="services-container">
+          <span class="ar-eyebrow">// leistungsblöcke</span>
+
+          {% for svc in services %}
+          <div class="app-service-block" data-id="{{ svc.id }}">
+            <div class="app-service-header">
+              <label class="app-service-toggle">
+                <input type="checkbox" class="app-svc-enabled" {% if svc.enabled %}checked{% endif %}>
+                <span class="ar-mono app-service-eyebrow">{{ svc.eyebrow }}</span>
+                <span class="app-service-title">{{ svc.title }}</span>
+              </label>
+            </div>
+            <div class="app-service-body {% if not svc.enabled %}app-service-body--hidden{% endif %}">
+              <div class="ar-field">
+                <div class="ai-field-head">
+                  <label class="ar-eyebrow">Beschreibung</label>
+                  {% if ai_active %}
+                  <button type="button" class="ai-gen-btn ar-btn ar-btn-ghost ar-btn-sm"
+                          data-field="service_description"
+                          data-service-title="{{ svc.title }}"
+                          data-lead-name="{{ lead.name or '' }}"
+                          data-lead-company="{{ lead.company or '' }}">✦ KI</button>
+                  <button type="button" class="ai-undo-btn ar-btn ar-btn-ghost ar-btn-sm" style="display:none;">↩</button>
+                  {% endif %}
+                </div>
+                <textarea class="app-textarea app-svc-description" rows="4"
+                  placeholder="Was wir in diesem Bereich konkret machen …">{{ svc.description or '' }}</textarea>
+              </div>
+              <div class="ar-field">
+                <div class="ai-field-head">
+                  <label class="ar-eyebrow">Deliverables (eine pro Zeile)</label>
+                  {% if ai_active %}
+                  <button type="button" class="ai-gen-btn ar-btn ar-btn-ghost ar-btn-sm"
+                          data-field="service_deliverables"
+                          data-service-title="{{ svc.title }}"
+                          data-lead-name="{{ lead.name or '' }}"
+                          data-lead-company="{{ lead.company or '' }}">✦ KI</button>
+                  <button type="button" class="ai-undo-btn ar-btn ar-btn-ghost ar-btn-sm" style="display:none;">↩</button>
+                  {% endif %}
+                </div>
+                <textarea class="app-textarea app-svc-deliverables" rows="3">{{ '\n'.join(svc.deliverables) }}</textarea>
+              </div>
+              <div class="ar-field">
+                <label class="ar-eyebrow">Einzelpreis (€, optional)</label>
+                <input type="number" class="app-input app-svc-price" placeholder="—"
+                       value="{{ svc.price or '' }}">
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <!-- Konditionen -->
+        <div class="ar-card app-form-section">
+          <span class="ar-eyebrow">// konditionen</span>
+          <div class="ar-form-grid">
+
+            <div class="ar-field">
+              <label class="ar-eyebrow" for="total_value">Investition gesamt (€)</label>
+              <input type="number" id="total_value" name="total_value" class="app-input"
+                     value="{{ proposal.total_value|int if proposal and proposal.total_value else '' }}"
+                     placeholder="0">
+            </div>
+
+            <div class="ar-field">
+              <label class="ar-eyebrow" for="duration_months">Laufzeit (Monate)</label>
+              <input type="number" id="duration_months" name="duration_months" class="app-input"
+                     value="{{ proposal.duration_months or '' }}" placeholder="3">
+            </div>
+
+            <div class="ar-field ar-field--full">
+              <div class="ai-field-head">
+                <label class="ar-eyebrow" for="payment_terms">Zahlungsmodalitäten</label>
+                {% if ai_active %}
+                <button type="button" class="ai-gen-btn ar-btn ar-btn-ghost ar-btn-sm"
+                        data-field="payment_terms" data-target="#payment_terms"
+                        data-lead-name="{{ lead.name or '' }}"
+                        data-lead-company="{{ lead.company or '' }}">✦ KI</button>
+                <button type="button" class="ai-undo-btn ar-btn ar-btn-ghost ar-btn-sm" style="display:none;">↩</button>
+                {% endif %}
+              </div>
+              <input type="text" id="payment_terms" name="payment_terms" class="app-input"
+                     value="{{ proposal.payment_terms or '50 % bei Projektstart, 50 % bei Abschluss' }}">
+            </div>
+
+            <div class="ar-field">
+              <label class="ar-eyebrow" for="validity_days">Gültigkeit (Tage)</label>
+              <input type="number" id="validity_days" name="validity_days" class="app-input"
+                     value="{{ proposal.validity_days if proposal else 30 }}" placeholder="30">
+            </div>
+
+          </div>
+        </div>
+
+        <div class="app-form-actions">
+          <button type="submit" class="ar-btn ar-btn-coral">
+            {% if proposal %}Speichern{% else %}Angebot erstellen{% endif %}
+          </button>
+          {% if proposal %}
+          <a href="/proposals/{{ proposal.id }}/pdf" class="ar-btn ar-btn-primary" target="_blank">PDF ↓</a>
+          {% endif %}
+          <a href="/leads/{{ lead.id }}" class="ar-btn ar-btn-ghost">Abbrechen</a>
+        </div>
+
+      </div>
+
+      <!-- Right: Live Preview -->
+      <div class="app-editor-right">
+        <div class="app-preview-head">
+          <span class="ar-eyebrow">// vorschau</span>
+          {% if proposal %}
+          <a href="/proposals/{{ proposal.id }}/document" target="_blank" class="ar-btn ar-btn-ghost ar-btn-sm">In neuem Tab ↗</a>
+          {% endif %}
+        </div>
+        {% if proposal %}
+        <iframe src="/proposals/{{ proposal.id }}/document" class="app-preview-frame" title="Angebots-Vorschau"></iframe>
+        {% else %}
+        <div class="ar-card app-preview-placeholder">
+          <span class="ar-eyebrow">// nach dem Speichern verfügbar</span>
+          <p class="ar-body">Die Vorschau erscheint, sobald das Angebot gespeichert ist.</p>
+        </div>
+        {% endif %}
+      </div>
+
+    </div>
+  </form>
+
+</div>
+
+<style>
+.ai-field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+.ai-field-head label { margin-bottom: 0; }
+</style>
+
+<script>
+// ── Serialize services on submit ────────────────────────────────────────────
+document.getElementById('proposal-form').addEventListener('submit', function () {
+  const blocks = document.querySelectorAll('.app-service-block');
+  const services = [];
+  const defaults = {{ services | tojson }};
+
+  blocks.forEach((block, i) => {
+    const svc = defaults[i];
+    const enabled = block.querySelector('.app-svc-enabled').checked;
+    const description = block.querySelector('.app-svc-description').value.trim();
+    const deliverables = block.querySelector('.app-svc-deliverables').value
+      .split('\n').map(s => s.trim()).filter(Boolean);
+    const price = block.querySelector('.app-svc-price').value;
+    services.push({
+      ...svc,
+      enabled,
+      description,
+      deliverables,
+      price: price ? parseFloat(price) : null,
+    });
+  });
+  document.getElementById('services_json').value = JSON.stringify(services);
+});
+
+// ── Toggle service body on checkbox ─────────────────────────────────────────
+document.querySelectorAll('.app-svc-enabled').forEach(cb => {
+  cb.addEventListener('change', function () {
+    const body = this.closest('.app-service-block').querySelector('.app-service-body');
+    body.classList.toggle('app-service-body--hidden', !this.checked);
+  });
+});
+
+// ── KI-Generierung ───────────────────────────────────────────────────────────
+async function runAiGen(btn) {
+  // Find the textarea/input: explicit data-target or the next sibling field
+  let target;
+  if (btn.dataset.target) {
+    target = document.querySelector(btn.dataset.target);
+  } else {
+    // For service fields: textarea is the next element after the ai-field-head div
+    const fieldDiv = btn.closest('.ar-field');
+    target = fieldDiv.querySelector('textarea, input[type="text"]');
+  }
+  if (!target) return;
+
+  const original = target.value;
+  const undoBtn = btn.nextElementSibling;
+  const origLabel = btn.textContent;
+
+  btn.disabled = true;
+  btn.textContent = '…';
+  target.disabled = true;
+
+  try {
+    const res = await fetch('/ai/generate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        field: btn.dataset.field,
+        notes: target.value,
+        lead_name: btn.dataset.leadName || null,
+        lead_company: btn.dataset.leadCompany || null,
+        proposal_title: document.getElementById('title').value,
+        service_title: btn.dataset.serviceTitle || null,
+      })
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      target.value = data.text;
+      if (undoBtn && undoBtn.classList.contains('ai-undo-btn')) {
+        undoBtn.style.display = 'inline';
+        undoBtn.onclick = () => {
+          target.value = original;
+          undoBtn.style.display = 'none';
+        };
+      }
+    } else {
+      alert(data.detail || 'KI-Fehler');
+    }
+  } catch (e) {
+    alert('Netzwerkfehler: ' + e.message);
+  }
+
+  target.disabled = false;
+  btn.disabled = false;
+  btn.textContent = origLabel;
+}
+
+document.querySelectorAll('.ai-gen-btn').forEach(btn => {
+  btn.addEventListener('click', () => runAiGen(btn));
+});
+</script>
+{% endblock %}

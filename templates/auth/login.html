@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Anmelden{% endblock %}
+
+{% block content %}
+<div class="ar-container app-page" style="display:flex; align-items:center; justify-content:center; min-height:60vh;">
+  <div style="width:100%; max-width:420px;">
+    <div class="ar-card app-form" style="padding:2rem;">
+      <div style="margin-bottom:1.5rem;">
+        <span class="ar-eyebrow">// anmelden</span>
+        <h1 class="ar-display-s" style="margin-top:0.25rem;">Vibe</h1>
+      </div>
+
+      {% if error %}
+      <p class="app-field-error" style="display:block; margin-bottom:1rem;">{{ error }}</p>
+      {% endif %}
+
+      <form method="post" action="/login">
+        <div class="ar-field">
+          <label class="ar-eyebrow" for="email">E-Mail</label>
+          <input type="email" id="email" name="email" class="app-input" required autofocus>
+        </div>
+        <div class="ar-field">
+          <label class="ar-eyebrow" for="password">Passwort</label>
+          <input type="password" id="password" name="password" class="app-input" required>
+        </div>
+        <div class="app-form-actions" style="margin-top:1.5rem;">
+          <button type="submit" class="ar-btn ar-btn-coral" style="width:100%;">Anmelden</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

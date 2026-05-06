@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ proposal.number }}{% endblock %}
+
+{% block content %}
+<div class="ar-container app-page">
+
+  <div class="app-page-head">
+    <div>
+      <span class="ar-eyebrow">// angebot · {{ lead.display_name() }}</span>
+      <h1 class="ar-display-s">{{ proposal.number }}</h1>
+      <span class="app-proposal-status app-pstatus-{{ proposal.status.value }}">
+        {{ PROPOSAL_STATUS_LABELS[proposal.status] }}
+      </span>
+    </div>
+    <div class="app-head-actions">
+      <a href="/proposals/{{ proposal.id }}/pdf" class="ar-btn ar-btn-coral" target="_blank">PDF ↓</a>
+      <a href="/proposals/{{ proposal.id }}/edit" class="ar-btn ar-btn-primary ar-btn-sm">Bearbeiten</a>
+      {% if proposal.status.value == 'draft' %}
+      <form method="post" action="/proposals/{{ proposal.id }}/mark-sent" style="display:inline">
+        <button type="submit" class="ar-btn ar-btn-ghost ar-btn-sm">Als gesendet markieren</button>
+      </form>
+      {% endif %}
+      <a href="/leads/{{ lead.id }}" class="ar-btn ar-btn-ghost ar-btn-sm">← Lead</a>
+    </div>
+  </div>
+
+  <!-- Embedded document preview -->
+  <div class="ar-card app-document-preview">
+    <iframe src="/proposals/{{ proposal.id }}/document" class="app-doc-frame" title="{{ proposal.number }}"></iframe>
+  </div>
+
+</div>
+{% endblock %}

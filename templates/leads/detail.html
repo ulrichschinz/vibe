@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}{{ lead.display_name() }}{% endblock %}
+
+{% block content %}
+<div class="ar-container app-page">
+
+  <!-- Header -->
+  <div class="app-page-head">
+    <div>
+      <span class="ar-eyebrow">// lead · <span class="app-stage-badge app-stage-{{ lead.stage.value }}">{{ STAGE_LABELS[lead.stage] }}</span></span>
+      <h1 class="ar-display-s">{{ lead.display_name() }}</h1>
+      {% if lead.name and lead.company %}<p class="ar-body app-company-large">{{ lead.company }}</p>{% endif %}
+    </div>
+    <div class="app-head-actions">
+      <a href="/leads/{{ lead.id }}/edit" class="ar-btn ar-btn-primary ar-btn-sm">Bearbeiten</a>
+      <a href="/leads" class="ar-btn ar-btn-ghost ar-btn-sm">← Alle Leads</a>
+    </div>
+  </div>
+
+  <div class="app-detail-grid">
+
+    <!-- Left: Contact + Pipeline -->
+    <aside class="app-detail-left">
+
+      <section class="app-side-section">
+        <h4 class="app-side-title"><span class="ar-slash">//</span>Kontakt</h4>
+        <dl class="app-side-dl">
+          {% if lead.email %}
+          <div class="app-side-row">
+            <dt>E-Mail</dt>
+            <dd><a href="mailto:{{ lead.email }}">{{ lead.email }}</a></dd>
+          </div>
+          {% endif %}
+          {% if lead.phone %}
+          <div class="app-side-row">
+            <dt>Telefon</dt>
+            <dd><a href="tel:{{ lead.phone }}">{{ lead.phone }}</a></dd>
+          </div>
+          {% endif %}
+          <div class="app-side-row">
+            <dt>Quelle</dt>
+            <dd>{{ SOURCE_LABELS[lead.source] }}</dd>
+          </div>
+          <div class="app-side-row">
+            <dt>Seit</dt>
+            <dd>{{ lead.created_at.strftime('%d. %B %Y') }}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="app-side-section">
+        <h4 class="app-side-title"><span class="ar-slash">//</span>Pipeline</h4>
+        <ul class="app-pipe">
+          {% for s in stages %}
+          <li class="app-pipe-item{% if s.is_active %} is-active{% elif s.is_done %} is-done{% endif %}{% if s.key == 'lost' %} is-branch{% endif %}">
+            <form method="post" action="/leads/{{ lead.id }}/stage">
+              <input type="hidden" name="stage" value="{{ s.key }}">
+              <button type="submit" class="app-pipe-btn">
+                <span class="app-pipe-mark" aria-hidden="true"></span>
+                <span class="app-pipe-label">{{ s.label }}</span>
+                <span class="app-pipe-meta">{{ s.num }}</span>
+              </button>
+            </form>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+
+      <form method="post" action="/leads/{{ lead.id }}/delete"
+            onsubmit="return confirm('Lead {{ lead.display_name() }} wirklich löschen?')">
+        <button type="submit" class="app-side-danger">
+          <span class="ar-slash">//</span>Lead löschen
+        </button>
+      </form>
+
+    </aside>
+
+    <!-- Right: Proposals + Notes -->
+    <div class="app-detail-right">
+
+      <!-- Proposals -->
+      <div class="app-right-section">
+        <div class="app-section-head">
+          <span class="ar-eyebrow">// angebote</span>
+          <a href="/leads/{{ lead.id }}/proposals/new" class="ar-btn ar-btn-coral ar-btn-sm">+ Angebot erstellen</a>
+        </div>
+
+        {% if proposals %}
+        <div class="app-proposals-list">
+          {% for proposal in proposals %}
+          <div class="ar-card app-proposal-row">
+            <div class="app-proposal-meta">
+              <span class="ar-mono app-proposal-num">{{ proposal.number }}</span>
+              <span class="app-proposal-status app-pstatus-{{ proposal.status.value }}">
+                {{ PROPOSAL_STATUS_LABELS[proposal.status] }}
+              </span>
+            </div>
+            <p class="app-proposal-title">{{ proposal.title }}</p>
+            {% if proposal.total_value %}
+            <span class="ar-mono app-proposal-value">{{ "%.0f"|format(proposal.total_value) }} €</span>
+            {% endif %}
+            <div class="app-proposal-actions">
+              <a href="/proposals/{{ proposal.id }}" class="ar-btn ar-btn-ghost ar-btn-sm">Ansehen</a>
+              <a href="/proposals/{{ proposal.id }}/pdf" class="ar-btn ar-btn-primary ar-btn-sm">PDF ↓</a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="ar-card app-empty app-empty--sm">
+          <p class="ar-body">Noch kein Angebot erstellt.</p>
+          <a href="/leads/{{ lead.id }}/proposals/new" class="ar-btn ar-btn-coral ar-btn-sm">Angebot erstellen</a>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Notes -->
+      <div class="app-right-section" id="notes">
+        <div class="app-section-head">
+          <span class="ar-eyebrow">// notizen{% if notes %} · <span class="app-note-count">{{ notes|length }}</span>{% endif %}</span>
+        </div>
+
+        <!-- Add note form -->
+        <form method="post" action="/leads/{{ lead.id }}/notes" class="app-note-form">
+          <textarea
+            name="body"
+            class="app-note-input"
+            placeholder="Gesprächsvorbereitung, Notizen, nächste Schritte&#10;&#10;Markdown: **fett**, - Liste, ## Abschnitt"
+            rows="4"
+            id="note-input"
+          ></textarea>
+          <div class="app-note-form-actions">
+            <button type="submit" class="ar-btn ar-btn-coral ar-btn-sm">Notiz speichern</button>
+            <span class="app-note-hint">Strg+Enter zum Speichern</span>
+          </div>
+        </form>
+
+        <!-- Notes feed -->
+        {% if notes %}
+        <div class="app-notes-feed">
+          {% for note in notes %}
+          <div class="app-note-entry">
+            <div class="app-note-meta">
+              <span class="ar-mono app-note-date">{{ note.created_at.strftime('%d. %b %Y · %H:%M') }}</span>
+              <form method="post" action="/notes/{{ note.id }}/delete" style="display:inline"
+                    onsubmit="return confirm('Notiz löschen?')">
+                <button type="submit" class="app-note-delete" title="Löschen">×</button>
+              </form>
+            </div>
+            <div class="app-note-body" data-raw="{{ note.body | e }}"></div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Legacy note from lead.notes field -->
+        {% if lead.notes %}
+        <div class="app-note-entry app-note-entry--legacy">
+          <div class="app-note-meta">
+            <span class="ar-mono app-note-date">Altnotiz</span>
+          </div>
+          <div class="app-note-body" data-raw="{{ lead.notes | e }}"></div>
+        </div>
+        {% endif %}
+
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Ctrl+Enter submits note form
+document.getElementById('note-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    this.closest('form').submit();
+  }
+});
+
+// Auto-grow textarea
+const noteInput = document.getElementById('note-input');
+noteInput.addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = this.scrollHeight + 'px';
+});
+
+// Minimal markdown renderer: **bold**, *italic*, ## heading, - list, line breaks
+function renderMd(raw) {
+  let html = raw
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')  // already escaped via |e, but safety
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/^## (.+)$/gm, '<h4 class="app-note-h4">$1</h4>')
+    .replace(/^### (.+)$/gm, '<h5 class="app-note-h5">$1</h5>');
+
+  // Convert list blocks (consecutive lines starting with - or *)
+  html = html.replace(/((?:^[•\-\*] .+\n?)+)/gm, function(block) {
+    const items = block.trim().split('\n').map(l => '<li>' + l.replace(/^[•\-\*] /,'') + '</li>').join('');
+    return '<ul class="app-note-list">' + items + '</ul>';
+  });
+
+  // Remaining line breaks → <br> (but not inside block elements)
+  html = html.replace(/\n/g, '<br>');
+
+  return html;
+}
+
+document.querySelectorAll('.app-note-body[data-raw]').forEach(el => {
+  el.innerHTML = renderMd(el.dataset.raw);
+});
+</script>
+{% endblock %}

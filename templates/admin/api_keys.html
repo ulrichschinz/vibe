@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}API-Keys{% endblock %}
+
+{% block content %}
+<div class="ar-container app-page">
+  <div class="app-page-head">
+    <div>
+      <span class="ar-eyebrow">// admin · api-keys</span>
+      <h1 class="ar-display-s">API-Keys</h1>
+    </div>
+    <a href="/admin/users" class="ar-btn ar-btn-ghost ar-btn-sm">← Benutzer</a>
+  </div>
+
+  {% if new_key %}
+  <div class="ar-card" style="border-left:3px solid var(--ar-coral); padding:1.5rem; margin-bottom:2rem;">
+    <span class="ar-eyebrow" style="color:var(--ar-coral);">// neuer key — nur einmal sichtbar</span>
+    <p class="ar-mono" style="word-break:break-all; margin:0.75rem 0; font-size:0.9rem; user-select:all;">{{ new_key }}</p>
+    <p class="ar-body" style="font-size:0.85rem; opacity:0.6; margin:0;">Kopiere diesen Key jetzt. Er wird nie wieder angezeigt.</p>
+  </div>
+  {% endif %}
+
+  <div class="ar-card app-form" style="padding:1.5rem; margin-bottom:2rem;">
+    <span class="ar-eyebrow">// neuen key erstellen</span>
+    <form method="post" action="/admin/api-keys" style="display:flex; gap:1rem; align-items:flex-end; margin-top:1rem; flex-wrap:wrap;">
+      <div class="ar-field" style="flex:1; min-width:200px; margin:0;">
+        <label class="ar-eyebrow" for="label">Label</label>
+        <input type="text" id="label" name="label" class="app-input" required
+               placeholder="z.B. n8n-agent, make-webhook">
+      </div>
+      <button type="submit" class="ar-btn ar-btn-coral">Key erstellen</button>
+    </form>
+  </div>
+
+  {% if keys %}
+  <div class="app-table-wrap ar-card">
+    <table class="app-table">
+      <thead>
+        <tr>
+          <th>Label</th>
+          <th>Erstellt</th>
+          <th>Zuletzt verwendet</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for key in keys %}
+        <tr>
+          <td>{{ key.label }}</td>
+          <td><span class="ar-mono app-date">{{ key.created_at.strftime('%d.%m.%Y') }}</span></td>
+          <td>
+            {% if key.last_used_at %}
+            <span class="ar-mono app-date">{{ key.last_used_at.strftime('%d.%m.%Y %H:%M') }}</span>
+            {% else %}
+            <span style="opacity:0.4;">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if key.is_active %}
+            <span class="app-stage-badge app-stage-won">Aktiv</span>
+            {% else %}
+            <span class="app-stage-badge app-stage-lost">Widerrufen</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if key.is_active %}
+            <form method="post" action="/admin/api-keys/{{ key.id }}/revoke" style="display:inline"
+                  onsubmit="return confirm('Key {{ key.label | e }} widerrufen?')">
+              <button type="submit" class="ar-btn ar-btn-ghost ar-btn-sm" style="color:var(--ar-coral);">Widerrufen</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="ar-card app-empty">
+    <span class="ar-eyebrow">// keine keys</span>
+    <p class="ar-body">Noch keine API-Keys angelegt.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

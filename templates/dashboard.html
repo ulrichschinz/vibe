@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="ar-container app-page">
+
+  <div class="app-page-head">
+    <span class="ar-eyebrow">// overview</span>
+    <h1 class="ar-display-s">Pipeline</h1>
+  </div>
+
+  <!-- Stage metrics -->
+  <div class="app-metrics">
+    <div class="app-metric-card ar-card">
+      <span class="ar-eyebrow">Gesamt</span>
+      <span class="app-metric-num">{{ total }}</span>
+    </div>
+    {% for stage in STAGE_ORDER %}
+    <div class="app-metric-card ar-card {% if stage.value in ['won'] %}app-metric-card--won{% elif stage.value in ['lost'] %}app-metric-card--lost{% endif %}">
+      <span class="ar-eyebrow">{{ STAGE_LABELS[stage] }}</span>
+      <span class="app-metric-num">{{ by_stage[stage] }}</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Recent leads -->
+  <div class="app-section">
+    <div class="app-section-head">
+      <span class="ar-eyebrow">// zuletzt aktiv</span>
+      <a href="/leads" class="ar-btn ar-btn-primary ar-btn-sm">Alle Leads →</a>
+    </div>
+
+    {% if leads %}
+    <div class="app-table-wrap ar-card">
+      <table class="app-table">
+        <thead>
+          <tr>
+            <th>Name / Firma</th>
+            <th>Stage</th>
+            <th>Quelle</th>
+            <th>Seit</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lead in leads[:10] %}
+          <tr>
+            <td>
+              <a href="/leads/{{ lead.id }}" class="app-lead-name">{{ lead.display_name() }}</a>
+              {% if lead.name and lead.company %}<span class="app-company">{{ lead.company }}</span>{% endif %}
+            </td>
+            <td><span class="app-stage-badge app-stage-{{ lead.stage.value }}">{{ STAGE_LABELS[lead.stage] }}</span></td>
+            <td><span class="ar-mono app-source">{{ SOURCE_LABELS[lead.source] }}</span></td>
+            <td><span class="ar-mono app-date">{{ lead.created_at.strftime('%d.%m.%Y') }}</span></td>
+            <td><a href="/leads/{{ lead.id }}" class="app-row-action">→</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="ar-card app-empty">
+      <span class="ar-eyebrow">// keine leads</span>
+      <p class="ar-body">Noch keine Leads vorhanden.</p>
+      <a href="/leads/new" class="ar-btn ar-btn-coral">Ersten Lead anlegen</a>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

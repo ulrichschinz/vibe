@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}KI-Einstellungen{% endblock %}
+
+{% block content %}
+<div class="ar-container app-page app-page-narrow">
+  <div class="app-page-head">
+    <div>
+      <span class="ar-eyebrow">// admin · ki</span>
+      <h1 class="ar-display-s">KI-Einstellungen</h1>
+    </div>
+    <a href="/admin/users" class="ar-btn ar-btn-ghost ar-btn-sm">← Admin</a>
+  </div>
+
+  {% if saved %}
+  <div class="ar-card" style="border-left:3px solid var(--ar-coral); padding:1rem 1.5rem; margin-bottom:1.5rem;">
+    <span class="ar-eyebrow" style="color:var(--ar-coral);">// gespeichert</span>
+  </div>
+  {% endif %}
+
+  <form method="post" action="/admin/ai" class="ar-card app-form">
+    <div class="ar-form-grid">
+
+      <div class="ar-field ar-field--full">
+        <label class="ar-eyebrow" for="provider">Provider</label>
+        <select id="provider" name="provider" class="app-select">
+          {% for p in AiProvider %}
+          <option value="{{ p.value }}" {% if settings.provider == p %}selected{% endif %}>
+            {{ AI_PROVIDER_LABELS[p] }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="ar-field ar-field--full">
+        <label class="ar-eyebrow" for="api_key">
+          API-Key <span class="app-field-hint">(leer lassen = unverändert)</span>
+        </label>
+        <input type="password" id="api_key" name="api_key" class="app-input"
+               placeholder="sk-ant-…"
+               autocomplete="new-password">
+        {% if settings.api_key %}
+        <span class="ar-mono" style="font-size:0.75rem; opacity:0.5; margin-top:0.25rem; display:block;">
+          ● Key hinterlegt
+        </span>
+        {% endif %}
+      </div>
+
+      <div class="ar-field ar-field--full">
+        <label class="ar-eyebrow" for="model">Modell</label>
+        <input type="text" id="model" name="model" class="app-input"
+               value="{{ settings.model }}"
+               placeholder="claude-sonnet-4-6">
+        <span style="font-size:0.75rem; opacity:0.5; margin-top:0.25rem; display:block;">
+          Anthropic: claude-sonnet-4-6 · claude-opus-4-7 · claude-haiku-4-5-20251001
+        </span>
+      </div>
+
+      <div class="ar-field ar-field--full">
+        <label class="ar-eyebrow" style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+          <input type="checkbox" name="is_active" value="on" {% if settings.is_active %}checked{% endif %}>
+          KI-Hilfe aktivieren
+        </label>
+      </div>
+
+    </div>
+
+    <div class="app-form-actions">
+      <button type="submit" class="ar-btn ar-btn-coral">Speichern</button>
+    </div>
+  </form>
+
+  <!-- Test -->
+  {% if settings.is_active and settings.api_key %}
+  <div class="ar-card app-form" style="margin-top:1.5rem; padding:1.5rem;">
+    <span class="ar-eyebrow">// verbindungstest</span>
+    <p class="ar-body" style="margin:0.5rem 0 1rem;">Sendet einen kurzen Test-Prompt an den konfigurierten Provider.</p>
+    <button type="button" id="test-btn" class="ar-btn ar-btn-primary">Test starten</button>
+    <div id="test-result" style="margin-top:1rem; display:none;">
+      <span class="ar-eyebrow">Antwort:</span>
+      <p class="ar-mono" id="test-text" style="font-size:0.85rem; margin-top:0.5rem; white-space:pre-wrap;"></p>
+    </div>
+  </div>
+
+  <script>
+  document.getElementById('test-btn').addEventListener('click', async function() {
+    this.disabled = true;
+    this.textContent = '…';
+    document.getElementById('test-result').style.display = 'none';
+    try {
+      const res = await fetch('/ai/generate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          field: 'intro_text',
+          notes: 'Test der KI-Verbindung.',
+          lead_name: 'Max Mustermann',
+          lead_company: 'Test GmbH',
+          proposal_title: 'Test-Angebot',
+        })
+      });
+      const data = await res.json();
+      document.getElementById('test-text').textContent = res.ok ? data.text : (data.detail || 'Fehler');
+      document.getElementById('test-result').style.display = 'block';
+    } catch(e) {
+      document.getElementById('test-text').textContent = 'Netzwerkfehler: ' + e.message;
+      document.getElementById('test-result').style.display = 'block';
+    }
+    this.disabled = false;
+    this.textContent = 'Test starten';
+  });
+  </script>
+  {% endif %}
+
+</div>
+{% endblock %}
