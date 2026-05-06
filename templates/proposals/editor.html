@@ -43,7 +43,7 @@
                 {% endif %}
               </div>
               <textarea id="intro_text" name="intro_text" class="app-textarea" rows="4"
-                placeholder="Stichpunkte eingeben → KI ausformulieren lassen, oder direkt schreiben …">{{ proposal.intro_text or '' }}</textarea>
+                placeholder="Stichpunkte eingeben → KI ausformulieren lassen, oder direkt schreiben …">{{ proposal.intro_text or prefill_intro or '' }}</textarea>
             </div>
 
           </div>

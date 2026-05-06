@@ -2,6 +2,31 @@
 {% block title %}{{ lead.display_name() }}{% endblock %}
 
 {% block content %}
+<style>
+.app-tabs { display: flex; border-bottom: 1px solid #2a2a2a; margin-bottom: 1.5rem; gap: 0; }
+.app-tab { padding: 0.65rem 1.25rem; text-decoration: none; border-bottom: 2px solid transparent; color: #888; font-size: 0.8rem; letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: -1px; transition: color 0.15s; white-space: nowrap; }
+.app-tab:hover { color: #ccc; }
+.app-tab.is-active { color: #ff6b4a; border-bottom-color: #ff6b4a; }
+.app-tab-badge { background: #222; color: #888; border-radius: 10px; padding: 1px 6px; font-size: 0.72rem; margin-left: 5px; }
+.app-tab-panel { display: none; }
+.app-tab-panel.is-active { display: block; }
+.app-ueber-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+@media (max-width: 640px) { .app-ueber-grid { grid-template-columns: 1fr; } }
+.app-plan-hint { color: #666; font-size: 0.8rem; }
+.app-chat-window { height: 360px; overflow-y: auto; border: 1px solid #2a2a2a; border-radius: 6px; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; background: #0d0d0d; }
+.app-chat-empty { color: #555; font-size: 0.85rem; margin: auto; text-align: center; }
+.app-chat-bubble { max-width: 82%; padding: 0.6rem 0.9rem; border-radius: 8px; font-size: 0.875rem; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+.app-chat-bubble--user { align-self: flex-end; background: #1a3326; color: #c8ebd4; }
+.app-chat-bubble--assistant { align-self: flex-start; background: #1a1a1a; color: #ccc; border: 1px solid #2d2d2d; }
+.app-chat-bubble--typing { color: #555; }
+.app-chat-meta { font-size: 0.7rem; color: #666; margin-bottom: 3px; }
+.app-chat-input-row { display: flex; gap: 0.5rem; margin-top: 0.75rem; align-items: flex-end; }
+.app-chat-input { flex: 1; resize: none; min-height: 44px; max-height: 160px; overflow-y: auto; }
+.app-plan-divider { border: none; border-top: 1px solid #222; margin: 1.5rem 0; }
+.app-plan-summary { background: #111; border: 1px solid #2a2a2a; border-radius: 6px; padding: 1rem; min-height: 48px; }
+.app-plan-empty { color: #555; font-size: 0.85rem; margin: 0; }
+</style>
+
 <div class="ar-container app-page">
 
   <!-- Header -->
@@ -17,12 +42,21 @@
     </div>
   </div>
 
-  <div class="app-detail-grid">
+  <!-- Tab bar -->
+  <nav class="app-tabs">
+    <a href="#uebersicht" class="app-tab">Übersicht</a>
+    <a href="#notizen" class="app-tab">Notizen{% if notes %}<span class="app-tab-badge">{{ notes|length }}</span>{% endif %}</a>
+    <a href="#planung" class="app-tab">Planung{% if lead.plan_text %}<span class="app-tab-badge">●</span>{% endif %}</a>
+    <a href="#angebote" class="app-tab">Angebote{% if proposals %}<span class="app-tab-badge">{{ proposals|length }}</span>{% endif %}</a>
+  </nav>
 
-    <!-- Left: Contact + Pipeline -->
-    <aside class="app-detail-left">
+  <!-- Tab panels -->
 
-      <section class="app-side-section">
+  <!-- Übersicht -->
+  <div id="uebersicht" class="app-tab-panel">
+    <div class="app-ueber-grid">
+
+      <section class="ar-card app-side-section">
         <h4 class="app-side-title"><span class="ar-slash">//</span>Kontakt</h4>
         <dl class="app-side-dl">
           {% if lead.email %}
@@ -48,7 +82,7 @@
         </dl>
       </section>
 
-      <section class="app-side-section">
+      <section class="ar-card app-side-section">
         <h4 class="app-side-title"><span class="ar-slash">//</span>Pipeline</h4>
         <ul class="app-pipe">
           {% for s in stages %}
@@ -64,150 +98,346 @@
           </li>
           {% endfor %}
         </ul>
+        <form method="post" action="/leads/{{ lead.id }}/delete"
+              onsubmit="return confirm('Lead {{ lead.display_name() }} wirklich löschen?')"
+              style="margin-top:1.5rem;">
+          <button type="submit" class="app-side-danger">
+            <span class="ar-slash">//</span>Lead löschen
+          </button>
+        </form>
       </section>
 
-      <form method="post" action="/leads/{{ lead.id }}/delete"
-            onsubmit="return confirm('Lead {{ lead.display_name() }} wirklich löschen?')">
-        <button type="submit" class="app-side-danger">
-          <span class="ar-slash">//</span>Lead löschen
-        </button>
+    </div>
+  </div>
+
+  <!-- Notizen -->
+  <div id="notizen" class="app-tab-panel">
+    <div class="app-right-section">
+
+      <form method="post" action="/leads/{{ lead.id }}/notes" class="app-note-form">
+        <textarea
+          name="body"
+          class="app-note-input"
+          placeholder="Gesprächsvorbereitung, Notizen, nächste Schritte&#10;&#10;Markdown: **fett**, - Liste, ## Abschnitt"
+          rows="4"
+          id="note-input"
+        ></textarea>
+        <div class="app-note-form-actions">
+          <button type="submit" class="ar-btn ar-btn-coral ar-btn-sm">Notiz speichern</button>
+          <span class="app-note-hint">Strg+Enter zum Speichern</span>
+        </div>
       </form>
 
-    </aside>
-
-    <!-- Right: Proposals + Notes -->
-    <div class="app-detail-right">
-
-      <!-- Proposals -->
-      <div class="app-right-section">
-        <div class="app-section-head">
-          <span class="ar-eyebrow">// angebote</span>
-          <a href="/leads/{{ lead.id }}/proposals/new" class="ar-btn ar-btn-coral ar-btn-sm">+ Angebot erstellen</a>
-        </div>
-
-        {% if proposals %}
-        <div class="app-proposals-list">
-          {% for proposal in proposals %}
-          <div class="ar-card app-proposal-row">
-            <div class="app-proposal-meta">
-              <span class="ar-mono app-proposal-num">{{ proposal.number }}</span>
-              <span class="app-proposal-status app-pstatus-{{ proposal.status.value }}">
-                {{ PROPOSAL_STATUS_LABELS[proposal.status] }}
-              </span>
-            </div>
-            <p class="app-proposal-title">{{ proposal.title }}</p>
-            {% if proposal.total_value %}
-            <span class="ar-mono app-proposal-value">{{ "%.0f"|format(proposal.total_value) }} €</span>
-            {% endif %}
-            <div class="app-proposal-actions">
-              <a href="/proposals/{{ proposal.id }}" class="ar-btn ar-btn-ghost ar-btn-sm">Ansehen</a>
-              <a href="/proposals/{{ proposal.id }}/pdf" class="ar-btn ar-btn-primary ar-btn-sm">PDF ↓</a>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-        {% else %}
-        <div class="ar-card app-empty app-empty--sm">
-          <p class="ar-body">Noch kein Angebot erstellt.</p>
-          <a href="/leads/{{ lead.id }}/proposals/new" class="ar-btn ar-btn-coral ar-btn-sm">Angebot erstellen</a>
-        </div>
-        {% endif %}
-      </div>
-
-      <!-- Notes -->
-      <div class="app-right-section" id="notes">
-        <div class="app-section-head">
-          <span class="ar-eyebrow">// notizen{% if notes %} · <span class="app-note-count">{{ notes|length }}</span>{% endif %}</span>
-        </div>
-
-        <!-- Add note form -->
-        <form method="post" action="/leads/{{ lead.id }}/notes" class="app-note-form">
-          <textarea
-            name="body"
-            class="app-note-input"
-            placeholder="Gesprächsvorbereitung, Notizen, nächste Schritte&#10;&#10;Markdown: **fett**, - Liste, ## Abschnitt"
-            rows="4"
-            id="note-input"
-          ></textarea>
-          <div class="app-note-form-actions">
-            <button type="submit" class="ar-btn ar-btn-coral ar-btn-sm">Notiz speichern</button>
-            <span class="app-note-hint">Strg+Enter zum Speichern</span>
-          </div>
-        </form>
-
-        <!-- Notes feed -->
-        {% if notes %}
-        <div class="app-notes-feed">
-          {% for note in notes %}
-          <div class="app-note-entry">
-            <div class="app-note-meta">
-              <span class="ar-mono app-note-date">{{ note.created_at.strftime('%d. %b %Y · %H:%M') }}</span>
-              <form method="post" action="/notes/{{ note.id }}/delete" style="display:inline"
-                    onsubmit="return confirm('Notiz löschen?')">
-                <button type="submit" class="app-note-delete" title="Löschen">×</button>
-              </form>
-            </div>
-            <div class="app-note-body" data-raw="{{ note.body | e }}"></div>
-          </div>
-          {% endfor %}
-        </div>
-        {% endif %}
-
-        <!-- Legacy note from lead.notes field -->
-        {% if lead.notes %}
-        <div class="app-note-entry app-note-entry--legacy">
+      {% if notes %}
+      <div class="app-notes-feed">
+        {% for note in notes %}
+        <div class="app-note-entry">
           <div class="app-note-meta">
-            <span class="ar-mono app-note-date">Altnotiz</span>
+            <span class="ar-mono app-note-date">{{ note.created_at.strftime('%d. %b %Y · %H:%M') }}</span>
+            <form method="post" action="/notes/{{ note.id }}/delete" style="display:inline"
+                  onsubmit="return confirm('Notiz löschen?')">
+              <button type="submit" class="app-note-delete" title="Löschen">×</button>
+            </form>
           </div>
-          <div class="app-note-body" data-raw="{{ lead.notes | e }}"></div>
+          <div class="app-note-body" data-raw="{{ note.body | e }}"></div>
         </div>
-        {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
 
+      {% if lead.notes %}
+      <div class="app-note-entry app-note-entry--legacy">
+        <div class="app-note-meta">
+          <span class="ar-mono app-note-date">Altnotiz</span>
+        </div>
+        <div class="app-note-body" data-raw="{{ lead.notes | e }}"></div>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <!-- Planung -->
+  <div id="planung" class="app-tab-panel">
+    <div class="app-right-section">
+
+      <div class="app-section-head">
+        <span class="ar-eyebrow">// planungs-chat</span>
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+          <button class="ar-btn ar-btn-ghost ar-btn-sm" onclick="clearChat()">Chat leeren</button>
+          <a href="/ai/leads/{{ lead.id }}/plan/prompt.md" class="ar-btn ar-btn-ghost ar-btn-sm">Prompt ↓</a>
+          <a href="/leads/{{ lead.id }}/proposals/new?from_plan=1" class="ar-btn ar-btn-coral ar-btn-sm">→ Angebot</a>
+        </div>
       </div>
 
+      {% if not ai_active %}
+      <div class="ar-card" style="padding:1rem;color:#666;">
+        KI nicht konfiguriert —
+        <a href="/admin/ai" style="color:#ff6b4a;">Admin → KI-Einstellungen</a>
+      </div>
+      {% else %}
+
+      <div class="app-chat-window" id="chat-window">
+        <div class="app-chat-empty" id="chat-status">Lade …</div>
+      </div>
+      <div class="app-chat-input-row">
+        <textarea id="chat-input" class="app-note-input app-chat-input"
+          placeholder="Projektidee, Frage, Anforderung …" rows="2"></textarea>
+        <button class="ar-btn ar-btn-primary ar-btn-sm" id="chat-send-btn" onclick="sendMessage()">Senden</button>
+      </div>
+      <span class="app-plan-hint" style="margin-top:0.4rem;display:block;">Strg+Enter zum Senden</span>
+
+      {% endif %}
+
+      <hr class="app-plan-divider">
+
+      <div class="app-section-head" style="margin-bottom:0.5rem;">
+        <span class="ar-eyebrow">// gespeicherte zusammenfassung</span>
+      </div>
+      <div id="plan-summary" class="app-plan-summary">
+        {% if lead.plan_text %}
+        <div class="app-note-body" data-raw="{{ lead.plan_text | e }}"></div>
+        {% else %}
+        <p class="app-plan-empty">Noch keine Zusammenfassung gespeichert.</p>
+        {% endif %}
+      </div>
+      {% if ai_active %}
+      <button class="ar-btn ar-btn-primary ar-btn-sm" style="margin-top:0.75rem;"
+              onclick="saveSummary()" id="summarize-btn">
+        Zusammenfassung aus Chat speichern
+      </button>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <!-- Angebote -->
+  <div id="angebote" class="app-tab-panel">
+    <div class="app-right-section">
+      <div class="app-section-head">
+        <span class="ar-eyebrow">// angebote</span>
+        <a href="/leads/{{ lead.id }}/proposals/new" class="ar-btn ar-btn-coral ar-btn-sm">+ Angebot erstellen</a>
+      </div>
+
+      {% if proposals %}
+      <div class="app-proposals-list">
+        {% for proposal in proposals %}
+        <div class="ar-card app-proposal-row">
+          <div class="app-proposal-meta">
+            <span class="ar-mono app-proposal-num">{{ proposal.number }}</span>
+            <span class="app-proposal-status app-pstatus-{{ proposal.status.value }}">
+              {{ PROPOSAL_STATUS_LABELS[proposal.status] }}
+            </span>
+          </div>
+          <p class="app-proposal-title">{{ proposal.title }}</p>
+          {% if proposal.total_value %}
+          <span class="ar-mono app-proposal-value">{{ "%.0f"|format(proposal.total_value) }} €</span>
+          {% endif %}
+          <div class="app-proposal-actions">
+            <a href="/proposals/{{ proposal.id }}" class="ar-btn ar-btn-ghost ar-btn-sm">Ansehen</a>
+            <a href="/proposals/{{ proposal.id }}/pdf" class="ar-btn ar-btn-primary ar-btn-sm">PDF ↓</a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="ar-card app-empty app-empty--sm">
+        <p class="ar-body">Noch kein Angebot erstellt.</p>
+        <a href="/leads/{{ lead.id }}/proposals/new" class="ar-btn ar-btn-coral ar-btn-sm">Angebot erstellen</a>
+      </div>
+      {% endif %}
     </div>
   </div>
 
 </div>
 
 <script>
-// Ctrl+Enter submits note form
-document.getElementById('note-input').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-    this.closest('form').submit();
-  }
-});
+// ── Tab switching ────────────────────────────────────────────────────────────
+function activateTab(hash) {
+  const id = (hash || '').replace('#', '');
+  const valid = ['uebersicht', 'notizen', 'planung', 'angebote'];
+  const active = valid.includes(id) ? id : 'uebersicht';
+  document.querySelectorAll('.app-tab').forEach(t => {
+    t.classList.toggle('is-active', t.getAttribute('href') === '#' + active);
+  });
+  document.querySelectorAll('.app-tab-panel').forEach(p => {
+    p.classList.toggle('is-active', p.id === active);
+  });
+}
 
-// Auto-grow textarea
+activateTab(location.hash);
+window.addEventListener('hashchange', () => activateTab(location.hash));
+
+// ── Note form ────────────────────────────────────────────────────────────────
 const noteInput = document.getElementById('note-input');
-noteInput.addEventListener('input', function() {
-  this.style.height = 'auto';
-  this.style.height = this.scrollHeight + 'px';
-});
+if (noteInput) {
+  noteInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) this.closest('form').submit();
+  });
+  noteInput.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = this.scrollHeight + 'px';
+  });
+}
 
-// Minimal markdown renderer: **bold**, *italic*, ## heading, - list, line breaks
+// ── Markdown renderer ────────────────────────────────────────────────────────
 function renderMd(raw) {
   let html = raw
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')  // already escaped via |e, but safety
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/^## (.+)$/gm, '<h4 class="app-note-h4">$1</h4>')
     .replace(/^### (.+)$/gm, '<h5 class="app-note-h5">$1</h5>');
-
-  // Convert list blocks (consecutive lines starting with - or *)
   html = html.replace(/((?:^[•\-\*] .+\n?)+)/gm, function(block) {
     const items = block.trim().split('\n').map(l => '<li>' + l.replace(/^[•\-\*] /,'') + '</li>').join('');
     return '<ul class="app-note-list">' + items + '</ul>';
   });
-
-  // Remaining line breaks → <br> (but not inside block elements)
-  html = html.replace(/\n/g, '<br>');
-
-  return html;
+  return html.replace(/\n/g, '<br>');
 }
 
 document.querySelectorAll('.app-note-body[data-raw]').forEach(el => {
   el.innerHTML = renderMd(el.dataset.raw);
 });
+
+// ── Planning chat ────────────────────────────────────────────────────────────
+const LEAD_ID = {{ lead.id }};
+const AI_ACTIVE = {{ 'true' if ai_active else 'false' }};
+
+function _esc(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function appendBubble(role, content, ts) {
+  const win = document.getElementById('chat-window');
+  if (!win) return null;
+  const status = document.getElementById('chat-status');
+  if (status) status.remove();
+
+  const wrap = document.createElement('div');
+  wrap.className = `app-chat-bubble app-chat-bubble--${role}`;
+  const label = role === 'user' ? 'Du' : 'Assistent';
+  const time = ts ? new Date(ts).toLocaleTimeString('de', {hour:'2-digit', minute:'2-digit'}) : '';
+  wrap.innerHTML = `<div class="app-chat-meta">${_esc(label)}${time ? ' · ' + time : ''}</div><div>${_esc(content)}</div>`;
+  win.appendChild(wrap);
+  win.scrollTop = win.scrollHeight;
+  return wrap;
+}
+
+function showTyping() {
+  const win = document.getElementById('chat-window');
+  if (!win) return;
+  const div = document.createElement('div');
+  div.id = 'typing-indicator';
+  div.className = 'app-chat-bubble app-chat-bubble--assistant app-chat-bubble--typing';
+  div.innerHTML = '<div class="app-chat-meta">Assistent</div><div>…</div>';
+  win.appendChild(div);
+  win.scrollTop = win.scrollHeight;
+}
+
+function removeTyping() {
+  const t = document.getElementById('typing-indicator');
+  if (t) t.remove();
+}
+
+async function loadMessages() {
+  const win = document.getElementById('chat-window');
+  if (!win) return;
+  try {
+    const resp = await fetch(`/ai/leads/${LEAD_ID}/plan/messages`);
+    const msgs = await resp.json();
+    win.innerHTML = '';
+    if (msgs.length === 0) {
+      const hasSummary = document.querySelector('#plan-summary .app-note-body');
+      const hint = hasSummary
+        ? 'Ich sehe eine gespeicherte Zusammenfassung der letzten Session. Womit möchten wir weitermachen?'
+        : 'Starte die Diskussion — ich habe Zugriff auf alle Notizen dieses Leads.';
+      win.innerHTML = `<div class="app-chat-empty">${_esc(hint)}</div>`;
+    } else {
+      msgs.forEach(m => appendBubble(m.role, m.content, m.created_at));
+    }
+  } catch(e) {
+    const win2 = document.getElementById('chat-window');
+    if (win2) win2.innerHTML = '<div class="app-chat-empty">Chat konnte nicht geladen werden.</div>';
+  }
+}
+
+async function sendMessage() {
+  const input = document.getElementById('chat-input');
+  if (!input) return;
+  const msg = input.value.trim();
+  if (!msg) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+  appendBubble('user', msg);
+  showTyping();
+
+  const btn = document.getElementById('chat-send-btn');
+  if (btn) btn.disabled = true;
+
+  try {
+    const resp = await fetch(`/ai/leads/${LEAD_ID}/plan/chat`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message: msg}),
+    });
+    removeTyping();
+    const data = await resp.json();
+    if (!resp.ok) {
+      appendBubble('assistant', `Fehler: ${data.detail || 'Unbekannter Fehler'}`);
+    } else {
+      appendBubble('assistant', data.reply);
+    }
+  } catch(e) {
+    removeTyping();
+    appendBubble('assistant', 'Verbindungsfehler. Bitte erneut versuchen.');
+  } finally {
+    if (btn) btn.disabled = false;
+    input.focus();
+  }
+}
+
+async function saveSummary() {
+  const btn = document.getElementById('summarize-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Wird gespeichert …'; }
+  try {
+    const resp = await fetch(`/ai/leads/${LEAD_ID}/plan/summarize`, {method: 'POST'});
+    const data = await resp.json();
+    if (!resp.ok) {
+      alert(`Fehler: ${data.detail}`);
+    } else {
+      const summaryDiv = document.getElementById('plan-summary');
+      summaryDiv.innerHTML = '<div class="app-note-body"></div>';
+      const el = summaryDiv.querySelector('.app-note-body');
+      el.innerHTML = renderMd(data.summary);
+    }
+  } catch(e) {
+    alert('Verbindungsfehler.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Zusammenfassung aus Chat speichern'; }
+  }
+}
+
+async function clearChat() {
+  if (!confirm('Chat-Verlauf löschen? Die gespeicherte Zusammenfassung bleibt erhalten.')) return;
+  await fetch(`/ai/leads/${LEAD_ID}/plan/clear`, {method: 'POST'});
+  const win = document.getElementById('chat-window');
+  if (win) win.innerHTML = '<div class="app-chat-empty">Starte die Diskussion — ich habe Zugriff auf alle Notizen dieses Leads.</div>';
+}
+
+if (AI_ACTIVE) {
+  loadMessages();
+
+  const chatInput = document.getElementById('chat-input');
+  if (chatInput) {
+    chatInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendMessage(); }
+    });
+    chatInput.addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 160) + 'px';
+    });
+  }
+}
 </script>
 {% endblock %}

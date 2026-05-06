@@ -25,7 +25,7 @@ templates.env.globals["timedelta"] = timedelta
 
 
 @router.get("/leads/{lead_id}/proposals/new", response_class=HTMLResponse)
-def proposal_new(request: Request, lead_id: int, session: Session = Depends(get_session), _=Depends(require_editor)):
+def proposal_new(request: Request, lead_id: int, from_plan: bool = False, session: Session = Depends(get_session), _=Depends(require_editor)):
     lead = session.get(Lead, lead_id)
     if not lead:
         raise HTTPException(status_code=404)
@@ -36,6 +36,7 @@ def proposal_new(request: Request, lead_id: int, session: Session = Depends(get_
         "services": DEFAULT_SERVICES,
         "action": f"/leads/{lead_id}/proposals",
         "ai_active": _ai_active(session),
+        "prefill_intro": lead.plan_text if from_plan else None,
     })
 
 

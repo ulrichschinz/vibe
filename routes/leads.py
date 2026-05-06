@@ -7,8 +7,13 @@ from typing import Optional
 import json
 
 from database import get_session
-from models import Lead, Proposal, Note, LeadStage, LeadSource, STAGE_LABELS, SOURCE_LABELS, STAGE_ORDER, PROPOSAL_STATUS_LABELS
+from models import Lead, Proposal, Note, PlanningMessage, AiSettings, LeadStage, LeadSource, STAGE_LABELS, SOURCE_LABELS, STAGE_ORDER, PROPOSAL_STATUS_LABELS
 from services.auth import require_login, require_editor
+
+
+def _ai_active(session: Session) -> bool:
+    s = session.get(AiSettings, 1)
+    return bool(s and s.is_active and s.api_key)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -132,6 +137,7 @@ def lead_detail(request: Request, lead_id: int, session: Session = Depends(get_s
         "proposals": proposals,
         "stages": stages,
         "notes": notes,
+        "ai_active": _ai_active(session),
     })
 
 
@@ -200,9 +206,10 @@ def lead_delete(lead_id: int, session: Session = Depends(get_session), _=Depends
     lead = session.get(Lead, lead_id)
     if not lead:
         raise HTTPException(status_code=404)
-    session.exec(select(Note).where(Note.lead_id == lead_id))
     for note in session.exec(select(Note).where(Note.lead_id == lead_id)).all():
         session.delete(note)
+    for msg in session.exec(select(PlanningMessage).where(PlanningMessage.lead_id == lead_id)).all():
+        session.delete(msg)
     session.delete(lead)
     session.commit()
     return RedirectResponse("/leads", status_code=303)
@@ -220,7 +227,7 @@ def note_create(
     note = Note(lead_id=lead_id, body=body.strip())
     session.add(note)
     session.commit()
-    return RedirectResponse(f"/leads/{lead_id}#notes", status_code=303)
+    return RedirectResponse(f"/leads/{lead_id}#notizen", status_code=303)
 
 
 @router.post("/notes/{note_id}/delete", response_class=RedirectResponse)
@@ -231,4 +238,21 @@ def note_delete(note_id: int, session: Session = Depends(get_session), _=Depends
     lead_id = note.lead_id
     session.delete(note)
     session.commit()
-    return RedirectResponse(f"/leads/{lead_id}#notes", status_code=303)
+    return RedirectResponse(f"/leads/{lead_id}#notizen", status_code=303)
+
+
+@router.post("/leads/{lead_id}/plan", response_class=RedirectResponse)
+def plan_update(
+    lead_id: int,
+    plan_text: str = Form(""),
+    session: Session = Depends(get_session),
+    _=Depends(require_editor),
+):
+    lead = session.get(Lead, lead_id)
+    if not lead:
+        raise HTTPException(status_code=404)
+    lead.plan_text = plan_text.strip() or None
+    lead.updated_at = datetime.utcnow()
+    session.add(lead)
+    session.commit()
+    return RedirectResponse(f"/leads/{lead_id}#planung", status_code=303)

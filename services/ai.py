@@ -56,3 +56,16 @@ def _call_anthropic(system: str, user_content: str, settings: AiSettings) -> str
         messages=[{"role": "user", "content": user_content}],
     )
     return message.content[0].text
+
+
+def chat_with_context(messages: list, system: str, settings: AiSettings) -> str:
+    """Multi-turn chat. messages = [{"role": "user"|"assistant", "content": str}]"""
+    import anthropic
+    client = anthropic.Anthropic(api_key=settings.api_key)
+    resp = client.messages.create(
+        model=settings.model,
+        max_tokens=2048,
+        system=system,
+        messages=messages,
+    )
+    return resp.content[0].text

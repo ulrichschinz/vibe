@@ -121,6 +121,7 @@ class Lead(SQLModel, table=True):
     notes: Optional[str] = None
     tags: Optional[str] = None          # JSON array string
     agent_metadata: Optional[str] = None  # JSON object string
+    plan_text: Optional[str] = Field(default=None, sa_column=Column(Text))
 
     def display_name(self) -> str:
         return self.name or self.company or "—"
@@ -147,6 +148,14 @@ class Note(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     lead_id: int = Field(foreign_key="lead.id")
     body: str = Field(sa_column=Column(Text))
+
+
+class PlanningMessage(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    lead_id: int = Field(foreign_key="lead.id")
+    role: str          # "user" | "assistant"
+    content: str = Field(sa_column=Column(Text))
 
 
 class ProposalStatus(str, Enum):
