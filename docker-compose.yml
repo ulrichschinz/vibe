@@ -7,7 +7,6 @@ services:
     volumes:
       - ./leads.db:/app/leads.db
       - ./generated_pdfs:/app/generated_pdfs
-      - ../brand:/brand:ro
     environment:
       - DATABASE_URL=sqlite:///./leads.db
       - API_KEY=${API_KEY}

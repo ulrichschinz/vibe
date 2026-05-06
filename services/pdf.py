@@ -5,7 +5,7 @@ import weasyprint
 
 BASE_DIR = Path(__file__).parent.parent
 TEMPLATES_DIR = BASE_DIR / "templates"
-BRAND_DIR = BASE_DIR.parent / "brand"
+BRAND_DIR = BASE_DIR / "static" / "brand"
 PDF_DIR = BASE_DIR / "generated_pdfs"
 
 PDF_DIR.mkdir(exist_ok=True)

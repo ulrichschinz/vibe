@@ -18,8 +18,8 @@ from routes import auth as auth_routes
 from routes import admin as admin_routes
 from routes import ai as ai_routes
 
-BRAND_DIR = Path(__file__).parent.parent / "brand"
 STATIC_DIR = Path(__file__).parent / "static"
+BRAND_DIR = STATIC_DIR / "brand"
 
 
 def bootstrap_admin():
@@ -66,7 +66,6 @@ async def attach_user(request: Request, call_next):
 
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY", "dev-secret-change-me"))
 
-app.mount("/static/brand", StaticFiles(directory=str(BRAND_DIR)), name="brand")
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 

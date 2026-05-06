@@ -1,0 +1,288 @@
+/* ==========================================================================
+   Agentic Reach — Components
+   Buttons, Nav, Hero, Cards, Quote, Form, Modal, Section-Header, Image-Frame, Footer.
+   ========================================================================== */
+
+/* ── Buttons ──────────────────────────────────────────────────────────── */
+.ar-btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 12px 20px;
+  border-radius: var(--ar-radius-pill);
+  font-family: var(--ar-font-sans);
+  font-weight: 500; font-size: 14px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform var(--ar-dur-fast), box-shadow var(--ar-dur-base),
+              background var(--ar-dur-fast), color var(--ar-dur-fast),
+              border-color var(--ar-dur-fast);
+  text-decoration: none;
+}
+.ar-btn-primary { background: var(--ar-ink); color: var(--ar-bg); }
+.ar-btn-primary:hover { transform: translateY(-1px); box-shadow: var(--ar-shadow-md); }
+.ar-btn-ghost { background: transparent; color: var(--ar-ink); border-color: var(--ar-hairline); }
+.ar-btn-ghost:hover { background: rgba(0,0,0,.04); }
+.ar-btn-coral { background: var(--ar-coral); color: var(--ar-paper); }
+.ar-btn-coral:hover { transform: translateY(-1px); box-shadow: var(--ar-shadow-md); }
+
+/* ── Section header ──────────────────────────────────────────────────── */
+.ar-section-head {
+  display: grid; grid-template-columns: 1fr 1.6fr;
+  gap: 60px; align-items: end;
+  margin-bottom: var(--ar-space-12);
+}
+.ar-section-head h2 { margin: 14px 0 0; }
+
+/* ── Nav (sticky) ────────────────────────────────────────────────────── */
+.ar-nav {
+  position: sticky; top: 0; z-index: 50;
+  background: color-mix(in srgb, var(--ar-bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--ar-hairline);
+}
+.ar-nav-row {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 64px;
+}
+.ar-nav-brand {
+  display: flex; align-items: center; gap: 10px;
+  font-weight: 500; font-size: 17px; letter-spacing: var(--ar-tracking-snug);
+}
+.ar-nav-links {
+  display: flex; gap: 28px; font-size: 14px; color: var(--ar-mute);
+}
+.ar-nav-links a:hover { color: var(--ar-ink); }
+.ar-nav-right { display: flex; align-items: center; gap: 16px; }
+
+/* Lang toggle */
+.ar-lang-toggle {
+  display: inline-flex;
+  background: transparent;
+  border: 1px solid var(--ar-hairline);
+  border-radius: var(--ar-radius-pill);
+  padding: 3px;
+  font-family: var(--ar-font-mono);
+  font-size: 11px;
+}
+.ar-lang-toggle button {
+  border: none; background: transparent;
+  padding: 4px 10px; border-radius: var(--ar-radius-pill);
+  cursor: pointer; color: var(--ar-mute);
+  font-family: inherit; font-size: inherit;
+  transition: background var(--ar-dur-fast), color var(--ar-dur-fast);
+}
+.ar-lang-toggle button.active { background: var(--ar-ink); color: var(--ar-bg); }
+
+/* ── Card ────────────────────────────────────────────────────────────── */
+.ar-card {
+  background: var(--ar-paper);
+  border: 1px solid var(--ar-hairline);
+  border-radius: var(--ar-radius-lg);
+  padding: 28px;
+  display: flex; flex-direction: column;
+  position: relative;
+  transition: transform var(--ar-dur-base), box-shadow var(--ar-dur-base);
+}
+.ar-card:hover { transform: translateY(-4px); box-shadow: var(--ar-shadow-lg); }
+.ar-card-num {
+  font-family: var(--ar-font-mono);
+  font-size: 10px; letter-spacing: 0.08em;
+  color: var(--ar-coral);
+  margin-bottom: 16px;
+}
+.ar-card h3 {
+  font-family: var(--ar-font-sans);
+  font-weight: 500; font-size: 24px;
+  letter-spacing: var(--ar-tracking-snug);
+  margin: 0 0 10px; line-height: 1.15;
+}
+.ar-card p {
+  color: var(--ar-mute);
+  font-size: 14.5px; line-height: 1.55;
+  margin: 0 0 18px; flex: 1;
+}
+.ar-list-mono {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 6px;
+  font-family: var(--ar-font-mono);
+  font-size: 11px; color: var(--ar-ink);
+}
+.ar-list-mono li { display: flex; gap: 8px; }
+.ar-list-mono li::before { content: '//'; color: var(--ar-coral); font-weight: 600; }
+
+/* ── Quote block ─────────────────────────────────────────────────────── */
+.ar-quote-block {
+  margin: 0; padding: 28px 30px;
+  background: var(--ar-bg-cool);
+  border-left: 3px solid var(--ar-coral);
+  border-radius: 4px var(--ar-radius-md) var(--ar-radius-md) 4px;
+}
+.ar-quote-block cite {
+  display: block;
+  margin-top: 14px;
+  font-family: var(--ar-font-mono);
+  font-style: normal; font-size: 11px;
+  color: var(--ar-mute); letter-spacing: var(--ar-tracking-mono);
+}
+
+/* ── Image frame (with mono caption) ─────────────────────────────────── */
+.ar-frame {
+  position: relative;
+  background: var(--ar-bg-cool);
+  border-radius: var(--ar-radius-xl);
+  overflow: hidden;
+  border: 1px solid var(--ar-hairline);
+}
+.ar-frame > img,
+.ar-frame > svg { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ar-frame-label {
+  position: absolute; left: 18px; bottom: 16px;
+  font-family: var(--ar-font-mono);
+  font-size: 10px; color: var(--ar-mute);
+  letter-spacing: var(--ar-tracking-wide);
+  text-transform: uppercase;
+}
+.ar-frame-tag {
+  position: absolute; right: 18px; top: 18px;
+  background: var(--ar-paper);
+  border: 1px solid var(--ar-hairline);
+  border-radius: var(--ar-radius-pill);
+  padding: 6px 12px;
+  font-family: var(--ar-font-mono);
+  font-size: 10px; color: var(--ar-ink);
+  letter-spacing: var(--ar-tracking-mono);
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.ar-dot-pulse {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ar-coral);
+  animation: ar-pulse 2s ease-in-out infinite;
+}
+@keyframes ar-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.4); opacity: .55; }
+}
+
+/* ── Form ────────────────────────────────────────────────────────────── */
+.ar-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.ar-field { display: flex; flex-direction: column; gap: 6px; }
+.ar-field.full { grid-column: 1 / -1; }
+.ar-field label {
+  font-family: var(--ar-font-mono);
+  font-size: 10px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--ar-mute);
+}
+.ar-field input,
+.ar-field textarea {
+  background: var(--ar-paper);
+  border: 1px solid var(--ar-hairline);
+  border-radius: var(--ar-radius-md);
+  padding: 12px 14px;
+  font-family: var(--ar-font-sans);
+  font-size: 15px; color: var(--ar-ink);
+  transition: border-color var(--ar-dur-fast), box-shadow var(--ar-dur-fast);
+  width: 100%;
+}
+.ar-field textarea { resize: vertical; min-height: 90px; }
+.ar-field input:focus,
+.ar-field textarea:focus {
+  outline: none;
+  border-color: var(--ar-coral);
+  box-shadow: 0 0 0 3px rgba(255,122,107,.18);
+}
+
+/* ── Modal ───────────────────────────────────────────────────────────── */
+.ar-modal-backdrop {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(27, 20, 40, 0.55);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  display: none;
+  align-items: center; justify-content: center;
+  padding: 24px;
+  opacity: 0; transition: opacity var(--ar-dur-base) ease;
+}
+.ar-modal-backdrop.open { display: flex; opacity: 1; }
+.ar-modal {
+  background: var(--ar-bg);
+  color: var(--ar-ink);
+  border-radius: var(--ar-radius-xl);
+  width: 100%; max-width: 560px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  box-shadow: var(--ar-shadow-xl);
+  transform: translateY(12px);
+  transition: transform var(--ar-dur-slow) var(--ar-ease);
+}
+.ar-modal-backdrop.open .ar-modal { transform: translateY(0); }
+.ar-modal-head {
+  padding: 30px 32px 0;
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px;
+}
+.ar-modal-close {
+  background: transparent; border: 1px solid var(--ar-hairline);
+  width: 34px; height: 34px; border-radius: var(--ar-radius-pill);
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--ar-ink);
+  transition: background var(--ar-dur-fast), color var(--ar-dur-fast), border-color var(--ar-dur-fast);
+  flex-shrink: 0;
+}
+.ar-modal-close:hover { background: var(--ar-ink); color: var(--ar-bg); border-color: var(--ar-ink); }
+.ar-modal-body { padding: 14px 32px 32px; }
+body.ar-modal-open { overflow: hidden; }
+
+/* ── Footer ──────────────────────────────────────────────────────────── */
+.ar-footer {
+  background: var(--ar-ink);
+  color: var(--ar-bg);
+  padding: 80px 0 40px;
+}
+.ar-footer h4 {
+  font-family: var(--ar-font-mono);
+  font-size: 11px; letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ar-on-dark-soft);
+  margin: 0 0 18px; font-weight: 500;
+}
+.ar-footer ul {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.ar-footer ul li a { color: var(--ar-bg); font-size: 14.5px; opacity: .8; transition: opacity var(--ar-dur-fast); }
+.ar-footer ul li a:hover { opacity: 1; }
+.ar-footer-meta {
+  display: flex; justify-content: space-between; align-items: center;
+  padding-top: 28px;
+  border-top: 1px solid var(--ar-on-dark-hairline);
+  font-family: var(--ar-font-mono);
+  font-size: 11px; color: var(--ar-on-dark-soft);
+  letter-spacing: var(--ar-tracking-mono);
+}
+.ar-footer-claim {
+  font-family: var(--ar-font-serif);
+  font-weight: 300; font-style: italic;
+  font-size: var(--ar-display-xl);
+  line-height: 0.92; letter-spacing: -0.04em;
+  color: var(--ar-bg);
+  margin: 0 0 60px;
+}
+.ar-footer-claim .ar-accent {
+  color: var(--ar-coral);
+  font-family: var(--ar-font-mono);
+  font-style: normal; font-weight: 600;
+  font-size: 0.45em;
+  vertical-align: 0.45em;
+  margin-right: 0.2em;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────── */
+@media (max-width: 960px) {
+  .ar-section-head { grid-template-columns: 1fr; gap: 24px; }
+}
+@media (max-width: 600px) {
+  .ar-nav-links { display: none; }
+  .ar-container { padding: 0 20px; }
+  .ar-form-grid { grid-template-columns: 1fr; }
+  .ar-modal-head { padding: 24px 22px 0; }
+  .ar-modal-body { padding: 12px 22px 24px; }
+}
