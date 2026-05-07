@@ -48,8 +48,9 @@ def proposal_create(
     intro_text: str = Form(""),
     services_json: str = Form("[]"),
     total_value: str = Form(""),
-    duration_months: str = Form(""),
+    duration: str = Form(""),
     payment_terms: str = Form("50 % bei Projektstart, 50 % bei Abschluss"),
+    travel_costs: str = Form(""),
     validity_days: str = Form("30"),
     session: Session = Depends(get_session),
     _=Depends(require_editor),
@@ -62,8 +63,9 @@ def proposal_create(
             intro_text=intro_text,
             services_json=services_json,
             total_value=float(total_value) if total_value else None,
-            duration_months=int(duration_months) if duration_months else None,
+            duration=duration or None,
             payment_terms=payment_terms,
+            travel_costs=travel_costs or None,
             validity_days=int(validity_days) if validity_days else 30,
         )
     except LookupError:
@@ -107,8 +109,9 @@ def proposal_update(
     intro_text: str = Form(""),
     services_json: str = Form("[]"),
     total_value: str = Form(""),
-    duration_months: str = Form(""),
+    duration: str = Form(""),
     payment_terms: str = Form(""),
+    travel_costs: str = Form(""),
     validity_days: str = Form("30"),
     session: Session = Depends(get_session),
     _=Depends(require_editor),
@@ -120,8 +123,9 @@ def proposal_update(
     proposal.intro_text = intro_text or None
     proposal.services = services_json
     proposal.total_value = float(total_value) if total_value else None
-    proposal.duration_months = int(duration_months) if duration_months else None
+    proposal.duration = duration or None
     proposal.payment_terms = payment_terms or None
+    proposal.travel_costs = travel_costs or None
     proposal.validity_days = int(validity_days) if validity_days else 30
     proposal.updated_at = datetime.utcnow()
     session.add(proposal)

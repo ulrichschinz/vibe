@@ -115,9 +115,9 @@
             </div>
 
             <div class="ar-field">
-              <label class="ar-eyebrow" for="duration_months">Laufzeit (Monate)</label>
-              <input type="number" id="duration_months" name="duration_months" class="app-input"
-                     value="{{ proposal.duration_months or '' }}" placeholder="3">
+              <label class="ar-eyebrow" for="duration">Laufzeit</label>
+              <input type="text" id="duration" name="duration" class="app-input"
+                     value="{{ proposal.duration or '' }}" placeholder="z. B. 4–6 Wochen oder 3 Monate">
             </div>
 
             <div class="ar-field ar-field--full">
@@ -133,6 +133,11 @@
               </div>
               <input type="text" id="payment_terms" name="payment_terms" class="app-input"
                      value="{{ proposal.payment_terms or '50 % bei Projektstart, 50 % bei Abschluss' }}">
+            </div>
+
+            <div class="ar-field ar-field--full">
+              <label class="ar-eyebrow" for="travel_costs">Reisekosten</label>
+              <textarea id="travel_costs" name="travel_costs" class="app-input" rows="2">{{ proposal.travel_costs if proposal and proposal.travel_costs is not none else 'Reisekosten werden nach Aufwand und vorheriger Abstimmung gesondert in Rechnung gestellt.' }}</textarea>
             </div>
 
             <div class="ar-field">

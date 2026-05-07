@@ -75,8 +75,9 @@ def _proposal_dict(p: Proposal) -> dict:
         "intro_text": p.intro_text,
         "services": p.get_services(),
         "total_value": p.total_value,
-        "duration_months": p.duration_months,
+        "duration": p.duration,
         "payment_terms": p.payment_terms,
+        "travel_costs": p.travel_costs,
         "validity_days": p.validity_days,
         "status": p.status.value if p.status else None,
         "sent_at": p.sent_at.isoformat() if p.sent_at else None,
@@ -221,13 +222,15 @@ def create_proposal(
     intro_text: Optional[str] = None,
     services: Optional[list[dict]] = None,
     total_value: Optional[float] = None,
-    duration_months: Optional[int] = None,
+    duration: Optional[str] = None,
     payment_terms: Optional[str] = None,
+    travel_costs: Optional[str] = None,
     validity_days: int = 30,
 ) -> dict:
     """Create a proposal draft for a lead.
     `services` is a list of service objects; if omitted, the standard three
-    (Strategie / Change / Tech) from DEFAULT_SERVICES are used."""
+    (Strategie / Change / Tech) from DEFAULT_SERVICES are used.
+    `duration` is a free-text label, e.g. "4–6 Wochen" or "3 Monate"."""
     services_payload = services if services is not None else DEFAULT_SERVICES
     with Session(engine) as session:
         try:
@@ -238,8 +241,9 @@ def create_proposal(
                 intro_text=intro_text,
                 services_json=json.dumps(services_payload),
                 total_value=total_value,
-                duration_months=duration_months,
+                duration=duration,
                 payment_terms=payment_terms,
+                travel_costs=travel_costs,
                 validity_days=validity_days,
             )
         except LookupError as e:

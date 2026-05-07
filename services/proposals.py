@@ -15,8 +15,9 @@ def create_proposal(
     intro_text: Optional[str] = None,
     services_json: str = "[]",
     total_value: Optional[float] = None,
-    duration_months: Optional[int] = None,
+    duration: Optional[str] = None,
     payment_terms: Optional[str] = "50 % bei Projektstart, 50 % bei Abschluss",
+    travel_costs: Optional[str] = None,
     validity_days: int = 30,
 ) -> Proposal:
     if not session.get(Lead, lead_id):
@@ -28,8 +29,9 @@ def create_proposal(
         intro_text=intro_text or None,
         services=services_json,
         total_value=total_value,
-        duration_months=duration_months,
+        duration=duration or None,
         payment_terms=payment_terms or None,
+        travel_costs=travel_costs,
         validity_days=validity_days,
     )
     session.add(proposal)

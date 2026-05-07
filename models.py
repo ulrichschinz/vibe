@@ -213,8 +213,9 @@ class Proposal(SQLModel, table=True):
     intro_text: Optional[str] = None
     services: str = Field(default=json.dumps(DEFAULT_SERVICES))
     total_value: Optional[float] = None
-    duration_months: Optional[int] = None
+    duration: Optional[str] = None
     payment_terms: Optional[str] = "50 % bei Projektstart, 50 % bei Abschluss"
+    travel_costs: Optional[str] = "Reisekosten werden nach Aufwand und vorheriger Abstimmung gesondert in Rechnung gestellt."
     validity_days: int = 30
     status: ProposalStatus = ProposalStatus.draft
     sent_at: Optional[datetime] = None
