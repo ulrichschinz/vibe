@@ -8,3 +8,6 @@ python-dotenv==1.1.0
 bcrypt==5.0.0
 itsdangerous==2.2.0
 anthropic>=0.40.0
+# Pinned: mcp 1.20+ requires starlette 1.0+, which is incompatible with fastapi 0.115.
+# Bump together with fastapi when upgrading.
+mcp==1.19.0

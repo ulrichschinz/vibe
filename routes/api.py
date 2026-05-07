@@ -11,12 +11,16 @@ from models import Lead, LeadCreate, LeadRead, LeadPatch, LeadSource, ApiKey
 router = APIRouter(prefix="/api", tags=["agent-api"])
 
 
-def verify_api_key(x_api_key: str = Header(default=""), session: Session = Depends(get_session)):
-    if not x_api_key:
-        raise HTTPException(status_code=401, detail="API key required")
+def validate_api_key(key: str, session: Session) -> bool:
+    """Pure validation. Used by both the FastAPI dependency and the MCP middleware.
 
-    # Check DB keys (SHA-256 hash lookup)
-    key_hash = hashlib.sha256(x_api_key.encode()).hexdigest()
+    Updates last_used_at for DB-backed keys. Falls back to the legacy API_KEY env var
+    so existing agents keep working.
+    """
+    if not key:
+        return False
+
+    key_hash = hashlib.sha256(key.encode()).hexdigest()
     db_key = session.exec(
         select(ApiKey).where(ApiKey.key_hash == key_hash, ApiKey.is_active == True)
     ).first()
@@ -24,14 +28,20 @@ def verify_api_key(x_api_key: str = Header(default=""), session: Session = Depen
         db_key.last_used_at = datetime.utcnow()
         session.add(db_key)
         session.commit()
-        return
+        return True
 
-    # Fallback: legacy API_KEY env var (backward compat for existing agents)
     legacy = os.getenv("API_KEY", "")
-    if legacy and x_api_key == legacy:
-        return
+    if legacy and key == legacy:
+        return True
 
-    raise HTTPException(status_code=401, detail="Invalid API key")
+    return False
+
+
+def verify_api_key(x_api_key: str = Header(default=""), session: Session = Depends(get_session)):
+    if not x_api_key:
+        raise HTTPException(status_code=401, detail="API key required")
+    if not validate_api_key(x_api_key, session):
+        raise HTTPException(status_code=401, detail="Invalid API key")
 
 
 @router.post("/leads", response_model=LeadRead, status_code=201)

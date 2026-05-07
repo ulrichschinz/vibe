@@ -11,6 +11,7 @@ from models import Lead, Proposal, ProposalStatus, DEFAULT_SERVICES, PROPOSAL_ST
 from services.numbering import next_proposal_number
 from services.pdf import generate_proposal_pdf, render_proposal_html
 from services.auth import require_login, require_editor
+from services.proposals import create_proposal as create_proposal_svc, mark_proposal_sent as mark_proposal_sent_svc
 
 
 def _ai_active(session: Session) -> bool:
@@ -53,25 +54,20 @@ def proposal_create(
     session: Session = Depends(get_session),
     _=Depends(require_editor),
 ):
-    lead = session.get(Lead, lead_id)
-    if not lead:
+    try:
+        proposal = create_proposal_svc(
+            session,
+            lead_id=lead_id,
+            title=title,
+            intro_text=intro_text,
+            services_json=services_json,
+            total_value=float(total_value) if total_value else None,
+            duration_months=int(duration_months) if duration_months else None,
+            payment_terms=payment_terms,
+            validity_days=int(validity_days) if validity_days else 30,
+        )
+    except LookupError:
         raise HTTPException(status_code=404)
-
-    number = next_proposal_number(session)
-    proposal = Proposal(
-        lead_id=lead_id,
-        number=number,
-        title=title,
-        intro_text=intro_text or None,
-        services=services_json,
-        total_value=float(total_value) if total_value else None,
-        duration_months=int(duration_months) if duration_months else None,
-        payment_terms=payment_terms or None,
-        validity_days=int(validity_days) if validity_days else 30,
-    )
-    session.add(proposal)
-    session.commit()
-    session.refresh(proposal)
     return RedirectResponse(f"/proposals/{proposal.id}", status_code=303)
 
 
@@ -163,12 +159,8 @@ def proposal_document(proposal_id: int, session: Session = Depends(get_session),
 
 @router.post("/proposals/{proposal_id}/mark-sent", response_class=RedirectResponse)
 def proposal_mark_sent(proposal_id: int, session: Session = Depends(get_session), _=Depends(require_editor)):
-    proposal = session.get(Proposal, proposal_id)
-    if not proposal:
+    try:
+        mark_proposal_sent_svc(session, proposal_id)
+    except LookupError:
         raise HTTPException(status_code=404)
-    proposal.status = ProposalStatus.sent
-    proposal.sent_at = datetime.utcnow()
-    proposal.updated_at = datetime.utcnow()
-    session.add(proposal)
-    session.commit()
     return RedirectResponse(f"/proposals/{proposal_id}", status_code=303)

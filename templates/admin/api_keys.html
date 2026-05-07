@@ -19,6 +19,28 @@
   </div>
   {% endif %}
 
+  <div class="ar-card" style="padding:1.5rem; margin-bottom:2rem;">
+    <span class="ar-eyebrow">// verwendung</span>
+    <p class="ar-body" style="margin:0.75rem 0;">Der Key authentifiziert <strong>REST-API</strong> (<code>/api/leads</code>) und <strong>MCP-Server</strong> (<code>/mcp/</code>) — gleicher Header <code>X-API-Key</code> für beide.</p>
+    <details style="margin-top:0.75rem;">
+      <summary class="ar-eyebrow" style="cursor:pointer;">MCP an Claude Code anbinden</summary>
+      <pre class="ar-mono" style="background:rgba(0,0,0,0.04); padding:0.75rem; border-radius:4px; font-size:0.8rem; overflow-x:auto; margin-top:0.5rem;">claude mcp add --transport http vibe \
+  https://{{ app_host or 'vibe.example.com' }}/mcp/ \
+  --header "X-API-Key: &lt;dein-key&gt;"</pre>
+    </details>
+    <details style="margin-top:0.5rem;">
+      <summary class="ar-eyebrow" style="cursor:pointer;">MCP in Claude Desktop (claude_desktop_config.json)</summary>
+      <pre class="ar-mono" style="background:rgba(0,0,0,0.04); padding:0.75rem; border-radius:4px; font-size:0.8rem; overflow-x:auto; margin-top:0.5rem;">{
+  "mcpServers": {
+    "vibe": {
+      "transport": { "type": "http", "url": "https://{{ app_host or 'vibe.example.com' }}/mcp/" },
+      "headers": { "X-API-Key": "&lt;dein-key&gt;" }
+    }
+  }
+}</pre>
+    </details>
+  </div>
+
   <div class="ar-card app-form" style="padding:1.5rem; margin-bottom:2rem;">
     <span class="ar-eyebrow">// neuen key erstellen</span>
     <form method="post" action="/admin/api-keys" style="display:flex; gap:1rem; align-items:flex-end; margin-top:1rem; flex-wrap:wrap;">

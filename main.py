@@ -17,6 +17,8 @@ from routes import leads, proposals, api
 from routes import auth as auth_routes
 from routes import admin as admin_routes
 from routes import ai as ai_routes
+from routes.mcp import mcp_app
+from services.mcp_server import mcp as mcp_server
 
 STATIC_DIR = Path(__file__).parent / "static"
 BRAND_DIR = STATIC_DIR / "brand"
@@ -44,7 +46,9 @@ def bootstrap_admin():
 async def lifespan(app: FastAPI):
     create_db()
     bootstrap_admin()
-    yield
+    # MCP session manager's task group must live for the app's lifetime
+    async with mcp_server.session_manager.run():
+        yield
 
 
 app = FastAPI(title="Vibe", lifespan=lifespan)
@@ -80,3 +84,4 @@ app.include_router(ai_routes.router)
 app.include_router(leads.router)
 app.include_router(proposals.router)
 app.include_router(api.router)
+app.mount("/mcp", mcp_app)

@@ -1,3 +1,4 @@
+import os
 import secrets
 from fastapi import APIRouter, Depends, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -126,6 +127,7 @@ def api_keys_list(
     keys = session.exec(select(ApiKey).order_by(ApiKey.created_at.desc())).all()
     return templates.TemplateResponse("admin/api_keys.html", {
         "request": request, "keys": keys, "new_key": None,
+        "app_host": os.getenv("APP_HOST", ""),
     })
 
 
@@ -147,6 +149,7 @@ def api_key_create(
     keys = session.exec(select(ApiKey).order_by(ApiKey.created_at.desc())).all()
     return templates.TemplateResponse("admin/api_keys.html", {
         "request": request, "keys": keys, "new_key": raw_key,
+        "app_host": os.getenv("APP_HOST", ""),
     })
 
 

@@ -44,11 +44,14 @@ routes/
   auth.py        — login / logout (session-based)
   admin.py       — user management, API key management, AI settings
   ai.py          — AI planning tab (chat, summary, prompt export)
+  mcp.py         — ASGI mount for /mcp; X-API-Key auth middleware around FastMCP app
 services/
   pdf.py         — renders proposals to HTML then PDF via WeasyPrint
   numbering.py   — generates AR-YYYY-NNN proposal numbers
   auth.py        — password hashing, NeedsLoginException
   ai.py          — Claude API integration
+  proposals.py   — shared create/mark-sent helpers (used by routes/proposals.py and MCP)
+  mcp_server.py  — FastMCP server + 10 tools (leads/notes/proposals)
 templates/       — Jinja2; base.html is the shared layout
 static/          — app CSS/JS + bundled brand assets
 generated_pdfs/  — PDF output, gitignored, persisted via Docker volume
@@ -66,7 +69,9 @@ generated_pdfs/  — PDF output, gitignored, persisted via Docker volume
 
 **Session auth:** `routes/auth.py` handles login/logout. `main.py` has an `attach_user` middleware that loads `request.state.user` from the session on every request. Protected routes raise `NeedsLoginException` which redirects to `/login`.
 
-**API auth:** `routes/api.py` compares `X-API-Key` header against `API_KEY` env var. If `API_KEY` is empty the check is skipped (dev convenience).
+**API auth:** `routes/api.py` validates `X-API-Key` via `validate_api_key()` — DB lookup of SHA-256 hashed keys in the `ApiKey` table (admin-managed at `/admin/api-keys`), with a legacy `API_KEY` env-var fallback. The MCP middleware in `routes/mcp.py` reuses the same function, so revoking a key takes effect for both REST and MCP on the next request.
+
+**MCP server:** `services/mcp_server.py` registers 10 tools (leads/notes/proposals) on a FastMCP instance. `routes/mcp.py` wraps its streamable-HTTP ASGI app in an `X-API-Key` middleware and exports `mcp_app`, which `main.py` mounts at `/mcp`. The MCP session manager is started in `main.py`'s lifespan via `async with mcp_server.session_manager.run()` — required because mounted sub-apps don't run their own lifespan. Clients connect to `https://<APP_HOST>/mcp/` (trailing slash matters when accessed without going through Starlette's redirect). The `pdf_url` returned by `get_proposal` points at the existing `/proposals/{id}/pdf` route, which requires a logged-in browser session — it is not fetchable with `X-API-Key` alone.
 
 ## Data model relationships
 
