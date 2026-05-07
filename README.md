@@ -1,6 +1,6 @@
 # Agentic Reach — Lead Management
 
-Internes CRM-Werkzeug für Agentic Reach. Verwaltet Leads, generiert gebrandete Angebote als PDF und bietet eine REST-API, über die KI-Agenten Leads automatisch einliefern können.
+Internes CRM-Werkzeug für Agentic Reach. Verwaltet Leads, generiert gebrandete Angebote als PDF und stellt das System gleichzeitig als **REST-API** und **MCP-Server** zur Verfügung — beides mit denselben, im Admin-Bereich verwalteten API-Keys. KI-Agenten können so Leads, Notizen und Angebote nicht nur einliefern, sondern auch lesen, aktualisieren und versenden.
 
 ---
 
@@ -12,6 +12,8 @@ Internes CRM-Werkzeug für Agentic Reach. Verwaltet Leads, generiert gebrandete 
 | Datenbank | SQLite via SQLModel (migrierbar zu Postgres) |
 | Templates | Jinja2 + Brand-System (`../brand/`) |
 | PDF | WeasyPrint |
+| Agent-Schnittstellen | REST-API (`/api`) + MCP-Server (`/mcp`, Streamable HTTP) |
+| KI-Provider | Anthropic Claude (Planungs-Tab) |
 | Paketmanager | uv |
 
 ---
@@ -57,17 +59,20 @@ vibe/
 ├── models.py                # SQLModel-Datenmodelle (Lead, Proposal, Note, User)
 ├── database.py              # Engine, Session, create_db()
 ├── routes/
-│   ├── leads.py             # Web-UI: Dashboard, Lead-Liste, Detail, Formular
+│   ├── leads.py             # Web-UI: Dashboard, Lead-Liste, Detail, Formular, Notes
 │   ├── proposals.py         # Proposal-Editor, PDF-Download, Status
-│   ├── api.py               # Agent-REST-API (/api/leads)
+│   ├── api.py               # Agent-REST-API (/api/leads) + validate_api_key()
 │   ├── auth.py              # Login / Logout
 │   ├── admin.py             # Benutzerverwaltung, API-Keys, KI-Einstellungen
-│   └── ai.py                # KI-Planungs-Tab (Chat, Zusammenfassung, Prompt-Export)
+│   ├── ai.py                # KI-Planungs-Tab (Chat, Zusammenfassung, Prompt-Export)
+│   └── mcp.py               # ASGI-Mount /mcp + X-API-Key-Auth-Middleware
 ├── services/
 │   ├── pdf.py               # WeasyPrint: HTML → PDF
 │   ├── numbering.py         # Angebotsnummer AR-YYYY-NNN
 │   ├── auth.py              # Passwort-Hashing, Session-Utilities
-│   └── ai.py                # Claude-API-Integration
+│   ├── ai.py                # Claude-API-Integration
+│   ├── proposals.py         # Shared Helpers (create / mark_sent) — UI + MCP
+│   └── mcp_server.py        # FastMCP-Server mit 10 Tools (Leads / Notes / Proposals)
 ├── templates/
 │   ├── base.html            # Nav, Brand-CSS/JS
 │   ├── dashboard.html       # Pipeline-Übersicht
@@ -109,11 +114,14 @@ Zentrales Objekt. Name **oder** Firma ist Pflicht — beide können angegeben we
 |---|---|---|
 | `name` | String? | Vorname Nachname |
 | `company` | String? | Unternehmensname |
+| `salutation` | String? | „Frau" / „Herr" / leer (für Anrede in Angeboten) |
 | `email` / `phone` | String? | Kontaktdaten |
 | `source` | Enum | `website · referral · agent · manual · linkedin` |
 | `stage` | Enum | `new → contacted → proposal_sent → negotiating → won / lost` |
 | `notes` | Text? | Legacy-Freitextfeld (ersetzt durch Note-Einträge) |
+| `tags` | JSON-Array? | Frei vergebbare Schlagworte |
 | `agent_metadata` | JSON? | Metadaten automatisch eingelieferter Leads |
+| `plan_text` | Text? | Vom KI-Planungs-Tab erzeugte Zusammenfassung |
 
 ### Proposal (Angebot)
 Gebunden an einen Lead. Nummer: `AR-YYYY-NNN`.
@@ -126,11 +134,22 @@ Status: `draft → sent → accepted / declined`
 Timestamped Notizbuch-Einträge pro Lead. Unterstützt Markdown (`**fett**`, `- Liste`, `## Abschnitt`). Wird client-seitig gerendert.
 
 ### User
-Interne Benutzer mit E-Mail/Passwort-Login. Rollen: `admin` / `user`. Admins können Benutzer und API-Keys verwalten sowie KI-Einstellungen konfigurieren.
+Interne Benutzer mit E-Mail/Passwort-Login. Rollen: `admin` / `editor` / `viewer`. Admins können Benutzer und API-Keys verwalten sowie KI-Einstellungen konfigurieren. Editor und Viewer dürfen Leads/Angebote ansehen; Editor zusätzlich anlegen und bearbeiten.
+
+### ApiKey
+Im Admin-Bereich angelegte Tokens für REST- und MCP-Zugriff. Nur der SHA-256-Hash wird gespeichert; der Klartext wird genau einmal beim Erstellen angezeigt. `is_active=False` (Revoke) wirkt ab dem nächsten Request für REST und MCP zugleich. `last_used_at` wird bei jedem authentifizierten Request aktualisiert.
 
 ---
 
-## Agent-API
+## API-Keys
+
+Tokens werden im Admin-Bereich unter **„API-Keys"** erstellt (`/admin/api-keys`). Sie authentifizieren beide Schnittstellen — REST und MCP — über denselben Header `X-API-Key`. Beim Erstellen wird der Klartext genau einmal angezeigt; gespeichert wird nur ein SHA-256-Hash. Revoke (Widerrufen) entwertet einen Key sofort für beide Pfade.
+
+Eine Legacy-Variable `API_KEY` aus `.env` funktioniert weiter als Fallback (für bestehende Agent-Integrationen vor der Admin-Tabelle).
+
+---
+
+## Agent-API (REST)
 
 Alle Endpunkte unter `/api/` · Authentifizierung: `X-API-Key: <token>` im Header.
 
@@ -161,6 +180,61 @@ curl -X POST https://vibe.agentic-reach.com/api/leads \
 ```
 
 Response: `201 Created` + Lead-Objekt als JSON.
+
+---
+
+## MCP-Server
+
+Vibe spricht das **Model Context Protocol** über Streamable HTTP unter `/mcp/` (Trailing Slash beachten — beim Mounten leitet Starlette ohne Slash mit 307 um). Damit lässt sich das System direkt aus Claude Code, Claude Desktop oder einem MCP-Inspector heraus bedienen — ohne Boilerplate-Wrapper um die REST-API.
+
+Auth: gleicher `X-API-Key`-Header wie bei der REST-API. Der MCP-Session-Manager läuft im Lifespan der FastAPI-App (siehe `main.py`); pro HTTP-Request prüft eine ASGI-Middleware (`routes/mcp.py`) den Key gegen die `ApiKey`-Tabelle.
+
+### Verfügbare Tools
+
+| Bereich | Tool | Wirkung |
+|---|---|---|
+| Leads | `create_lead` | Neuen Lead anlegen (Default-Source: `agent`) |
+| Leads | `list_leads` | Alle Leads, optional nach Stage/Source/Limit |
+| Leads | `get_lead` | Einzelnen Lead per ID |
+| Leads | `update_lead` | Felder patchen (Stage, Kontaktdaten, Notizen) |
+| Notes | `add_note` | Notiz an Lead anhängen |
+| Notes | `list_notes` | Notizen eines Leads, neueste zuerst |
+| Proposals | `create_proposal` | Angebots-Entwurf für Lead anlegen |
+| Proposals | `list_proposals` | Angebote, optional nach Lead/Status |
+| Proposals | `get_proposal` | Einzelnes Angebot inkl. `pdf_url` |
+| Proposals | `mark_proposal_sent` | Status auf `sent` setzen, `sent_at` stempeln |
+
+Hinweis: Die `pdf_url` aus `get_proposal` zeigt auf `/proposals/{id}/pdf` und benötigt eine eingeloggte Browser-Session — direkter Download per `X-API-Key` ist (noch) nicht möglich.
+
+### Anbindung an Claude Code
+
+```bash
+claude mcp add --transport http vibe \
+  https://vibe.agentic-reach.com/mcp/ \
+  --header "X-API-Key: <key-aus-admin-ui>"
+```
+
+### Anbindung an Claude Desktop
+
+In `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "vibe": {
+      "transport": { "type": "http", "url": "https://vibe.agentic-reach.com/mcp/" },
+      "headers": { "X-API-Key": "<key-aus-admin-ui>" }
+    }
+  }
+}
+```
+
+### Lokales Debuggen
+
+```bash
+npx @modelcontextprotocol/inspector
+# Connect: http://localhost:8000/mcp/  · Header X-API-Key
+```
 
 ---
 
@@ -217,11 +291,16 @@ Das Brand-Verzeichnis (`../brand`) wird als Read-only-Volume gemountet.
 - [ ] Webhook-Events (Lead eingeliefert → Slack/Notification)
 - [ ] Öffentliche Angebots-Links für Kunden
 - [ ] Pipeline-Reporting & -Auswertung
+- [ ] API-authentifizierter PDF-Download (`/api/proposals/{id}/pdf`), damit MCP-Agenten Angebote direkt verschicken können
+- [ ] Per-Key-Scoping (REST / MCP / beide) auf `ApiKey`
 
 ### Umgesetzt
 - [x] Login & Session-Auth (E-Mail / Passwort)
-- [x] Benutzerverwaltung & Rollen (Admin / User)
-- [x] API-Key-Verwaltung im Admin-Bereich
+- [x] Benutzerverwaltung & Rollen (Admin / Editor / Viewer)
+- [x] API-Key-Verwaltung im Admin-Bereich (SHA-256 Hash, Revoke, `last_used_at`)
 - [x] KI-Planungs-Tab (Claude-Chat, Zusammenfassung, Prompt-Export)
-- [x] Gebrandete Angebots-PDFs (WeasyPrint)
-- [x] Agent-REST-API für automatischen Lead-Einlieferung
+- [x] Notizbuch pro Lead (Markdown-fähig)
+- [x] Gebrandete Angebots-PDFs (WeasyPrint, Klassisch-Premium 3-Seiten-Template)
+- [x] Adaptives Light/Dark-Favicon
+- [x] Agent-REST-API (`/api/leads`) für automatische Lead-Einlieferung
+- [x] **MCP-Server (`/mcp/`) mit 10 Tools für Leads, Notes und Proposals — gleicher API-Key wie REST**
