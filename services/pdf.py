@@ -1,6 +1,8 @@
 from pathlib import Path
 from datetime import timedelta
 from jinja2 import Environment, FileSystemLoader
+from markupsafe import Markup
+import markdown as md_lib
 import weasyprint
 
 BASE_DIR = Path(__file__).parent.parent
@@ -22,6 +24,13 @@ def _format_date_de(dt):
     return f"{dt.day:02d}. {_DE_MONTHS[dt.month - 1]} {dt.year}"
 
 
+def _render_markdown(text):
+    if not text:
+        return ""
+    html = md_lib.markdown(str(text), extensions=["extra", "sane_lists", "nl2br"])
+    return Markup(html)
+
+
 def _format_eur(value):
     if value is None:
         return "—"
@@ -37,6 +46,7 @@ def _make_env() -> Environment:
     env = Environment(loader=FileSystemLoader(str(TEMPLATES_DIR)))
     env.filters["date_de"] = _format_date_de
     env.filters["eur"] = _format_eur
+    env.filters["md"] = _render_markdown
     return env
 
 

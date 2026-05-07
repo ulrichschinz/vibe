@@ -183,6 +183,78 @@
     }
     .p1-body p + p { margin-top: 14px; }
 
+    /* === Markdown content (intro_text, travel_costs, service descriptions) === */
+    .md-content > *:first-child { margin-top: 0; }
+    .md-content > *:last-child { margin-bottom: 0; }
+    .md-content p { margin: 0 0 0.7em; }
+    .md-content p:last-child { margin-bottom: 0; }
+    .md-content h1, .md-content h2, .md-content h3, .md-content h4 {
+      font-family: var(--ar-font-serif);
+      font-weight: 500;
+      color: var(--ar-ink);
+      line-height: 1.2;
+      margin: 1.2em 0 0.4em;
+    }
+    .md-content h1 { font-size: 1.4em; }
+    .md-content h2 { font-size: 1.25em; }
+    .md-content h3 { font-size: 1.1em; }
+    .md-content h4 { font-size: 1em; font-weight: 600; }
+    .md-content ul, .md-content ol {
+      margin: 0.4em 0 0.7em;
+      padding-left: 0;
+      list-style: none;
+    }
+    .md-content ul li {
+      position: relative;
+      padding-left: 1.6em;
+      margin-bottom: 0.25em;
+    }
+    .md-content ul li::before {
+      content: "//";
+      position: absolute;
+      left: 0;
+      top: 0;
+      font-family: var(--ar-font-mono);
+      font-size: 0.85em;
+      letter-spacing: 0.04em;
+      color: var(--ar-coral);
+      line-height: inherit;
+    }
+    .md-content ol {
+      counter-reset: md-ol;
+    }
+    .md-content ol li {
+      position: relative;
+      padding-left: 1.8em;
+      margin-bottom: 0.25em;
+      counter-increment: md-ol;
+    }
+    .md-content ol li::before {
+      content: counter(md-ol, decimal-leading-zero);
+      position: absolute;
+      left: 0;
+      top: 0;
+      font-family: var(--ar-font-mono);
+      font-size: 0.85em;
+      color: var(--ar-coral);
+    }
+    .md-content strong { font-weight: 600; }
+    .md-content em { font-style: italic; }
+    .md-content code {
+      font-family: var(--ar-font-mono);
+      font-size: 0.9em;
+      background: rgba(27,20,40,.06);
+      padding: 0.05em 0.3em;
+      border-radius: 2px;
+    }
+    .md-content blockquote {
+      border-left: 2px solid var(--ar-coral);
+      padding-left: 0.8em;
+      margin: 0.6em 0;
+      color: var(--ar-mute);
+    }
+    .md-content a { color: var(--ar-plum); text-decoration: underline; }
+
     /* Signature */
     .p1-sig {
       margin-top: 36px;
@@ -464,12 +536,8 @@
       {% else %}Sehr geehrte Damen und Herren,
       {% endif %}
     </div>
-    <div class="p1-body">
-      {% if proposal.intro_text %}
-        {% for para in proposal.intro_text.split('\n\n') %}
-          <p>{{ para }}</p>
-        {% endfor %}
-      {% endif %}
+    <div class="p1-body md-content">
+      {% if proposal.intro_text %}{{ proposal.intro_text | md }}{% endif %}
     </div>
   </div>
 
@@ -532,7 +600,7 @@
         <td>
           <div class="svc-title">{{ svc.title }}</div>
           {% if svc.description %}
-          <div class="svc-desc">{{ svc.description }}</div>
+          <div class="svc-desc md-content">{{ svc.description | md }}</div>
           {% endif %}
           {% if svc.deliverables %}
           <ul class="svc-dl">
@@ -615,9 +683,9 @@
       <strong class="terms-label">Vertraulichkeit</strong>
       Sämtliche Informationen werden vertraulich behandelt. Eine NDA kann bei Bedarf separat geschlossen werden.
     </div>
-    <div>
+    <div class="md-content">
       <strong class="terms-label">Reisekosten</strong>
-      {{ proposal.travel_costs or 'Reisekosten werden nach Aufwand und vorheriger Abstimmung gesondert in Rechnung gestellt.' }}
+      {{ (proposal.travel_costs or 'Reisekosten werden nach Aufwand und vorheriger Abstimmung gesondert in Rechnung gestellt.') | md }}
     </div>
     <div>
       <strong class="terms-label">Annahme</strong>

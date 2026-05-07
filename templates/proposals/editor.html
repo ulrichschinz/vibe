@@ -44,6 +44,7 @@
               </div>
               <textarea id="intro_text" name="intro_text" class="app-textarea" rows="4"
                 placeholder="Stichpunkte eingeben → KI ausformulieren lassen, oder direkt schreiben …">{{ proposal.intro_text or prefill_intro or '' }}</textarea>
+              <small class="md-hint">Markdown: <code>**fett**</code>, <code>*kursiv*</code>, <code>## Überschrift</code>, <code>* Aufzählung</code></small>
             </div>
 
           </div>
@@ -77,6 +78,7 @@
                 </div>
                 <textarea class="app-textarea app-svc-description" rows="4"
                   placeholder="Was wir in diesem Bereich konkret machen …">{{ svc.description or '' }}</textarea>
+                <small class="md-hint">Markdown unterstützt</small>
               </div>
               <div class="ar-field">
                 <div class="ai-field-head">
@@ -138,6 +140,7 @@
             <div class="ar-field ar-field--full">
               <label class="ar-eyebrow" for="travel_costs">Reisekosten</label>
               <textarea id="travel_costs" name="travel_costs" class="app-input" rows="2">{{ proposal.travel_costs if proposal and proposal.travel_costs is not none else 'Reisekosten werden nach Aufwand und vorheriger Abstimmung gesondert in Rechnung gestellt.' }}</textarea>
+              <small class="md-hint">Markdown unterstützt</small>
             </div>
 
             <div class="ar-field">
@@ -193,6 +196,19 @@
   margin-bottom: 0.25rem;
 }
 .ai-field-head label { margin-bottom: 0; }
+.md-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--ar-mute);
+}
+.md-hint code {
+  font-family: var(--ar-font-mono, monospace);
+  font-size: 10.5px;
+  background: rgba(27,20,40,.06);
+  padding: 0 4px;
+  border-radius: 2px;
+}
 </style>
 
 <script>
