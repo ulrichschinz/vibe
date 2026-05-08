@@ -27,7 +27,7 @@ Copy `.env.example` to `.env`. Required vars:
 - `APP_HOST` — used in templates (e.g. `vibe.agentic-reach.com`)
 - `ADMIN_EMAIL` / `ADMIN_PASSWORD` — seeded on first startup if no users exist yet
 
-The `brand/` directory lives one level up (`../brand`) and is mounted read-only at `/brand` in Docker. It provides logo + CSS used in proposal PDFs.
+Brand assets live inside the repo at `static/brand/` (logos, `tokens.css`, `typography.css`, `brand-kit.css`, `components.css/.js`, `portrait/`). They are served via the standard `/static` mount, so templates reference them as `/static/brand/...`. There is no external `../brand` mount. See the README's **Brand-System** section for details on forking for another brand.
 
 ## Architecture
 

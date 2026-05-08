@@ -10,7 +10,7 @@ Internes CRM-Werkzeug für Agentic Reach. Verwaltet Leads, generiert gebrandete 
 |---|---|
 | Backend | Python 3.12+ · FastAPI · Uvicorn |
 | Datenbank | SQLite via SQLModel (migrierbar zu Postgres) |
-| Templates | Jinja2 + Brand-System (`../brand/`) |
+| Templates | Jinja2 + Brand-System (`static/brand/`) |
 | PDF | WeasyPrint |
 | Agent-Schnittstellen | REST-API (`/api`) + MCP-Server (`/mcp`, Streamable HTTP) |
 | KI-Provider | Anthropic Claude (Planungs-Tab) |
@@ -101,7 +101,51 @@ vibe/
 └── .env.example
 ```
 
-Das Brand-System liegt in `../brand/` und wird zur Laufzeit als `/static/brand` gemountet.
+Das Brand-System liegt direkt im Repo unter `static/brand/` und wird über den Standard-`/static`-Mount ausgeliefert (`/static/brand/...`). Siehe Abschnitt **Brand-System** weiter unten.
+
+---
+
+## Brand-System
+
+Vibe ist als **Single-Tenant-Anwendung** für eine Brand (aktuell: Agentic Reach) gebaut. Die Brand-Identität verteilt sich auf zwei Orte:
+
+**1. Visuelle Assets — `static/brand/`**
+
+```
+static/brand/
+├── logos/              # SVG-Lockups (horizontal-color, mark-color, …)
+├── portrait/           # Foto des Absenders (z.B. für Signatur)
+├── tokens.css          # CSS-Variablen: Farben, Spacing, Radien
+├── typography.css      # Schrift-Stack & Type-Scale
+├── brand-kit.css       # Aggregator (importiert tokens + typography)
+├── components.css      # Brand-spezifische UI-Bausteine
+└── components.js       # Optionales JS (z.B. animierte Marken-Elemente)
+```
+
+Wird vom Browser unter `/static/brand/...` ausgeliefert. Templates referenzieren Assets über die Variable `asset_base` (z.B. `{{ asset_base }}/logos/lockup-horizontal-color.svg`).
+
+**2. Brand-spezifische Strings im Code**
+
+Aktuell hardcoded — bewusst, weil Single-Tenant:
+
+| Stelle | Was |
+|---|---|
+| `services/numbering.py` | Angebotsnummer-Präfix `AR-YYYY-NNN` |
+| `services/ai.py` | KI-System-Prompts („Du bist Texter für Agentic Reach …") |
+| `templates/base.html` | HTML-`<title>`, Logo-`alt` |
+| `templates/proposals/document.html` | Firmenname, Anschrift, Mail, Signatur (Letterhead, Footer, Schlussseite) |
+
+### Für eine andere Brand forken
+
+Solange Vibe Single-Tenant bleibt, ist ein Fork der einfachste Weg. Checkliste:
+
+1. **Assets ersetzen** — `static/brand/` 1:1 durch eigene Dateien überschreiben. Gleiche Dateinamen (`logos/lockup-horizontal-color.svg`, `logos/mark-color.svg`, `tokens.css`, …) → kein Code-Change nötig. CSS-Variablen in `tokens.css` (Farben, Spacing) anpassen.
+2. **Angebotsnummer** — Präfix in `services/numbering.py:8` ändern (z.B. `AR-` → `BX-`).
+3. **KI-Prompts** — Markenname in `services/ai.py` (3 Stellen) ersetzen.
+4. **Templates** — Firmenname, Anschrift, Mail, Signatur in `templates/base.html` und `templates/proposals/document.html` ersetzen. Title-Tag in `base.html` anpassen.
+5. **Deployment** — eigene `APP_HOST`-Variable, eigener Traefik/Caddy-Hostname.
+
+Wer mehrere Brands aus **derselben Codebase** betreiben will (Multi-Tenant), siehe Roadmap-Punkt „Brand-Konfiguration via ENV/Datenbank".
 
 ---
 
@@ -276,7 +320,7 @@ docker compose logs -f app
 
 Caddy übernimmt automatisch TLS via Let's Encrypt.
 
-Das Brand-Verzeichnis (`../brand`) wird als Read-only-Volume gemountet.
+Das Brand-Verzeichnis ist Teil des Image-Builds (im Repo unter `static/brand/`) — kein zusätzliches Volume nötig.
 
 > Der Produktions-Deploy läuft über GitHub Actions (`.github/workflows/deploy.yml`) und Traefik als Reverse Proxy.
 
@@ -293,6 +337,7 @@ Das Brand-Verzeichnis (`../brand`) wird als Read-only-Volume gemountet.
 - [ ] Pipeline-Reporting & -Auswertung
 - [ ] API-authentifizierter PDF-Download (`/api/proposals/{id}/pdf`), damit MCP-Agenten Angebote direkt verschicken können
 - [ ] Per-Key-Scoping (REST / MCP / beide) auf `ApiKey`
+- [ ] **Brand-Konfiguration via ENV/Datenbank** — hardcoded Strings (Firmenname, Anschrift, Mail, Angebots-Präfix, KI-Prompts) auf Konfig-Variablen heben, damit Fork = nur Assets tauschen + ENV setzen. Erst sinnvoll, wenn ≥ 2 Brands aus derselben Codebase betrieben werden sollen.
 
 ### Umgesetzt
 - [x] Login & Session-Auth (E-Mail / Passwort)
