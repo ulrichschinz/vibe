@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ doc.number }} · {{ doc.customer.legal_name }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,300&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* Tokens (parallel to proposal template) */
+    :root {
+      --ar-coral:    #FF7A6B;
+      --ar-plum:     #3D2B5C;
+      --ar-ink:      #1B1428;
+      --ar-bg:       #FDFBF6;
+      --ar-paper:    #FFFFFF;
+      --ar-mute:     rgba(27,20,40,.62);
+      --ar-hairline: rgba(27,20,40,.10);
+      --ar-line:     rgba(27,20,40,.20);
+      --ar-font-sans:  'Space Grotesk', system-ui, sans-serif;
+      --ar-font-serif: 'Fraunces', Georgia, serif;
+      --ar-font-mono:  'JetBrains Mono', ui-monospace, monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      background: #ddd8ce;
+      color: var(--ar-ink);
+      font-family: var(--ar-font-sans);
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      font-size: 11px;
+    }
+
+    @page { size: A4; margin: 0; }
+
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      padding: 18mm 18mm 14mm;
+      background: var(--ar-bg);
+      display: flex;
+      flex-direction: column;
+      break-after: page;
+      page-break-after: always;
+    }
+    .page:last-child { break-after: auto; page-break-after: auto; }
+
+    @media screen {
+      body { padding: 28px; display: flex; flex-direction: column; align-items: center; gap: 28px; }
+      .page { box-shadow: 0 4px 32px rgba(0,0,0,0.18); }
+    }
+
+    /* Header band */
+    .page-hd {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--ar-ink);
+    }
+    .page-hd-left {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .page-hd-doc-type {
+      font-family: var(--ar-font-mono);
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ar-coral);
+      font-weight: 500;
+    }
+    .page-hd-doc-num {
+      font-family: var(--ar-font-mono);
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .page-hd-right {
+      font-family: var(--ar-font-mono);
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ar-mute);
+      text-align: right;
+      line-height: 1.9;
+    }
+
+    /* Address block */
+    .addr-grid {
+      margin-top: 14mm;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16mm;
+    }
+    .addr-issuer {
+      font-size: 9px;
+      color: var(--ar-mute);
+      line-height: 1.55;
+    }
+    .addr-issuer .miniline {
+      border-bottom: 1px solid var(--ar-hairline);
+      padding-bottom: 4px;
+      margin-bottom: 8px;
+    }
+    .addr-customer { font-size: 11px; line-height: 1.5; }
+    .addr-customer .name { font-weight: 600; font-size: 13px; }
+
+    /* Meta table */
+    .meta {
+      margin-top: 10mm;
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .meta th, .meta td {
+      text-align: left;
+      padding: 4px 8px 4px 0;
+      vertical-align: top;
+      font-size: 11px;
+    }
+    .meta th {
+      font-family: var(--ar-font-mono);
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--ar-mute);
+      font-weight: 400;
+      width: 38%;
+    }
+
+    /* Title + intro */
+    h1.doc-title {
+      margin-top: 8mm;
+      font-family: var(--ar-font-serif);
+      font-size: 22px;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+    }
+    .intro {
+      margin-top: 4mm;
+      line-height: 1.55;
+    }
+    .intro p { margin-bottom: 0.6em; }
+
+    /* Lines table */
+    .lines {
+      margin-top: 8mm;
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10px;
+    }
+    .lines thead th {
+      text-align: left;
+      padding: 6px 6px 6px 0;
+      border-bottom: 1.5px solid var(--ar-ink);
+      font-family: var(--ar-font-mono);
+      font-size: 9px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ar-mute);
+      font-weight: 500;
+    }
+    .lines tbody td {
+      padding: 8px 6px 8px 0;
+      border-bottom: 1px solid var(--ar-hairline);
+      vertical-align: top;
+    }
+    .lines td.num, .lines th.num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .lines td.desc {
+      max-width: 55%;
+    }
+    .lines td.desc .description {
+      white-space: pre-wrap;
+    }
+
+    /* Totals */
+    .totals {
+      margin-top: 6mm;
+      margin-left: auto;
+      width: 60%;
+      font-size: 11px;
+    }
+    .totals table { width: 100%; border-collapse: collapse; }
+    .totals td {
+      padding: 4px 6px 4px 0;
+      vertical-align: top;
+    }
+    .totals td.label { text-align: left; color: var(--ar-mute); }
+    .totals td.value { text-align: right; font-variant-numeric: tabular-nums; }
+    .totals tr.grand td {
+      padding-top: 8px;
+      border-top: 1.5px solid var(--ar-ink);
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    /* Hint block */
+    .hints {
+      margin-top: 8mm;
+      padding: 4mm 5mm;
+      border-left: 3px solid var(--ar-coral);
+      background: rgba(255,122,107,0.06);
+      font-size: 11px;
+      line-height: 1.55;
+    }
+    .hints .hint + .hint { margin-top: 6px; }
+
+    /* Payment block */
+    .payment {
+      margin-top: 8mm;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10mm;
+      font-size: 11px;
+      line-height: 1.55;
+    }
+    .payment h3 {
+      font-family: var(--ar-font-mono);
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ar-mute);
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    /* Footer */
+    .page-ft {
+      margin-top: auto;
+      padding-top: 12px;
+      border-top: 1px solid var(--ar-hairline);
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8mm;
+      font-family: var(--ar-font-mono);
+      font-size: 8px;
+      letter-spacing: 0.04em;
+      color: var(--ar-mute);
+      line-height: 1.6;
+    }
+    .page-ft b { font-weight: 500; color: var(--ar-ink); }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="page-hd">
+    <div class="page-hd-left">
+      <div class="page-hd-doc-type">{% if doc.kind == 'storno' %}STORNORECHNUNG{% else %}RECHNUNG{% endif %}</div>
+      <div class="page-hd-doc-num">{{ doc.number }}</div>
+    </div>
+    <div class="page-hd-right">
+      {{ doc.invoice_date | date_de }}<br>
+      Seite 1 / 1
+    </div>
+  </div>
+
+  <!-- Addresses -->
+  <div class="addr-grid">
+    <div class="addr-issuer">
+      <div class="miniline">{{ doc.issuer.legal_name }} · {{ doc.issuer.street }} · {{ doc.issuer.postal_code }} {{ doc.issuer.city }}</div>
+    </div>
+    <div class="addr-customer">
+      {% if doc.customer.salutation %}{{ doc.customer.salutation }}<br>{% endif %}
+      <div class="name">{{ doc.customer.legal_name }}</div>
+      {% if doc.customer.company and doc.customer.company != doc.customer.legal_name %}{{ doc.customer.company }}<br>{% endif %}
+      {{ doc.customer.street }}{% if doc.customer.street2 %}, {{ doc.customer.street2 }}{% endif %}<br>
+      {{ doc.customer.postal_code }} {{ doc.customer.city }}<br>
+      {% if doc.customer.country_code and doc.customer.country_code != 'DE' %}{{ doc.customer.country_code }}<br>{% endif %}
+      {% if doc.customer.vat_id %}<span style="font-family: var(--ar-font-mono); font-size: 10px; color: var(--ar-mute);">USt-IdNr.: {{ doc.customer.vat_id }}</span>{% endif %}
+    </div>
+  </div>
+
+  <!-- Meta -->
+  <table class="meta">
+    {% if doc.kind == 'storno' and doc.related_number %}
+    <tr><th>Storno zu</th><td>{{ doc.related_number }}</td></tr>
+    {% endif %}
+    <tr><th>Rechnungsnummer</th><td>{{ doc.number }}</td></tr>
+    <tr><th>Rechnungsdatum</th><td>{{ doc.invoice_date | date_de }}</td></tr>
+    <tr><th>Leistungsdatum</th><td>{{ doc.leistungsdatum | date_de }}</td></tr>
+    {% if doc.due_date %}<tr><th>Fälligkeit</th><td>{{ doc.due_date | date_de }}</td></tr>{% endif %}
+    {% if doc.customer_reference %}<tr><th>Ihre Referenz</th><td>{{ doc.customer_reference }}</td></tr>{% endif %}
+    {% if doc.issuer_steuernummer %}<tr><th>Steuernummer</th><td>{{ doc.issuer_steuernummer }}</td></tr>{% endif %}
+    {% if doc.issuer_ust_id %}<tr><th>USt-IdNr.</th><td>{{ doc.issuer_ust_id }}</td></tr>{% endif %}
+  </table>
+
+  {% if doc.title %}<h1 class="doc-title">{{ doc.title }}</h1>{% endif %}
+
+  {% if doc.intro_text %}<div class="intro">{{ doc.intro_text | md }}</div>{% endif %}
+
+  <!-- Lines -->
+  <table class="lines">
+    <thead>
+      <tr>
+        <th class="num" style="width: 5%;">Pos</th>
+        <th style="width: 45%;">Beschreibung</th>
+        <th class="num" style="width: 8%;">Menge</th>
+        <th style="width: 8%;">Einheit</th>
+        <th class="num" style="width: 12%;">Einzelpreis</th>
+        <th class="num" style="width: 6%;">USt-%</th>
+        <th class="num" style="width: 16%;">Netto</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for ln in doc.lines %}
+      <tr>
+        <td class="num">{{ ln.position }}</td>
+        <td class="desc"><div class="description">{{ ln.description }}</div></td>
+        <td class="num">{{ ln.quantity }}</td>
+        <td>{{ ln.unit }}</td>
+        <td class="num">{{ ln.unit_price_net | eur }}</td>
+        <td class="num">{{ ln.vat_rate }}</td>
+        <td class="num">{{ ln.line_net | eur }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Totals -->
+  <div class="totals">
+    <table>
+      <tr><td class="label">Zwischensumme netto</td><td class="value">{{ doc.subtotal_net | eur }}</td></tr>
+      {% for row in doc.breakdown %}
+      <tr><td class="label">USt {{ row.rate }} % auf {{ row.base | eur }}</td><td class="value">{{ row.tax | eur }}</td></tr>
+      {% endfor %}
+      <tr class="grand"><td class="label">Gesamtbetrag</td><td class="value">{{ doc.total_gross | eur }}</td></tr>
+    </table>
+  </div>
+
+  <!-- Hints (R-07 / R-08 / Drittland) -->
+  {% if doc.hint_kleinunternehmer or doc.hint_reverse_charge or doc.hint_third_country %}
+  <div class="hints">
+    {% if doc.hint_kleinunternehmer %}<div class="hint">{{ HINT_TEXT_KLEINUNTERNEHMER }}</div>{% endif %}
+    {% if doc.hint_reverse_charge %}
+    <div class="hint">
+      {{ HINT_TEXT_REVERSE_CHARGE }}<br>
+      {% if doc.issuer_ust_id %}USt-IdNr. Aussteller: {{ doc.issuer_ust_id }}<br>{% endif %}
+      {% if doc.customer.vat_id %}USt-IdNr. Empfänger: {{ doc.customer.vat_id }}{% endif %}
+    </div>
+    {% endif %}
+    {% if doc.hint_third_country %}<div class="hint">{{ HINT_TEXT_THIRD_COUNTRY }}</div>{% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Payment block -->
+  <div class="payment">
+    <div>
+      <h3>Zahlungsbedingungen</h3>
+      {% if doc.payment_terms_text %}{{ doc.payment_terms_text }}{% else %}Zahlbar innerhalb 14 Tagen ohne Abzug.{% endif %}
+      {% if doc.due_date %}<br><br>Fällig am {{ doc.due_date | date_de }}.{% endif %}
+    </div>
+    {% if doc.issuer_bank_iban %}
+    <div>
+      <h3>Bankverbindung</h3>
+      {% if doc.issuer_bank_holder %}{{ doc.issuer_bank_holder }}<br>{% endif %}
+      IBAN: {{ doc.issuer_bank_iban }}
+      {% if doc.issuer_bank_bic %}<br>BIC: {{ doc.issuer_bank_bic }}{% endif %}
+      {% if doc.number %}<br>Verwendungszweck: {{ doc.number }}{% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Footer with issuer legal block (snapshot) -->
+  <div class="page-ft">
+    <div>
+      <b>{{ doc.issuer.legal_name }}</b><br>
+      {{ doc.issuer.street }}<br>
+      {{ doc.issuer.postal_code }} {{ doc.issuer.city }}
+    </div>
+    <div>
+      {% if doc.issuer_contact_email %}{{ doc.issuer_contact_email }}<br>{% endif %}
+      {% if doc.issuer_contact_phone %}{{ doc.issuer_contact_phone }}{% endif %}
+    </div>
+    <div>
+      {% if doc.issuer_steuernummer %}Steuernummer: {{ doc.issuer_steuernummer }}<br>{% endif %}
+      {% if doc.issuer_ust_id %}USt-IdNr.: {{ doc.issuer_ust_id }}<br>{% endif %}
+      Einzelunternehmen
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

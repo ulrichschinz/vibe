@@ -12,3 +12,8 @@ markdown==3.8
 # Pinned: mcp 1.20+ requires starlette 1.0+, which is incompatible with fastapi 0.115.
 # Bump together with fastapi when upgrading.
 mcp==1.19.0
+# E-Rechnung / ZUGFeRD 2.x / Factur-X
+drafthorse>=2024.4
+pikepdf>=9.0
+# VIES (USt-IdNr.) Validierung
+zeep>=4.3

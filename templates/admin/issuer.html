@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Aussteller-Daten{% endblock %}
+{% block content %}
+<div class="ar-container">
+  <h1 class="ar-h1">Aussteller-Daten</h1>
+  <p style="color:var(--ar-mute);">
+    Diese Daten werden beim Finalisieren einer Rechnung als <em>Snapshot</em> kopiert.
+    Spätere Änderungen hier verändern keine bereits gestellten Rechnungen (R-04).
+  </p>
+
+  {% if msg %}<div class="ar-card" style="background:#dfd; padding:1rem; margin-bottom:1rem;">{{ msg }}</div>{% endif %}
+
+  <form method="post" action="/admin/issuer" class="ar-card" style="padding:1.5rem; max-width:720px;">
+    <fieldset style="border:none; padding:0; margin-bottom:1rem;">
+      <legend class="ar-h3">Firma</legend>
+      <div class="ar-form-row"><label class="ar-label">Vollständiger Name *</label>
+        <input name="legal_name" required value="{{ issuer.legal_name if issuer else '' }}" class="ar-input"></div>
+      <div class="ar-form-row"><label class="ar-label">Straße + Hausnummer *</label>
+        <input name="street" required value="{{ issuer.street if issuer else '' }}" class="ar-input"></div>
+      <div class="ar-form-row" style="display:grid; grid-template-columns: 120px 1fr 80px; gap:0.5rem;">
+        <input name="postal_code" required placeholder="PLZ" value="{{ issuer.postal_code if issuer else '' }}" class="ar-input">
+        <input name="city" required placeholder="Stadt" value="{{ issuer.city if issuer else '' }}" class="ar-input">
+        <input name="country_code" placeholder="DE" value="{{ issuer.country_code if issuer else 'DE' }}" class="ar-input">
+      </div>
+    </fieldset>
+
+    <fieldset style="border:none; padding:0; margin-bottom:1rem;">
+      <legend class="ar-h3">Steuer</legend>
+      <div class="ar-form-row"><label class="ar-label">Steuernummer</label>
+        <input name="steuernummer" value="{{ issuer.steuernummer if issuer else '' }}" class="ar-input" placeholder="z.B. 123/456/78901"></div>
+      <div class="ar-form-row"><label class="ar-label">USt-IdNr.</label>
+        <input name="ust_id" value="{{ issuer.ust_id if issuer else '' }}" class="ar-input" placeholder="DE123456789"></div>
+      <div class="ar-form-row">
+        <label class="ar-label" style="display:flex; gap:0.5rem; align-items:center;">
+          <input type="checkbox" name="is_kleinunternehmer" {% if issuer and issuer.is_kleinunternehmer %}checked{% endif %}>
+          Kleinunternehmer (§ 19 UStG) — keine USt ausweisen
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset style="border:none; padding:0; margin-bottom:1rem;">
+      <legend class="ar-h3">Bankverbindung</legend>
+      <div class="ar-form-row"><label class="ar-label">Kontoinhaber</label>
+        <input name="bank_holder" value="{{ issuer.bank_holder if issuer else '' }}" class="ar-input"></div>
+      <div class="ar-form-row"><label class="ar-label">IBAN</label>
+        <input name="bank_iban" value="{{ issuer.bank_iban if issuer else '' }}" class="ar-input" style="font-family:var(--ar-font-mono);"></div>
+      <div class="ar-form-row"><label class="ar-label">BIC</label>
+        <input name="bank_bic" value="{{ issuer.bank_bic if issuer else '' }}" class="ar-input"></div>
+    </fieldset>
+
+    <fieldset style="border:none; padding:0; margin-bottom:1rem;">
+      <legend class="ar-h3">Kontakt</legend>
+      <div class="ar-form-row"><label class="ar-label">E-Mail</label>
+        <input name="contact_email" type="email" value="{{ issuer.contact_email if issuer else '' }}" class="ar-input"></div>
+      <div class="ar-form-row"><label class="ar-label">Telefon</label>
+        <input name="contact_phone" value="{{ issuer.contact_phone if issuer else '' }}" class="ar-input"></div>
+    </fieldset>
+
+    <fieldset style="border:none; padding:0; margin-bottom:1rem;">
+      <legend class="ar-h3">Zahlungsbedingungen (Default)</legend>
+      <div class="ar-form-row"><label class="ar-label">Zahlungsfrist (Tage)</label>
+        <input name="default_payment_terms_days" type="number" value="{{ issuer.default_payment_terms_days if issuer else 14 }}" class="ar-input" style="width:100px;"></div>
+      <div class="ar-form-row"><label class="ar-label">Zahlungsbedingungs-Text</label>
+        <input name="default_payment_terms_text" value="{{ issuer.default_payment_terms_text if issuer else 'Zahlbar innerhalb 14 Tagen ohne Abzug.' }}" class="ar-input"></div>
+    </fieldset>
+
+    <button class="ar-btn ar-btn-coral">Speichern</button>
+  </form>
+</div>
+{% endblock %}

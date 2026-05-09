@@ -22,6 +22,7 @@
     <div class="ar-nav-links">
       <a href="/" class="ar-nav-link {% if request.url.path == '/' %}ar-nav-link--active{% endif %}">Dashboard</a>
       <a href="/leads" class="ar-nav-link {% if '/leads' in request.url.path %}ar-nav-link--active{% endif %}">Leads</a>
+      <a href="/invoices/" class="ar-nav-link {% if '/invoices' in request.url.path %}ar-nav-link--active{% endif %}">Rechnungen</a>
       {% if request.state.user.role.value == 'admin' %}
       <a href="/admin/users" class="ar-nav-link {% if '/admin' in request.url.path and '/admin/ai' not in request.url.path %}ar-nav-link--active{% endif %}">Admin</a>
       <a href="/admin/ai" class="ar-nav-link {% if '/admin/ai' in request.url.path %}ar-nav-link--active{% endif %}">KI</a>

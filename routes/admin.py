@@ -1,12 +1,17 @@
 import os
 import secrets
+from datetime import datetime
 from fastapi import APIRouter, Depends, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from database import get_session
-from models import User, UserRole, ApiKey, USER_ROLE_LABELS, AiSettings, AiProvider, AI_PROVIDER_LABELS
+from models import (
+    User, UserRole, ApiKey, USER_ROLE_LABELS,
+    AiSettings, AiProvider, AI_PROVIDER_LABELS,
+    IssuerProfile, ViesAuditEntry,
+)
 from services.auth import require_admin, hash_password, hash_api_key
 
 router = APIRouter(prefix="/admin")
@@ -204,4 +209,70 @@ def ai_settings_save(
     session.refresh(settings)
     return templates.TemplateResponse("admin/ai_settings.html", {
         "request": request, "settings": settings, "saved": True,
+    })
+
+
+# ── Issuer (Rechnungs-Aussteller) ─────────────────────────────────────────
+
+
+@router.get("/issuer", response_class=HTMLResponse)
+def issuer_form(request: Request, session: Session = Depends(get_session), _=Depends(require_admin)):
+    issuer = session.get(IssuerProfile, 1)
+    return templates.TemplateResponse("admin/issuer.html", {
+        "request": request,
+        "issuer": issuer,
+        "msg": request.query_params.get("msg"),
+    })
+
+
+@router.post("/issuer", response_class=RedirectResponse)
+def issuer_save(
+    legal_name: str = Form(...),
+    street: str = Form(...),
+    postal_code: str = Form(...),
+    city: str = Form(...),
+    country_code: str = Form("DE"),
+    steuernummer: str = Form(""),
+    ust_id: str = Form(""),
+    is_kleinunternehmer: str = Form("off"),
+    bank_holder: str = Form(""),
+    bank_iban: str = Form(""),
+    bank_bic: str = Form(""),
+    contact_email: str = Form(""),
+    contact_phone: str = Form(""),
+    default_payment_terms_days: int = Form(14),
+    default_payment_terms_text: str = Form("Zahlbar innerhalb 14 Tagen ohne Abzug."),
+    session: Session = Depends(get_session),
+    _=Depends(require_admin),
+):
+    issuer = session.get(IssuerProfile, 1)
+    if issuer is None:
+        issuer = IssuerProfile(id=1, legal_name=legal_name, street=street, postal_code=postal_code, city=city)
+    issuer.legal_name = legal_name
+    issuer.street = street
+    issuer.postal_code = postal_code
+    issuer.city = city
+    issuer.country_code = country_code or "DE"
+    issuer.steuernummer = steuernummer.strip() or None
+    issuer.ust_id = ust_id.strip() or None
+    issuer.is_kleinunternehmer = (is_kleinunternehmer == "on")
+    issuer.bank_holder = bank_holder
+    issuer.bank_iban = bank_iban
+    issuer.bank_bic = bank_bic.strip() or None
+    issuer.contact_email = contact_email
+    issuer.contact_phone = contact_phone.strip() or None
+    issuer.default_payment_terms_days = int(default_payment_terms_days)
+    issuer.default_payment_terms_text = default_payment_terms_text
+    issuer.updated_at = datetime.utcnow()
+    session.add(issuer)
+    session.commit()
+    return RedirectResponse("/admin/issuer?msg=Aussteller-Daten+gespeichert.", status_code=303)
+
+
+@router.get("/vies-overrides", response_class=HTMLResponse)
+def vies_overrides(request: Request, session: Session = Depends(get_session), _=Depends(require_admin)):
+    audits = session.exec(select(ViesAuditEntry).order_by(ViesAuditEntry.queried_at.desc()).limit(100)).all()
+    return templates.TemplateResponse("admin/vies_overrides.html", {
+        "request": request,
+        "audits": audits,
     })

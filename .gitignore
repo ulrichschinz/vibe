@@ -53,6 +53,17 @@ logs/
 .coverage
 htmlcov/
 .pytest_cache/
+reports/
+
+# Hypothesis
+.hypothesis/
+
+# Invoice archive — never commit; persisted via Docker volume in prod
+archive/*
+!archive/.gitkeep
+
+# KoSIT validator cache
+.kosit-cache/
 
 # MyPy
 .mypy_cache/

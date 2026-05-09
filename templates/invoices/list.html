@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Rechnungen{% endblock %}
+{% block content %}
+<div class="ar-container">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+    <h1 class="ar-h1">Rechnungen</h1>
+    {% if request.state.user.role.value != 'viewer' %}
+    <a href="/invoices/new" class="ar-btn ar-btn-coral">+ Neue Rechnung</a>
+    {% endif %}
+  </div>
+
+  <form method="get" action="/invoices/" class="ar-card" style="display:flex; gap:1rem; align-items:end; padding:1rem; margin-bottom:1.5rem;">
+    <div>
+      <label class="ar-label">Geschäftsjahr</label>
+      <input type="number" name="year" value="{{ filter_year or '' }}" placeholder="2026" class="ar-input" style="width:100px;">
+    </div>
+    <div>
+      <label class="ar-label">Status</label>
+      <select name="status" class="ar-input">
+        <option value="">Alle</option>
+        {% for st, label in INVOICE_STATUS_LABELS.items() %}
+        <option value="{{ st.value }}" {% if filter_status == st.value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="ar-btn ar-btn-ghost">Filtern</button>
+  </form>
+
+  <table class="ar-table">
+    <thead>
+      <tr>
+        <th>Nr.</th>
+        <th>Datum</th>
+        <th>Empfänger</th>
+        <th>Brutto</th>
+        <th>Status</th>
+        <th>Art</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for inv in invoices %}
+      <tr>
+        <td><a href="/invoices/{{ inv.id }}" class="ar-link"><span class="ar-mono">{{ inv.number or 'Entwurf' }}</span></a></td>
+        <td>{{ inv.invoice_date or inv.created_at.date() }}</td>
+        <td>{{ inv.cust_legal_name or inv.cust_company or '—' }}</td>
+        <td class="ar-num">{% if inv.total_gross %}{{ "%.2f"|format(inv.total_gross) }} €{% else %}—{% endif %}</td>
+        <td><span class="ar-badge ar-badge-{{ inv.status.value }}">{{ INVOICE_STATUS_LABELS[inv.status] }}</span></td>
+        <td>{% if inv.kind == InvoiceKind.storno %}<span class="ar-badge ar-badge-coral">Storno</span>{% else %}—{% endif %}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--ar-mute);">Noch keine Rechnungen.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

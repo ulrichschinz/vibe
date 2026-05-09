@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}VIES-Audit{% endblock %}
+{% block content %}
+<div class="ar-container">
+  <h1 class="ar-h1">VIES-Audit (R-16)</h1>
+  <p style="color:var(--ar-mute);">Letzte 100 Validierungen. Override-Einträge dokumentieren VIES-Ausfälle, die per Admin-Entscheidung durchgewunken wurden.</p>
+
+  <table class="ar-table">
+    <thead>
+      <tr><th>Zeitpunkt</th><th>Rechnung</th><th>USt-IdNr.</th><th>Status</th><th>Begründung</th></tr>
+    </thead>
+    <tbody>
+      {% for a in audits %}
+      <tr>
+        <td>{{ a.queried_at }}</td>
+        <td>{% if a.invoice_id %}<a href="/invoices/{{ a.invoice_id }}" class="ar-link">#{{ a.invoice_id }}</a>{% else %}—{% endif %}</td>
+        <td><span class="ar-mono">{{ a.vat_id_queried }}</span></td>
+        <td><span class="ar-badge ar-badge-{{ a.response_status.value }}">{{ a.response_status.value }}</span></td>
+        <td>{{ a.override_reason or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--ar-mute);">Noch keine Audit-Einträge.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Rechnung {{ invoice.number or invoice.id }}{% endblock %}
+{% block content %}
+<div class="ar-container">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+    <div>
+      <h1 class="ar-h1">{% if invoice.kind == InvoiceKind.storno %}Stornorechnung{% else %}Rechnung{% endif %} <span class="ar-mono">{{ invoice.number or '— (Entwurf)' }}</span></h1>
+      <span class="ar-badge ar-badge-{{ invoice.status.value }}">{{ INVOICE_STATUS_LABELS[invoice.status] }}</span>
+      {% if invoice.kind == InvoiceKind.storno and related %}<span style="margin-left:0.5rem;">storniert: <a href="/invoices/{{ related.id }}" class="ar-link">{{ related.number }}</a></span>{% endif %}
+      {% if storno %}<span style="margin-left:0.5rem;">Storno: <a href="/invoices/{{ storno.id }}" class="ar-link">{{ storno.number }}</a></span>{% endif %}
+    </div>
+    <div style="display:flex; gap:0.5rem;">
+      {% if invoice.archive_path_pdf %}
+      <a href="/invoices/{{ invoice.id }}/pdf" class="ar-btn ar-btn-ghost">PDF</a>
+      <a href="/invoices/{{ invoice.id }}/xml" class="ar-btn ar-btn-ghost">XML</a>
+      {% endif %}
+      {% if invoice.status == InvoiceStatus.draft and request.state.user.role.value != 'viewer' %}
+      <a href="/invoices/{{ invoice.id }}/edit" class="ar-btn ar-btn-coral">Bearbeiten</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="ar-card" style="padding:1.5rem; margin-bottom:1.5rem;">
+    <table class="ar-meta-table">
+      {% if invoice.invoice_date %}<tr><th>Rechnungsdatum</th><td>{{ invoice.invoice_date }}</td></tr>{% endif %}
+      {% if invoice.leistungsdatum %}<tr><th>Leistungsdatum</th><td>{{ invoice.leistungsdatum }}</td></tr>{% endif %}
+      {% if invoice.due_date %}<tr><th>Fällig</th><td>{{ invoice.due_date }}</td></tr>{% endif %}
+      <tr><th>Empfänger</th><td>{{ invoice.cust_legal_name }}, {{ invoice.cust_postal_code }} {{ invoice.cust_city }}{% if invoice.cust_country_code and invoice.cust_country_code != 'DE' %} ({{ invoice.cust_country_code }}){% endif %}</td></tr>
+      {% if invoice.cust_vat_id %}<tr><th>USt-IdNr. Empfänger</th><td>{{ invoice.cust_vat_id }}</td></tr>{% endif %}
+      {% if invoice.hash_sha256 %}<tr><th>Hash</th><td><span class="ar-mono" style="font-size:0.8em;">{{ invoice.hash_sha256[:16] }}…</span></td></tr>{% endif %}
+    </table>
+  </div>
+
+  <table class="ar-table">
+    <thead>
+      <tr><th>#</th><th>Beschreibung</th><th class="ar-num">Menge</th><th>Einheit</th><th class="ar-num">Einzelpreis</th><th class="ar-num">USt-%</th><th class="ar-num">Netto</th><th class="ar-num">Brutto</th></tr>
+    </thead>
+    <tbody>
+      {% for ln in lines %}
+      <tr>
+        <td>{{ ln.position }}</td>
+        <td>{{ ln.description }}</td>
+        <td class="ar-num">{{ ln.quantity }}</td>
+        <td>{{ ln.unit }}</td>
+        <td class="ar-num">{{ "%.2f"|format(ln.unit_price_net) }} €</td>
+        <td class="ar-num">{{ ln.vat_rate }}</td>
+        <td class="ar-num">{{ "%.2f"|format(ln.line_net) }} €</td>
+        <td class="ar-num">{{ "%.2f"|format(ln.line_gross) }} €</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    {% if invoice.subtotal_net is not none %}
+    <tfoot>
+      <tr><th colspan="7" style="text-align:right;">Zwischensumme netto</th><th class="ar-num">{{ "%.2f"|format(invoice.subtotal_net) }} €</th></tr>
+      <tr><th colspan="7" style="text-align:right;">USt</th><th class="ar-num">{{ "%.2f"|format(invoice.vat_total) }} €</th></tr>
+      <tr style="font-weight:600;"><th colspan="7" style="text-align:right;">Gesamtbetrag</th><th class="ar-num">{{ "%.2f"|format(invoice.total_gross) }} €</th></tr>
+    </tfoot>
+    {% endif %}
+  </table>
+
+  {% if invoice.hint_kleinunternehmer or invoice.hint_reverse_charge or invoice.hint_third_country %}
+  <div class="ar-card" style="border-left:3px solid var(--ar-coral); padding:1rem; margin-top:1rem;">
+    {% if invoice.hint_kleinunternehmer %}<p>Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.</p>{% endif %}
+    {% if invoice.hint_reverse_charge %}<p>Steuerschuldnerschaft des Leistungsempfängers / Reverse Charge.</p>{% endif %}
+    {% if invoice.hint_third_country %}<p>Nicht im Inland steuerbare Leistung (Drittland).</p>{% endif %}
+  </div>
+  {% endif %}
+
+  {% if request.state.user.role.value != 'viewer' %}
+  <div style="margin-top:2rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+    {% if invoice.status == InvoiceStatus.finalized %}
+    <form method="post" action="/invoices/{{ invoice.id }}/mark-sent"><button class="ar-btn ar-btn-ghost">Als versendet markieren</button></form>
+    {% endif %}
+    {% if invoice.status == InvoiceStatus.sent %}
+    <form method="post" action="/invoices/{{ invoice.id }}/mark-paid"><button class="ar-btn ar-btn-ghost">Als bezahlt markieren</button></form>
+    {% endif %}
+    {% if invoice.status in [InvoiceStatus.finalized, InvoiceStatus.sent, InvoiceStatus.paid] and invoice.kind == InvoiceKind.invoice and not storno %}
+    <form method="post" action="/invoices/{{ invoice.id }}/storno" style="display:inline-flex; gap:0.5rem;" onsubmit="return confirm('Diese Rechnung stornieren? Erstellt eine neue Stornorechnung mit eigener Nummer.');">
+      <input type="text" name="reason" placeholder="Stornogrund (optional)" class="ar-input" style="width:300px;">
+      <button class="ar-btn ar-btn-coral">Stornieren</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

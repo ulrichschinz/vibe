@@ -1,0 +1,29 @@
+[run]
+branch = True
+source =
+    services/invoicing
+    routes/invoices.py
+
+omit =
+    */__pycache__/*
+    */.venv/*
+    tests/*
+
+[report]
+fail_under = 90
+show_missing = True
+skip_covered = False
+exclude_lines =
+    pragma: no cover
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+
+[html]
+directory = reports/coverage/html
+
+[xml]
+output = reports/coverage/coverage.xml
+
+[lcov]
+output = reports/coverage/coverage.lcov

@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}{% if invoice %}Entwurf {{ invoice.id }}{% else %}Neue Rechnung{% endif %}{% endblock %}
+{% block content %}
+<div class="ar-container">
+  <h1 class="ar-h1">{% if invoice %}Rechnungsentwurf{% else %}Neue Rechnung{% endif %}</h1>
+
+  {% if request.query_params.get('error') %}
+  <div class="ar-card" style="border-left:3px solid #c33; padding:1rem; margin-bottom:1rem;">
+    <strong>Fehler:</strong> {{ request.query_params.get('error') }}
+  </div>
+  {% endif %}
+  {% if request.query_params.get('vies_blocked') %}
+  <div class="ar-card" style="border-left:3px solid #c80; padding:1rem; margin-bottom:1rem;">
+    <strong>VIES-Sperre:</strong> {{ request.query_params.get('reason') }}.
+    {% if request.state.user.role.value == 'admin' %}
+    <p style="margin-top:0.5rem;">Als Admin kannst du unten den Override mit Begründung freigeben.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <form method="post" action="{{ action }}" class="ar-card" style="padding:1.5rem;">
+    <fieldset style="border:none; padding:0; margin-bottom:1rem;">
+      <legend class="ar-h3">Kopfdaten</legend>
+      <div class="ar-form-row">
+        <label class="ar-label">Titel</label>
+        <input type="text" name="title" value="{{ invoice.title if invoice else '' }}" class="ar-input">
+      </div>
+      <div class="ar-form-row">
+        <label class="ar-label">Leistungsdatum *</label>
+        <input type="date" name="leistungsdatum" required
+               value="{{ invoice.leistungsdatum.isoformat() if invoice and invoice.leistungsdatum else '' }}"
+               class="ar-input">
+      </div>
+      <div class="ar-form-row">
+        <label class="ar-label">Kundenreferenz</label>
+        <input type="text" name="customer_reference" value="{{ invoice.customer_reference if invoice else '' }}" class="ar-input">
+      </div>
+      <div class="ar-form-row">
+        <label class="ar-label">Einleitungstext (Markdown)</label>
+        <textarea name="intro_text" rows="3" class="ar-input">{{ invoice.intro_text if invoice else '' }}</textarea>
+      </div>
+      <div class="ar-form-row">
+        <label class="ar-label">Zahlungsbedingungen</label>
+        <input type="text" name="payment_terms_text" value="{{ invoice.payment_terms_text if invoice else '' }}" class="ar-input"
+               placeholder="Leer = aus IssuerProfile übernehmen">
+      </div>
+    </fieldset>
+
+    <fieldset style="border:none; padding:0; margin-bottom:1rem;">
+      <legend class="ar-h3">Empfänger</legend>
+      {% if lead %}
+      <p style="color:var(--ar-mute);">Stammdaten aus Lead "{{ lead.display_name() }}". Felder unten leerlassen, um die Lead-Daten zu übernehmen.</p>
+      {% endif %}
+      <div class="ar-form-row">
+        <label class="ar-label">Name (Anzeige)</label>
+        <input type="text" name="cust_legal_name" value="{{ invoice.cust_legal_name if invoice else '' }}" class="ar-input">
+      </div>
+      <div class="ar-form-row">
+        <label class="ar-label">Firma</label>
+        <input type="text" name="cust_company" value="{{ invoice.cust_company if invoice else '' }}" class="ar-input">
+      </div>
+      <div class="ar-form-row">
+        <label class="ar-label">Straße + Hausnummer</label>
+        <input type="text" name="cust_street" value="{{ invoice.cust_street if invoice else '' }}" class="ar-input">
+      </div>
+      <div class="ar-form-row" style="display:grid; grid-template-columns:120px 1fr 80px; gap:0.5rem;">
+        <input type="text" name="cust_postal_code" placeholder="PLZ" value="{{ invoice.cust_postal_code if invoice else '' }}" class="ar-input">
+        <input type="text" name="cust_city" placeholder="Stadt" value="{{ invoice.cust_city if invoice else '' }}" class="ar-input">
+        <input type="text" name="cust_country_code" placeholder="DE" value="{{ invoice.cust_country_code if invoice else '' }}" class="ar-input">
+      </div>
+      <div class="ar-form-row">
+        <label class="ar-label">USt-IdNr. (für EU-B2B)</label>
+        <input type="text" name="cust_vat_id" value="{{ invoice.cust_vat_id if invoice else '' }}" class="ar-input">
+      </div>
+    </fieldset>
+
+    <button type="submit" class="ar-btn ar-btn-coral">Speichern</button>
+    {% if not invoice and lead %}<input type="hidden" name="lead_id" value="{{ lead.id }}">{% endif %}
+  </form>
+
+  {% if invoice %}
+  <h2 class="ar-h2" style="margin-top:2rem;">Positionen</h2>
+  <table class="ar-table">
+    <thead>
+      <tr><th>#</th><th>Beschreibung</th><th class="ar-num">Menge</th><th>Einheit</th><th class="ar-num">Einzelpreis</th><th class="ar-num">USt-%</th><th class="ar-num">Netto</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for ln in lines %}
+      <tr>
+        <td>{{ ln.position }}</td>
+        <td>{{ ln.description }}</td>
+        <td class="ar-num">{{ ln.quantity }}</td>
+        <td>{{ ln.unit }}</td>
+        <td class="ar-num">{{ "%.2f"|format(ln.unit_price_net) }} €</td>
+        <td class="ar-num">{{ ln.vat_rate }}</td>
+        <td class="ar-num">{{ "%.2f"|format(ln.line_net) }} €</td>
+        <td>
+          <form method="post" action="/invoices/{{ invoice.id }}/lines/{{ ln.id }}/delete" style="margin:0;">
+            <button class="ar-btn ar-btn-ghost ar-btn-sm" onclick="return confirm('Position löschen?')">×</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <form method="post" action="/invoices/{{ invoice.id }}/lines" class="ar-card" style="padding:1rem; margin-top:1rem; display:grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto; gap:0.5rem; align-items:end;">
+    <div>
+      <label class="ar-label">Beschreibung</label>
+      <input name="description" required class="ar-input">
+    </div>
+    <div>
+      <label class="ar-label">Menge</label>
+      <input name="quantity" type="text" inputmode="decimal" required class="ar-input" value="1">
+    </div>
+    <div>
+      <label class="ar-label">Einheit</label>
+      <select name="unit" class="ar-input"><option>Std</option><option>Tag</option><option>Stk</option><option>Pauschal</option></select>
+    </div>
+    <div>
+      <label class="ar-label">Einzelpreis (netto)</label>
+      <input name="unit_price_net" type="text" inputmode="decimal" required class="ar-input">
+    </div>
+    <div>
+      <label class="ar-label">USt-%</label>
+      <input name="vat_rate" type="text" inputmode="decimal" class="ar-input" value="19">
+    </div>
+    <button class="ar-btn ar-btn-coral">+ Hinzufügen</button>
+  </form>
+
+  <div style="margin-top:2rem; display:flex; gap:1rem; align-items:center;">
+    <form method="post" action="/invoices/{{ invoice.id }}/finalize" style="display:flex; gap:0.5rem; align-items:center;">
+      {% if request.state.user.role.value == 'admin' and request.query_params.get('vies_blocked') %}
+      <input type="text" name="vies_override_reason" placeholder="Override-Begründung" required class="ar-input" style="width:300px;">
+      <input type="hidden" name="vies_override" value="true">
+      {% endif %}
+      <button class="ar-btn ar-btn-coral">Finalisieren →</button>
+    </form>
+    <a href="/invoices/{{ invoice.id }}" class="ar-btn ar-btn-ghost">Vorschau</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

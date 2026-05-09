@@ -10,10 +10,11 @@ import os
 load_dotenv()
 
 from database import create_db, engine
-from models import User, UserRole
+from models import User, UserRole, IssuerProfile
+import services.invoicing.immutability  # noqa: F401  registers SA event listeners
 from sqlmodel import Session, select
 from services.auth import hash_password, NeedsLoginException
-from routes import leads, proposals, api
+from routes import leads, proposals, api, invoices
 from routes import auth as auth_routes
 from routes import admin as admin_routes
 from routes import ai as ai_routes
@@ -42,10 +43,47 @@ def bootstrap_admin():
         session.commit()
 
 
+def bootstrap_issuer():
+    """Seed the singleton IssuerProfile (id=1) from ENV on first boot.
+
+    Subsequent boots see an existing row and do nothing — the admin manages
+    the data via /admin/issuer afterwards. ENV values are only the bootstrap
+    defaults, so changing ENV after first boot has no effect.
+    """
+    with Session(engine) as session:
+        existing = session.get(IssuerProfile, 1)
+        if existing is not None:
+            return
+        legal_name = os.getenv("ISSUER_LEGAL_NAME")
+        if not legal_name:
+            # Without a name we can't construct a meaningful row; skip and let
+            # the admin fill it in via the UI before the first finalize.
+            return
+        issuer = IssuerProfile(
+            id=1,
+            legal_name=legal_name,
+            street=os.getenv("ISSUER_STREET", ""),
+            postal_code=os.getenv("ISSUER_POSTAL_CODE", ""),
+            city=os.getenv("ISSUER_CITY", ""),
+            country_code=os.getenv("ISSUER_COUNTRY_CODE", "DE"),
+            steuernummer=os.getenv("ISSUER_STEUERNUMMER") or None,
+            ust_id=os.getenv("ISSUER_USTID") or None,
+            is_kleinunternehmer=os.getenv("ISSUER_KLEINUNTERNEHMER", "false").lower() == "true",
+            bank_holder=os.getenv("ISSUER_BANK_HOLDER", ""),
+            bank_iban=os.getenv("ISSUER_BANK_IBAN", ""),
+            bank_bic=os.getenv("ISSUER_BANK_BIC") or None,
+            contact_email=os.getenv("ISSUER_CONTACT_EMAIL", ""),
+            contact_phone=os.getenv("ISSUER_CONTACT_PHONE") or None,
+        )
+        session.add(issuer)
+        session.commit()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_db()
     bootstrap_admin()
+    bootstrap_issuer()
     # MCP session manager's task group must live for the app's lifetime
     async with mcp_server.session_manager.run():
         yield
@@ -83,5 +121,6 @@ app.include_router(admin_routes.router)
 app.include_router(ai_routes.router)
 app.include_router(leads.router)
 app.include_router(proposals.router)
+app.include_router(invoices.router)
 app.include_router(api.router)
 app.mount("/mcp", mcp_app)

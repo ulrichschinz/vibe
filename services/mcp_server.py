@@ -286,3 +286,188 @@ def mark_proposal_sent(proposal_id: int) -> dict:
         except LookupError as e:
             raise LookupError(str(e))
         return _proposal_dict(proposal)
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# Invoice tools
+# ─────────────────────────────────────────────────────────────────────────
+
+from datetime import date as _date
+from decimal import Decimal as _D
+import uuid as _uuid
+
+from models import (
+    Invoice as _Invoice,
+    InvoiceLineItem as _InvoiceLineItem,
+    InvoiceKind as _InvoiceKind,
+    InvoiceStatus as _InvoiceStatus,
+)
+from services.invoicing.archive import archive_document as _archive_document
+from services.invoicing.document import render_document as _render_document
+from services.invoicing.finalize import (
+    FinalizeError as _FinalizeError,
+    FinalizeOptions as _FinalizeOptions,
+    InvoiceValidationError as _InvoiceValidationError,
+    create_storno as _create_storno,
+    finalize_invoice as _finalize_invoice,
+)
+
+
+def _invoice_dict(inv: _Invoice, lines: list[_InvoiceLineItem]) -> dict:
+    return {
+        "id": inv.id,
+        "number": inv.number,
+        "status": inv.status.value,
+        "kind": inv.kind.value,
+        "fiscal_year": inv.fiscal_year,
+        "sequence_number": inv.sequence_number,
+        "invoice_date": inv.invoice_date.isoformat() if inv.invoice_date else None,
+        "leistungsdatum": inv.leistungsdatum.isoformat() if inv.leistungsdatum else None,
+        "due_date": inv.due_date.isoformat() if inv.due_date else None,
+        "currency": inv.currency,
+        "subtotal_net": str(inv.subtotal_net) if inv.subtotal_net is not None else None,
+        "vat_total": str(inv.vat_total) if inv.vat_total is not None else None,
+        "total_gross": str(inv.total_gross) if inv.total_gross is not None else None,
+        "hint_kleinunternehmer": inv.hint_kleinunternehmer,
+        "hint_reverse_charge": inv.hint_reverse_charge,
+        "hint_third_country": inv.hint_third_country,
+        "lead_id": inv.lead_id,
+        "related_invoice_id": inv.related_invoice_id,
+        "lines": [
+            {
+                "position": ln.position,
+                "description": ln.description,
+                "quantity": str(ln.quantity),
+                "unit": ln.unit,
+                "unit_price_net": str(ln.unit_price_net),
+                "vat_rate": str(ln.vat_rate),
+                "line_net": str(ln.line_net),
+                "line_vat": str(ln.line_vat),
+                "line_gross": str(ln.line_gross),
+            }
+            for ln in lines
+        ],
+    }
+
+
+@mcp.tool()
+def create_invoice_draft(
+    lead_id: Optional[int] = None,
+    leistungsdatum: Optional[str] = None,
+    title: Optional[str] = None,
+    intro_text: Optional[str] = None,
+    customer_reference: Optional[str] = None,
+) -> dict:
+    """Create a draft invoice for the given lead. ``leistungsdatum`` must be ISO-8601 (YYYY-MM-DD)."""
+    with Session(engine) as s:
+        inv = _Invoice(
+            status=_InvoiceStatus.draft,
+            kind=_InvoiceKind.invoice,
+            lead_id=lead_id,
+            title=title,
+            intro_text=intro_text,
+            customer_reference=customer_reference,
+            leistungsdatum=_date.fromisoformat(leistungsdatum) if leistungsdatum else None,
+        )
+        s.add(inv)
+        s.commit()
+        s.refresh(inv)
+        return _invoice_dict(inv, [])
+
+
+@mcp.tool()
+def add_invoice_line(
+    invoice_id: int,
+    description: str,
+    quantity: str,
+    unit_price_net: str,
+    vat_rate: str = "19",
+    unit: str = "Std",
+) -> dict:
+    """Add a line to a draft invoice. Decimals as strings to avoid float issues."""
+    with Session(engine) as s:
+        inv = s.get(_Invoice, invoice_id)
+        if inv is None:
+            raise ValueError(f"invoice {invoice_id} not found")
+        if inv.status != _InvoiceStatus.draft:
+            raise ValueError("invoice is not draft")
+        existing = list(s.exec(select(_InvoiceLineItem).where(_InvoiceLineItem.invoice_id == invoice_id)).all())
+        qty = _D(quantity)
+        price = _D(unit_price_net)
+        rate = _D(vat_rate)
+        line_net = (qty * price).quantize(_D("0.01"))
+        line_vat = (line_net * rate / _D(100)).quantize(_D("0.01"))
+        ln = _InvoiceLineItem(
+            invoice_id=inv.id,
+            position=(max((l.position for l in existing), default=0)) + 1,
+            description=description,
+            quantity=qty,
+            unit=unit,
+            unit_price_net=price,
+            vat_rate=rate,
+            vat_code="S",
+            line_net=line_net,
+            line_vat=line_vat,
+            line_gross=line_net + line_vat,
+        )
+        s.add(ln)
+        s.commit()
+        s.refresh(ln)
+        return {"position": ln.position, "line_net": str(ln.line_net)}
+
+
+@mcp.tool()
+def finalize_invoice(invoice_id: int, idempotency_key: Optional[str] = None) -> dict:
+    """Finalize the draft invoice — assigns number, renders ZUGFeRD PDF/A-3 + XML, archives, locks."""
+    with Session(engine) as s:
+        try:
+            inv = _finalize_invoice(
+                s, invoice_id,
+                idempotency_key=idempotency_key or str(_uuid.uuid4()),
+                options=_FinalizeOptions(renderer=_render_document, archiver=_archive_document),
+            )
+        except (_InvoiceValidationError, _FinalizeError) as exc:
+            raise ValueError(str(exc))
+        lines = list(s.exec(select(_InvoiceLineItem).where(_InvoiceLineItem.invoice_id == inv.id).order_by(_InvoiceLineItem.position)).all())
+        return _invoice_dict(inv, lines)
+
+
+@mcp.tool()
+def get_invoice(invoice_id: int) -> dict:
+    with Session(engine) as s:
+        inv = s.get(_Invoice, invoice_id)
+        if inv is None:
+            raise ValueError(f"invoice {invoice_id} not found")
+        lines = list(s.exec(select(_InvoiceLineItem).where(_InvoiceLineItem.invoice_id == invoice_id).order_by(_InvoiceLineItem.position)).all())
+        return _invoice_dict(inv, lines)
+
+
+@mcp.tool()
+def list_invoices(year: Optional[int] = None, status: Optional[str] = None) -> list[dict]:
+    with Session(engine) as s:
+        q = select(_Invoice).order_by(_Invoice.created_at.desc())
+        if year is not None:
+            q = q.where(_Invoice.fiscal_year == year)
+        if status:
+            q = q.where(_Invoice.status == status)
+        out = []
+        for inv in s.exec(q).all():
+            lines = list(s.exec(select(_InvoiceLineItem).where(_InvoiceLineItem.invoice_id == inv.id).order_by(_InvoiceLineItem.position)).all())
+            out.append(_invoice_dict(inv, lines))
+        return out
+
+
+@mcp.tool()
+def storno_invoice(invoice_id: int, reason: Optional[str] = None) -> dict:
+    """Create a storno for ``invoice_id``. The original is marked cancelled and remains intact."""
+    with Session(engine) as s:
+        try:
+            storno = _create_storno(
+                s, invoice_id,
+                reason=reason,
+                options=_FinalizeOptions(renderer=_render_document, archiver=_archive_document),
+            )
+        except _FinalizeError as exc:
+            raise ValueError(str(exc))
+        lines = list(s.exec(select(_InvoiceLineItem).where(_InvoiceLineItem.invoice_id == storno.id).order_by(_InvoiceLineItem.position)).all())
+        return _invoice_dict(storno, lines)

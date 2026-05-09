@@ -24,6 +24,8 @@ Internes CRM-Werkzeug für Agentic Reach. Verwaltet Leads, generiert gebrandete 
 # 1. Abhängigkeiten installieren (einmalig)
 uv venv
 uv pip install -r requirements.txt
+# Für Tests / Entwicklung zusätzlich:
+uv pip install -r requirements-dev.txt
 
 # 2. Umgebungsvariablen einrichten
 cp .env.example .env
@@ -349,3 +351,118 @@ Das Brand-Verzeichnis ist Teil des Image-Builds (im Repo unter `static/brand/`) 
 - [x] Adaptives Light/Dark-Favicon
 - [x] Agent-REST-API (`/api/leads`) für automatische Lead-Einlieferung
 - [x] **MCP-Server (`/mcp/`) mit 10 Tools für Leads, Notes und Proposals — gleicher API-Key wie REST**
+
+---
+
+## Invoicing — §14 UStG-konformes Rechnungs-Modul
+
+Seit 2026-05 ist das System auch um die Rechnungsstellung erweitert. Das Modul
+deckt §§ 14, 14a UStG, UStDV und GoBD ab und erzeugt **ZUGFeRD/Factur-X**
+PDF/A-3-Rechnungen mit eingebettetem EN16931-XML — bereit für die
+E-Rechnungspflicht ab 2028.
+
+### Schnellstart
+
+1. **Aussteller-Daten pflegen:** Als Admin `/admin/issuer` öffnen, Felder
+   ausfüllen (Anschrift, Steuernummer/USt-IdNr., Bank, ggf.
+   Kleinunternehmer-Flag).
+2. **Lead mit Adresse:** Rechnungsempfänger braucht Straße, PLZ, Stadt,
+   Land. Die Felder sind seit dem 2026-05-Update direkt am Lead pflegbar.
+3. **Rechnung erstellen:** Über die Lead-Detailseite oder direkt unter
+   `/invoices/new`.
+4. **Positionen hinzufügen** und **finalisieren.** Beim Finalize wird die
+   Nummer (`RE-YYYY-NNNN`) vergeben, das PDF/A-3 + XML erzeugt und unter
+   `archive/invoices/{YYYY}/` abgelegt (chmod 0444). Die Rechnung ist ab
+   diesem Moment unveränderlich.
+5. **Versand** erfolgt manuell außerhalb des Systems; im UI auf „Als
+   versendet markieren" / „Als bezahlt markieren" klicken.
+6. **Storno:** Auf der Detailseite. Erstellt eine neue Rechnung mit eigener
+   Nummer, negativen Beträgen und Verweis auf das Original. Original wird
+   `cancelled`, bleibt unverändert lesbar.
+
+### Pflicht-Doku
+
+- `docs/verfahrensdokumentation.md` — GoBD-Pflichtdokument (Steuerprüfer-Doku).
+- `docs/runbook.md` — operative Schritte (Integrity-Check, Restore, Override).
+- `docs/adr/` — Architektur-Entscheidungen mit Begründung (6 ADRs).
+- `docs/open-questions.md` — bewusst nicht in v1 umgesetzt.
+
+### Integritätsprüfung
+
+```bash
+make integrity-check
+# oder
+.venv/bin/python -m services.invoicing.integrity_check --json
+```
+
+Empfohlen als Cron-Job auf dem Server. Exit `0` = ok, `1` = Mismatch,
+`2` = fataler Fehler.
+
+### Issuer-Bootstrap aus ENV
+
+Beim ersten Boot legt `bootstrap_issuer()` einen `IssuerProfile`-Eintrag aus
+folgenden ENV-Variablen an:
+
+```
+ISSUER_LEGAL_NAME=Agentic Reach · Ulrich Schinz
+ISSUER_STREET=Staltacher Straße 59A
+ISSUER_POSTAL_CODE=82393
+ISSUER_CITY=Iffeldorf
+ISSUER_COUNTRY_CODE=DE
+ISSUER_STEUERNUMMER=
+ISSUER_USTID=
+ISSUER_KLEINUNTERNEHMER=false
+ISSUER_BANK_HOLDER=
+ISSUER_BANK_IBAN=
+ISSUER_BANK_BIC=
+ISSUER_CONTACT_EMAIL=hello@agentic-reach.com
+```
+
+Spätere Änderungen an diesen ENV-Variablen haben keinen Effekt mehr — der
+Admin pflegt die Daten ab dann ausschließlich über `/admin/issuer`.
+
+---
+
+## Testing
+
+Das Projekt hat ein vollständiges, projektweites Testframework auf Basis von
+`pytest` + `hypothesis` + `freezegun`. Coverage-Ziel ist ≥ 90 % für das
+Invoicing-Modul.
+
+```bash
+# Dev-Deps installieren
+uv pip install -r requirements-dev.txt
+
+# Schneller Lauf (Unit + Integration, ~6 s)
+make test-fast
+
+# Vollständig (inkl. KoSIT, veraPDF — braucht Java 17 + KoSIT-Jar im Cache)
+make test
+
+# Nur Unit-Tests (am schnellsten)
+make test-unit
+
+# End-to-End via FastAPI TestClient
+make test-e2e
+
+# KoSIT-Validator gegen erzeugte XML (CI-Gate)
+make test-kosit
+```
+
+Layout:
+
+```
+tests/
+  unit/         # VAT-Engine, Money, State Machine — pure Python
+  integration/  # Schema-Migrations, Numbering, Finalize, Storno, VIES, Archive
+  contract/     # KoSIT, veraPDF (extern)
+  e2e/          # FastAPI TestClient, REST-API
+  fixtures/     # Factories für Issuer, Leads (DE/EU/Drittland), Drafts
+```
+
+Coverage-Reports landen in `reports/coverage/` (HTML + lcov + xml).
+KoSIT-Output unter `reports/kosit/`.
+
+Die CI-Pipeline (`.github/workflows/test.yml`) läuft auf jedem Push und PR:
+Python 3.12 + Java 17 + WeasyPrint-Apt-Deps + KoSIT-Jar herunterladen +
+`make test-fast` + `make test-contract` (continue-on-error in v1) + `make test-e2e`.
