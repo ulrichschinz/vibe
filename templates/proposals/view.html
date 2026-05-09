@@ -25,8 +25,13 @@
   </div>
 
   <!-- Embedded document preview -->
-  <div class="ar-card app-document-preview">
-    <iframe src="/proposals/{{ proposal.id }}/document" class="app-doc-frame" title="{{ proposal.number }}"></iframe>
+  <div class="ar-card app-document-preview app-doc-wrap">
+    <div class="app-doc-loading" id="doc-loading">
+      <span class="ar-eyebrow">// vorschau wird geladen</span>
+      <div class="app-spinner" aria-hidden="true"></div>
+    </div>
+    <iframe src="/proposals/{{ proposal.id }}/document" class="app-doc-frame" title="{{ proposal.number }}"
+            onload="this.classList.add('is-loaded'); var l=document.getElementById('doc-loading'); if(l) l.remove();"></iframe>
   </div>
 
 </div>

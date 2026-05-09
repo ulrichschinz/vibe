@@ -448,7 +448,7 @@ if (AI_ACTIVE) {
       Anschreiben + 3 Leistungsblöcke werden gerade aus dem Chat generiert.
       Das dauert etwa 5–10&nbsp;Sekunden.
     </p>
-    <div class="ai-overlay-spinner" aria-hidden="true"></div>
+    <div class="app-spinner" aria-hidden="true" style="margin-top:1.5rem;"></div>
   </div>
 </div>
 
@@ -458,10 +458,7 @@ if (AI_ACTIVE) {
   backdrop-filter: blur(4px); }
 .ai-overlay[hidden] { display: none; }
 .ai-overlay-card { max-width: 420px; padding: 2rem; text-align: center; }
-.ai-overlay-spinner { margin: 1.5rem auto 0; width: 28px; height: 28px;
-  border: 2px solid var(--ar-hairline); border-top-color: var(--ar-coral);
-  border-radius: 50%; animation: ai-overlay-spin .8s linear infinite; }
-@keyframes ai-overlay-spin { to { transform: rotate(360deg); } }
+.ai-overlay-card .app-spinner { margin-left: auto; margin-right: auto; }
 </style>
 
 <script>

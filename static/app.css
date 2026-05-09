@@ -471,7 +471,27 @@
 
 /* ── Proposal view page ────────────────────────────────────────────────── */
 .app-document-preview { padding: 0; overflow: hidden; }
-.app-doc-frame { width: 100%; height: 85vh; border: none; display: block; }
+.app-doc-wrap { position: relative; min-height: 85vh; }
+.app-doc-frame {
+  width: 100%; height: 85vh; border: none; display: block;
+  opacity: 0; transition: opacity .2s ease;
+}
+.app-doc-frame.is-loaded { opacity: 1; }
+.app-doc-loading {
+  position: absolute; inset: 0; z-index: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--ar-space-3);
+  background: var(--ar-bg);
+}
+
+/* ── Spinner (reused for ai overlay, doc preview, etc.) ────────────────── */
+.app-spinner {
+  width: 28px; height: 28px;
+  border: 2px solid var(--ar-hairline);
+  border-top-color: var(--ar-coral);
+  border-radius: 50%;
+  animation: app-spinner-spin .8s linear infinite;
+}
+@keyframes app-spinner-spin { to { transform: rotate(360deg); } }
 
 /* ── Empty state ───────────────────────────────────────────────────────── */
 .app-empty {
