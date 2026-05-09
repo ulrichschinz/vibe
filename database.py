@@ -26,7 +26,7 @@ def _make_engine(url: str):
             cur = dbapi_connection.cursor()
             cur.execute("PRAGMA journal_mode=WAL")
             cur.execute("PRAGMA foreign_keys=ON")
-            cur.execute("PRAGMA busy_timeout=5000")
+            cur.execute("PRAGMA busy_timeout=30000")
             cur.close()
 
         @event.listens_for(eng, "begin")

@@ -96,8 +96,14 @@ app = FastAPI(title="Vibe", lifespan=lifespan)
 async def attach_user(request: Request, call_next):
     # Runs after SessionMiddleware (added last = outermost = runs first).
     # Sets request.state.user so base.html can render user info without per-route injection.
-    user_id = request.session.get("user_id")
     request.state.user = None
+    # Skip the DB lookup for paths that never render base.html. Static assets
+    # used to fail with 500 on transient SQLite locks because each request
+    # opened a transaction here just to ignore the result.
+    path = request.url.path
+    if path.startswith("/static") or path.startswith("/mcp") or path.startswith("/api"):
+        return await call_next(request)
+    user_id = request.session.get("user_id")
     if user_id:
         with Session(engine) as session:
             user = session.get(User, user_id)
