@@ -1,4 +1,33 @@
+import re
+
 from models import AiSettings, AiProvider
+
+
+class AiDraftError(Exception):
+    """Raised when generating proposal drafts from a planning chat fails."""
+
+
+PROPOSAL_DRAFTS_SYSTEM = (
+    "Du bist Texter für Agentic Reach (KI-Beratung). Aus dem folgenden "
+    "Planungs-Chat erstellst du jetzt einen Angebots-Entwurf mit GENAU "
+    "folgender Struktur (Trennzeichen exakt einhalten):\n\n"
+    "===INTRO===\n"
+    "<3-4 Sätze persönliches Anschreiben für ein B2B-Angebot. Fließtext, "
+    "kein 'Sehr geehrte', keine Überschrift, kein Betreff.>\n"
+    "===STRATEGY_DESCRIPTION===\n"
+    "<2-3 Sätze: was Agentic Reach im Bereich Strategie & Consulting für "
+    "diesen Kunden konkret macht. Wenn aus dem Chat nicht relevant: kurze "
+    "generische Beschreibung des Bereichs.>\n"
+    "===STRATEGY_DELIVERABLES===\n"
+    "<3-5 Stichpunkte, eine pro Zeile, OHNE Bulletzeichen oder Bindestriche>\n"
+    "===CHANGE_DESCRIPTION===\n<analog>\n"
+    "===CHANGE_DELIVERABLES===\n<analog>\n"
+    "===TECH_DESCRIPTION===\n<analog>\n"
+    "===TECH_DELIVERABLES===\n<analog>\n\n"
+    "Halte dich strikt an dieses Format. Keine zusätzlichen Sections, "
+    "keine ===-Marker im Text. Schreib auf Deutsch."
+)
+
 
 SYSTEM_PROMPTS = {
     "intro_text": (
@@ -69,3 +98,48 @@ def chat_with_context(messages: list, system: str, settings: AiSettings) -> str:
         messages=messages,
     )
     return resp.content[0].text
+
+
+def _parse_proposal_drafts(text: str) -> dict:
+    """Parse the trennzeichen-formatted LLM output into intro + 3 service blocks.
+
+    Missing sections fall back to empty defaults so a partial answer never
+    collapses the UI.
+    """
+    sections: dict[str, str] = {}
+    for m in re.finditer(r"===(\w+)===\s*\n(.*?)(?=\n===\w+===|\Z)", text, re.DOTALL):
+        sections[m.group(1).lower()] = m.group(2).strip()
+
+    def to_list(s: str) -> list[str]:
+        return [ln.strip() for ln in s.splitlines() if ln.strip()]
+
+    return {
+        "intro": sections.get("intro", ""),
+        "services": [
+            {"id": "strategy",
+             "description": sections.get("strategy_description", ""),
+             "deliverables": to_list(sections.get("strategy_deliverables", ""))},
+            {"id": "change",
+             "description": sections.get("change_description", ""),
+             "deliverables": to_list(sections.get("change_deliverables", ""))},
+            {"id": "tech",
+             "description": sections.get("tech_description", ""),
+             "deliverables": to_list(sections.get("tech_deliverables", ""))},
+        ],
+    }
+
+
+def generate_proposal_drafts(lead, planning_messages, settings: AiSettings) -> dict:
+    """Single Anthropic call → parsed dict {intro, services:[3 blocks]}.
+
+    Raises AiDraftError when there is no chat to draw from.
+    """
+    if not planning_messages:
+        raise AiDraftError("Kein Chat-Verlauf vorhanden.")
+    messages = [{"role": m.role, "content": m.content} for m in planning_messages]
+    messages.append({"role": "user", "content": (
+        "Erstelle jetzt den Angebots-Entwurf wie im System-Prompt vorgegeben. "
+        f"Kunde: {lead.name or '—'} / {lead.company or '—'}."
+    )})
+    text = chat_with_context(messages, PROPOSAL_DRAFTS_SYSTEM, settings)
+    return _parse_proposal_drafts(text)

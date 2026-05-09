@@ -12,6 +12,7 @@ from models import (
     InvoiceStatus,
     IssuerProfile,
     Lead,
+    PlanningMessage,
 )
 
 
@@ -109,6 +110,24 @@ def make_lead_drittland_us(session: Session, **overrides) -> Lead:
     session.commit()
     session.refresh(lead)
     return lead
+
+
+def make_planning_messages(session: Session, lead: Lead, count: int = 4) -> list[PlanningMessage]:
+    """Seed a planning chat with alternating user/assistant turns."""
+    msgs = []
+    for i in range(count):
+        role = "user" if i % 2 == 0 else "assistant"
+        msg = PlanningMessage(
+            lead_id=lead.id,
+            role=role,
+            content=f"{role.capitalize()}-Nachricht {i + 1}: Test-Inhalt für Planung.",
+        )
+        session.add(msg)
+        msgs.append(msg)
+    session.commit()
+    for m in msgs:
+        session.refresh(m)
+    return msgs
 
 
 _SENTINEL = object()

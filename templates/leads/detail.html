@@ -166,7 +166,7 @@
         <div style="display:flex;gap:0.5rem;align-items:center;">
           <button class="ar-btn ar-btn-ghost ar-btn-sm" onclick="clearChat()">Chat leeren</button>
           <a href="/ai/leads/{{ lead.id }}/plan/prompt.md" class="ar-btn ar-btn-ghost ar-btn-sm">Prompt ↓</a>
-          <a href="/leads/{{ lead.id }}/proposals/new?from_plan=1" class="ar-btn ar-btn-coral ar-btn-sm">→ Angebot</a>
+          <a id="ai-to-proposal" href="/leads/{{ lead.id }}/proposals/new?from_plan=1" class="ar-btn ar-btn-coral ar-btn-sm">→ Angebot</a>
         </div>
       </div>
 
@@ -439,5 +439,40 @@ if (AI_ACTIVE) {
     });
   }
 }
+</script>
+
+<div id="ai-overlay" class="ai-overlay" hidden role="status" aria-live="polite">
+  <div class="ai-overlay-card">
+    <span class="ar-eyebrow">// ki befüllt deinen angebots-entwurf</span>
+    <p class="ar-body" style="margin-top:0.5rem;">
+      Anschreiben + 3 Leistungsblöcke werden gerade aus dem Chat generiert.
+      Das dauert etwa 5–10&nbsp;Sekunden.
+    </p>
+    <div class="ai-overlay-spinner" aria-hidden="true"></div>
+  </div>
+</div>
+
+<style>
+.ai-overlay { position: fixed; inset: 0; background: rgba(253,251,246,.92);
+  display: grid; place-items: center; z-index: 9000;
+  backdrop-filter: blur(4px); }
+.ai-overlay[hidden] { display: none; }
+.ai-overlay-card { max-width: 420px; padding: 2rem; text-align: center; }
+.ai-overlay-spinner { margin: 1.5rem auto 0; width: 28px; height: 28px;
+  border: 2px solid var(--ar-hairline); border-top-color: var(--ar-coral);
+  border-radius: 50%; animation: ai-overlay-spin .8s linear infinite; }
+@keyframes ai-overlay-spin { to { transform: rotate(360deg); } }
+</style>
+
+<script>
+(function () {
+  const link = document.getElementById('ai-to-proposal');
+  const overlay = document.getElementById('ai-overlay');
+  if (!link || !overlay) return;
+  link.addEventListener('click', function () {
+    if (typeof AI_ACTIVE !== 'undefined' && !AI_ACTIVE) return;
+    overlay.hidden = false;
+  });
+})();
 </script>
 {% endblock %}
