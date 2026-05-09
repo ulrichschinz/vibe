@@ -221,6 +221,7 @@ def issuer_form(request: Request, session: Session = Depends(get_session), _=Dep
     return templates.TemplateResponse("admin/issuer.html", {
         "request": request,
         "issuer": issuer,
+        "saved": request.query_params.get("saved") == "1",
         "msg": request.query_params.get("msg"),
     })
 
@@ -266,7 +267,7 @@ def issuer_save(
     issuer.updated_at = datetime.utcnow()
     session.add(issuer)
     session.commit()
-    return RedirectResponse("/admin/issuer?msg=Aussteller-Daten+gespeichert.", status_code=303)
+    return RedirectResponse("/admin/issuer?saved=1", status_code=303)
 
 
 @router.get("/vies-overrides", response_class=HTMLResponse)
