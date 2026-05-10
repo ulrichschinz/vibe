@@ -163,12 +163,14 @@ async def lead_import_linkedin(
         request.session["linkedin_import_error"] = f"Extraktion fehlgeschlagen: {e}"
         return RedirectResponse("/leads/import-linkedin", status_code=303)
 
-    notes_parts = []
-    if why_good.strip():
-        notes_parts.append("Warum dieser Lead:\n" + why_good.strip())
-    if data.get("notes_block"):
-        notes_parts.append(data["notes_block"])
-    notes_combined = "\n\n---\n\n".join(notes_parts) or None
+    ai_readiness = _parse_enum(data.get("ai_readiness_level"), ReadinessLevel)
+    bant_authority = _parse_enum(data.get("bant_authority"), BantValue)
+    bant_need = _parse_enum(data.get("bant_need"), BantValue)
+
+    readiness_label = (
+        READINESS_LABELS[ReadinessLevel(ai_readiness)] if ai_readiness else None
+    )
+    notes = _compose_linkedin_notes(why_good, data, readiness_label)
 
     preview_lead = Lead(
         name=data.get("name") or None,
@@ -177,8 +179,11 @@ async def lead_import_linkedin(
         email=data.get("email") or None,
         phone=data.get("phone") or None,
         source=LeadSource.linkedin,
-        notes=notes_combined,
+        notes=notes,
         pain_points=data.get("pain_points") or None,
+        ai_readiness=ai_readiness,
+        bant_authority=bant_authority,
+        bant_need=bant_need,
     )
 
     return templates.TemplateResponse("leads/form.html", {
@@ -187,6 +192,34 @@ async def lead_import_linkedin(
         "action": "/leads",
         "preview_source": "vorschau aus linkedin",
     })
+
+
+def _compose_linkedin_notes(why_good: str, data: dict, readiness_label: Optional[str]) -> Optional[str]:
+    """Build the structured notes block from the sales-extraction fields."""
+    parts: list[str] = []
+    if why_good.strip():
+        parts.append("Warum dieser Lead (Vertrieb):\n" + why_good.strip())
+
+    sections = [
+        ("Firma", data.get("company_summary")),
+        ("Buying Signals", data.get("buying_signals")),
+        ("Decision-Role", data.get("decision_role")),
+        ("Fit für Agentic Reach", data.get("agentic_reach_fit")),
+        (
+            f"AI-Readiness: {readiness_label}" if readiness_label else "AI-Readiness",
+            data.get("ai_readiness_reason"),
+        ),
+        ("Karriere-Highlights", data.get("career_highlights")),
+    ]
+    body_parts = [
+        f"## {header}\n{body.strip()}"
+        for header, body in sections
+        if body and body.strip()
+    ]
+    if body_parts:
+        parts.append("\n\n".join(body_parts))
+
+    return "\n\n---\n\n".join(parts) or None
 
 
 @router.post("/leads", response_class=RedirectResponse)
