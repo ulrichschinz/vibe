@@ -37,7 +37,7 @@
         <input type="checkbox" id="show_snoozed_chk" name="show_snoozed" value="true"
                {% if show_snoozed %}checked{% endif %} onchange="this.form.submit()"
                style="margin-right:0.4rem;vertical-align:middle;">
-        Pausierte zeigen
+        Wiedervorlagen zeigen
       </label>
     </div>
     {% if filter_stage or filter_source or show_snoozed %}
@@ -65,9 +65,9 @@
           <td>
             <a href="/leads/{{ lead.id }}" class="app-lead-name">{{ lead.display_name() }}</a>
             {% if lead.snooze_until and lead.snooze_until > today %}
-            <span class="app-stage-badge" title="Pausiert bis {{ lead.snooze_until.strftime('%d.%m.%Y') }}"
+            <span class="app-stage-badge" title="Wiedervorlage am {{ lead.snooze_until.strftime('%d.%m.%Y') }}"
                   style="background:#222;color:#999;margin-left:0.4rem;font-size:0.7rem;">
-              Pausiert · {{ lead.snooze_until.strftime('%d.%m.') }}
+              Wiedervorlage · {{ lead.snooze_until.strftime('%d.%m.') }}
             </span>
             {% endif %}
           </td>

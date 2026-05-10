@@ -34,7 +34,7 @@
     <div>
       <span class="ar-eyebrow">// lead · <span class="app-stage-badge app-stage-{{ lead.stage.value }}">{{ STAGE_LABELS[lead.stage] }}</span>
         {% if lead.is_snoozed(today) %}
-        · <span class="app-stage-badge" style="background:#222;color:#999;">Pausiert bis {{ lead.snooze_until.strftime('%d.%m.%Y') }}</span>
+        · <span class="app-stage-badge" style="background:#222;color:#999;">Wiedervorlage am {{ lead.snooze_until.strftime('%d.%m.%Y') }}</span>
         {% endif %}
       </span>
       <h1 class="ar-display-s">{{ lead.display_name() }}</h1>
@@ -177,7 +177,7 @@
         <span class="ar-eyebrow">// wiedervorlage</span>
         {% if lead.snooze_until %}
         <p class="ar-body" style="margin-top:0.4rem;">
-          {% if lead.is_snoozed(today) %}Pausiert bis{% else %}War pausiert bis{% endif %}
+          {% if lead.is_snoozed(today) %}Wiedervorlage am{% else %}War auf Wiedervorlage bis{% endif %}
           <strong>{{ lead.snooze_until.strftime('%d.%m.%Y') }}</strong>
         </p>
         <form method="post" action="/leads/{{ lead.id }}/snooze" style="margin-top:0.5rem;">
@@ -185,7 +185,7 @@
           <button type="submit" class="ar-btn ar-btn-ghost ar-btn-sm">Wiedervorlage aufheben</button>
         </form>
         {% else %}
-        <p class="app-plan-empty">Lead ist aktiv (nicht pausiert).</p>
+        <p class="app-plan-empty">Lead ist aktiv (keine Wiedervorlage gesetzt).</p>
         <div style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap;">
           {% for d in [3, 7, 14, 30] %}
           <form method="post" action="/leads/{{ lead.id }}/snooze">
