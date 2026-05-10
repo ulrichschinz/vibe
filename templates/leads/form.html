@@ -67,6 +67,74 @@
 
     </div>
 
+    <fieldset class="app-form-fieldset" style="margin-top:2rem;border:1px solid #2a2a2a;border-radius:6px;padding:1.25rem;">
+      <legend class="ar-eyebrow" style="padding:0 0.5rem;">// qualifizierung (bant)</legend>
+      <div class="ar-form-grid">
+
+        {% for bant_key, bant_label in [('bant_budget','Budget'), ('bant_authority','Authority'), ('bant_need','Need'), ('bant_timing','Timing')] %}
+        <div class="ar-field">
+          <label class="ar-eyebrow" for="{{ bant_key }}">{{ bant_label }}</label>
+          <select id="{{ bant_key }}" name="{{ bant_key }}" class="app-select">
+            <option value="">—</option>
+            {% for bv in BantValue %}
+            <option value="{{ bv.value }}" {% if lead and lead[bant_key] == bv.value %}selected{% endif %}>{{ BANT_LABELS[bv] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endfor %}
+
+        <div class="ar-field">
+          <label class="ar-eyebrow" for="ai_readiness">AI-Readiness</label>
+          <select id="ai_readiness" name="ai_readiness" class="app-select">
+            <option value="">—</option>
+            {% for r in ReadinessLevel %}
+            <option value="{{ r.value }}" {% if lead and lead.ai_readiness == r.value %}selected{% endif %}>{{ READINESS_LABELS[r] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="ar-field ar-field--full">
+          <label class="ar-eyebrow" for="pain_points">Pain Points</label>
+          <textarea id="pain_points" name="pain_points" class="app-textarea" rows="3"
+                    placeholder="Was tut konkret weh? Welche Probleme will der Kunde lösen?">{{ lead.pain_points or '' }}</textarea>
+        </div>
+
+        <div class="ar-field">
+          <label class="ar-eyebrow" for="next_action">Nächster Schritt</label>
+          <input type="text" id="next_action" name="next_action" class="app-input"
+                 value="{{ lead.next_action or '' }}" placeholder="z. B. Termin Mo bestätigen">
+        </div>
+
+        <div class="ar-field">
+          <label class="ar-eyebrow" for="next_action_date">Bis</label>
+          <input type="date" id="next_action_date" name="next_action_date" class="app-input"
+                 value="{{ lead.next_action_date.isoformat() if lead and lead.next_action_date else '' }}">
+        </div>
+
+      </div>
+    </fieldset>
+
+    <fieldset class="app-form-fieldset" style="margin-top:1.5rem;border:1px solid #2a2a2a;border-radius:6px;padding:1.25rem;">
+      <legend class="ar-eyebrow" style="padding:0 0.5rem;">// wiedervorlage</legend>
+      <div class="ar-form-grid">
+        <div class="ar-field ar-field--full">
+          <label class="ar-eyebrow" for="snooze_until">Pausieren bis</label>
+          <input type="date" id="snooze_until" name="snooze_until" class="app-input"
+                 value="{{ lead.snooze_until.isoformat() if lead and lead.snooze_until else '' }}">
+          <div style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap;">
+            <button type="button" class="ar-btn ar-btn-ghost ar-btn-sm" data-snooze-days="3">+3 Tage</button>
+            <button type="button" class="ar-btn ar-btn-ghost ar-btn-sm" data-snooze-days="7">+7 Tage</button>
+            <button type="button" class="ar-btn ar-btn-ghost ar-btn-sm" data-snooze-days="14">+14 Tage</button>
+            <button type="button" class="ar-btn ar-btn-ghost ar-btn-sm" data-snooze-days="30">+30 Tage</button>
+            <button type="button" class="ar-btn ar-btn-ghost ar-btn-sm" data-snooze-days="0">Aufheben</button>
+          </div>
+          <p class="app-field-hint" style="margin-top:0.5rem;">
+            Solange dieses Datum in der Zukunft liegt, wird der Lead in der Liste standardmäßig ausgeblendet.
+          </p>
+        </div>
+      </div>
+    </fieldset>
+
     <p id="field-error" class="app-field-error" style="display:none">
       Mindestens Name oder Firma muss angegeben sein.
     </p>
@@ -99,6 +167,22 @@ document.querySelector('form').addEventListener('submit', function(e) {
     document.getElementById('name').classList.remove('app-input--error');
     document.getElementById('company').classList.remove('app-input--error');
     document.getElementById('field-error').style.display = 'none';
+  });
+});
+
+// Snooze quick-buttons: set snooze_until to today + N days (or clear).
+document.querySelectorAll('[data-snooze-days]').forEach(btn => {
+  btn.addEventListener('click', function() {
+    const days = parseInt(this.dataset.snoozeDays, 10);
+    const target = document.getElementById('snooze_until');
+    if (!target) return;
+    if (days <= 0) {
+      target.value = '';
+    } else {
+      const d = new Date();
+      d.setDate(d.getDate() + days);
+      target.value = d.toISOString().slice(0, 10);
+    }
   });
 });
 </script>

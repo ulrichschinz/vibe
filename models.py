@@ -108,6 +108,39 @@ STAGE_ORDER = [
 ]
 
 
+class BantValue(str, Enum):
+    yes = "yes"
+    open = "open"
+    no = "no"
+
+
+BANT_LABELS = {
+    BantValue.yes: "Ja",
+    BantValue.open: "Offen",
+    BantValue.no: "Nein",
+}
+
+
+class ReadinessLevel(str, Enum):
+    high = "high"
+    medium = "medium"
+    low = "low"
+
+
+READINESS_LABELS = {
+    ReadinessLevel.high: "Hoch",
+    ReadinessLevel.medium: "Mittel",
+    ReadinessLevel.low: "Niedrig",
+}
+
+
+_BANT_SCORE = {
+    BantValue.yes.value: 25,
+    BantValue.open.value: 10,
+    BantValue.no.value: 0,
+}
+
+
 class Lead(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -132,9 +165,31 @@ class Lead(SQLModel, table=True):
     vat_id: Optional[str] = None                       # USt-IdNr.
     is_business: Optional[bool] = Field(default=True)
     tax_country: Optional[str] = None                  # falls abweichend von country_code
+    # Wiedervorlage / Qualifizierung (added 2026-05).
+    snooze_until: Optional[date] = Field(default=None, sa_column=Column(Date, nullable=True))
+    bant_budget: Optional[str] = None     # BantValue
+    bant_authority: Optional[str] = None
+    bant_need: Optional[str] = None
+    bant_timing: Optional[str] = None
+    ai_readiness: Optional[str] = None    # ReadinessLevel
+    pain_points: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
+    next_action: Optional[str] = None
+    next_action_date: Optional[date] = Field(default=None, sa_column=Column(Date, nullable=True))
 
     def display_name(self) -> str:
         return self.name or self.company or "—"
+
+    def is_snoozed(self, today: Optional[date] = None) -> bool:
+        if not self.snooze_until:
+            return False
+        ref = today or date.today()
+        return self.snooze_until > ref
+
+    def bant_score(self) -> int:
+        return sum(
+            _BANT_SCORE.get(v, 0)
+            for v in (self.bant_budget, self.bant_authority, self.bant_need, self.bant_timing)
+        )
 
     def get_tags(self) -> list:
         if not self.tags:
@@ -252,6 +307,15 @@ class LeadCreate(SQLModel):
     notes: Optional[str] = None
     tags: Optional[list] = None
     agent_metadata: Optional[dict] = None
+    snooze_until: Optional[date] = None
+    bant_budget: Optional[BantValue] = None
+    bant_authority: Optional[BantValue] = None
+    bant_need: Optional[BantValue] = None
+    bant_timing: Optional[BantValue] = None
+    ai_readiness: Optional[ReadinessLevel] = None
+    pain_points: Optional[str] = None
+    next_action: Optional[str] = None
+    next_action_date: Optional[date] = None
 
 
 class LeadRead(SQLModel):
@@ -265,6 +329,15 @@ class LeadRead(SQLModel):
     source: LeadSource
     stage: LeadStage
     notes: Optional[str]
+    snooze_until: Optional[date] = None
+    bant_budget: Optional[BantValue] = None
+    bant_authority: Optional[BantValue] = None
+    bant_need: Optional[BantValue] = None
+    bant_timing: Optional[BantValue] = None
+    ai_readiness: Optional[ReadinessLevel] = None
+    pain_points: Optional[str] = None
+    next_action: Optional[str] = None
+    next_action_date: Optional[date] = None
 
 
 class LeadPatch(SQLModel):
@@ -274,6 +347,15 @@ class LeadPatch(SQLModel):
     phone: Optional[str] = None
     stage: Optional[LeadStage] = None
     notes: Optional[str] = None
+    snooze_until: Optional[date] = None
+    bant_budget: Optional[BantValue] = None
+    bant_authority: Optional[BantValue] = None
+    bant_need: Optional[BantValue] = None
+    bant_timing: Optional[BantValue] = None
+    ai_readiness: Optional[ReadinessLevel] = None
+    pain_points: Optional[str] = None
+    next_action: Optional[str] = None
+    next_action_date: Optional[date] = None
 
 
 # ── Invoicing ──────────────────────────────────────────────────────────────

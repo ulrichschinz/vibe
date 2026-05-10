@@ -3,11 +3,12 @@
 The server is mounted at /mcp by routes/mcp.py. Auth is enforced by an ASGI
 middleware in routes/mcp.py — tools here trust that the caller is authenticated.
 """
-from datetime import datetime
+from datetime import datetime, date
 from typing import Any, Optional
 import json
 import os
 
+from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from mcp.server.fastmcp import FastMCP
@@ -15,12 +16,14 @@ from mcp.server.fastmcp import FastMCP
 from database import engine
 from models import (
     DEFAULT_SERVICES,
+    BantValue,
     Lead,
     LeadSource,
     LeadStage,
     Note,
     Proposal,
     ProposalStatus,
+    ReadinessLevel,
 )
 from services.proposals import (
     create_proposal as create_proposal_svc,
@@ -47,6 +50,17 @@ def _lead_dict(lead: Lead) -> dict:
         "notes": lead.notes,
         "tags": lead.get_tags(),
         "agent_metadata": lead.get_agent_metadata(),
+        "snooze_until": lead.snooze_until.isoformat() if lead.snooze_until else None,
+        "is_snoozed": lead.is_snoozed(),
+        "bant_budget": lead.bant_budget,
+        "bant_authority": lead.bant_authority,
+        "bant_need": lead.bant_need,
+        "bant_timing": lead.bant_timing,
+        "bant_score": lead.bant_score(),
+        "ai_readiness": lead.ai_readiness,
+        "pain_points": lead.pain_points,
+        "next_action": lead.next_action,
+        "next_action_date": lead.next_action_date.isoformat() if lead.next_action_date else None,
     }
 
 
@@ -101,9 +115,20 @@ def create_lead(
     notes: Optional[str] = None,
     tags: Optional[list[str]] = None,
     agent_metadata: Optional[dict] = None,
+    snooze_until: Optional[str] = None,
+    bant_budget: Optional[BantValue] = None,
+    bant_authority: Optional[BantValue] = None,
+    bant_need: Optional[BantValue] = None,
+    bant_timing: Optional[BantValue] = None,
+    ai_readiness: Optional[ReadinessLevel] = None,
+    pain_points: Optional[str] = None,
+    next_action: Optional[str] = None,
+    next_action_date: Optional[str] = None,
 ) -> dict:
     """Create a new lead. Either name or company must be provided.
-    `source` defaults to "agent" so leads created via MCP are easy to filter."""
+    `source` defaults to "agent" so leads created via MCP are easy to filter.
+    Date fields (`snooze_until`, `next_action_date`) are ISO-8601 strings (YYYY-MM-DD).
+    `bant_*` accept "yes" / "open" / "no". `ai_readiness` accepts "high" / "medium" / "low"."""
     if not name and not company:
         raise ValueError("name or company must be provided")
     with Session(engine) as session:
@@ -117,6 +142,15 @@ def create_lead(
             notes=notes,
             tags=json.dumps(tags) if tags else None,
             agent_metadata=json.dumps(agent_metadata) if agent_metadata else None,
+            snooze_until=date.fromisoformat(snooze_until) if snooze_until else None,
+            bant_budget=bant_budget.value if bant_budget else None,
+            bant_authority=bant_authority.value if bant_authority else None,
+            bant_need=bant_need.value if bant_need else None,
+            bant_timing=bant_timing.value if bant_timing else None,
+            ai_readiness=ai_readiness.value if ai_readiness else None,
+            pain_points=pain_points,
+            next_action=next_action,
+            next_action_date=date.fromisoformat(next_action_date) if next_action_date else None,
         )
         session.add(lead)
         session.commit()
@@ -128,15 +162,21 @@ def create_lead(
 def list_leads(
     stage: Optional[LeadStage] = None,
     source: Optional[LeadSource] = None,
+    show_snoozed: bool = False,
     limit: int = 50,
 ) -> list[dict]:
-    """List leads, newest first. Optionally filter by stage and/or source."""
+    """List leads, newest first. Optionally filter by stage and/or source.
+    By default, leads with `snooze_until` in the future are hidden — pass
+    `show_snoozed=True` to include them."""
     with Session(engine) as session:
         query = select(Lead)
         if stage:
             query = query.where(Lead.stage == stage)
         if source:
             query = query.where(Lead.source == source)
+        if not show_snoozed:
+            today = date.today()
+            query = query.where(or_(Lead.snooze_until.is_(None), Lead.snooze_until <= today))
         query = query.order_by(Lead.created_at.desc()).limit(max(1, min(limit, 500)))
         return [_lead_dict(l) for l in session.exec(query).all()]
 
@@ -160,22 +200,40 @@ def update_lead(
     phone: Optional[str] = None,
     stage: Optional[LeadStage] = None,
     notes: Optional[str] = None,
+    snooze_until: Optional[str] = None,
+    bant_budget: Optional[BantValue] = None,
+    bant_authority: Optional[BantValue] = None,
+    bant_need: Optional[BantValue] = None,
+    bant_timing: Optional[BantValue] = None,
+    ai_readiness: Optional[ReadinessLevel] = None,
+    pain_points: Optional[str] = None,
+    next_action: Optional[str] = None,
+    next_action_date: Optional[str] = None,
 ) -> dict:
-    """Patch a lead. Only provided fields are updated."""
+    """Patch a lead. Only provided (non-None) fields are updated.
+    Pass an empty string for `snooze_until`/`next_action_date` to clear them.
+    `bant_*` accept "yes" / "open" / "no"; `ai_readiness` accepts "high" / "medium" / "low"."""
     with Session(engine) as session:
         lead = session.get(Lead, lead_id)
         if not lead:
             raise LookupError(f"Lead {lead_id} not found")
-        for field, value in {
-            "name": name,
-            "company": company,
-            "email": email,
-            "phone": phone,
-            "stage": stage,
-            "notes": notes,
-        }.items():
-            if value is not None:
-                setattr(lead, field, value)
+        if name is not None: lead.name = name
+        if company is not None: lead.company = company
+        if email is not None: lead.email = email
+        if phone is not None: lead.phone = phone
+        if stage is not None: lead.stage = stage
+        if notes is not None: lead.notes = notes
+        if snooze_until is not None:
+            lead.snooze_until = date.fromisoformat(snooze_until) if snooze_until else None
+        if bant_budget is not None: lead.bant_budget = bant_budget.value
+        if bant_authority is not None: lead.bant_authority = bant_authority.value
+        if bant_need is not None: lead.bant_need = bant_need.value
+        if bant_timing is not None: lead.bant_timing = bant_timing.value
+        if ai_readiness is not None: lead.ai_readiness = ai_readiness.value
+        if pain_points is not None: lead.pain_points = pain_points
+        if next_action is not None: lead.next_action = next_action
+        if next_action_date is not None:
+            lead.next_action_date = date.fromisoformat(next_action_date) if next_action_date else None
         lead.updated_at = datetime.utcnow()
         session.add(lead)
         session.commit()

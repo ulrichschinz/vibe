@@ -2,13 +2,38 @@ from fastapi import APIRouter, Depends, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
-from datetime import datetime
+from sqlalchemy import or_
+from datetime import datetime, date, timedelta
 from typing import Optional
 import json
 
 from database import get_session
-from models import Lead, Proposal, Note, PlanningMessage, AiSettings, LeadStage, LeadSource, STAGE_LABELS, SOURCE_LABELS, STAGE_ORDER, PROPOSAL_STATUS_LABELS
+from models import (
+    Lead, Proposal, Note, PlanningMessage, AiSettings,
+    LeadStage, LeadSource, STAGE_LABELS, SOURCE_LABELS, STAGE_ORDER,
+    PROPOSAL_STATUS_LABELS, BantValue, ReadinessLevel, BANT_LABELS, READINESS_LABELS,
+)
 from services.auth import require_login, require_editor
+
+
+def _parse_date(value: str) -> Optional[date]:
+    value = (value or "").strip()
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def _parse_enum(value: str, enum_cls):
+    value = (value or "").strip()
+    if not value:
+        return None
+    try:
+        return enum_cls(value).value
+    except ValueError:
+        return None
 
 
 def _ai_active(session: Session) -> bool:
@@ -23,17 +48,25 @@ templates.env.globals["STAGE_ORDER"] = STAGE_ORDER
 templates.env.globals["LeadStage"] = LeadStage
 templates.env.globals["LeadSource"] = LeadSource
 templates.env.globals["PROPOSAL_STATUS_LABELS"] = PROPOSAL_STATUS_LABELS
+templates.env.globals["BANT_LABELS"] = BANT_LABELS
+templates.env.globals["READINESS_LABELS"] = READINESS_LABELS
+templates.env.globals["BantValue"] = BantValue
+templates.env.globals["ReadinessLevel"] = ReadinessLevel
 
 
 @router.get("/", response_class=HTMLResponse)
 def dashboard(request: Request, session: Session = Depends(get_session), _=Depends(require_login)):
-    leads = session.exec(select(Lead).order_by(Lead.created_at.desc())).all()
-    by_stage = {s: sum(1 for l in leads if l.stage == s) for s in LeadStage}
+    today = date.today()
+    all_leads = session.exec(select(Lead).order_by(Lead.created_at.desc())).all()
+    active_leads = [l for l in all_leads if not l.is_snoozed(today)]
+    snoozed_count = len(all_leads) - len(active_leads)
+    by_stage = {s: sum(1 for l in active_leads if l.stage == s) for s in LeadStage}
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
-        "leads": leads,
+        "leads": active_leads,
         "by_stage": by_stage,
-        "total": len(leads),
+        "total": len(active_leads),
+        "snoozed_count": snoozed_count,
     })
 
 
@@ -42,20 +75,26 @@ def lead_list(
     request: Request,
     stage: Optional[str] = None,
     source: Optional[str] = None,
+    show_snoozed: bool = False,
     session: Session = Depends(get_session),
     _=Depends(require_login),
 ):
+    today = date.today()
     query = select(Lead)
     if stage:
         query = query.where(Lead.stage == stage)
     if source:
         query = query.where(Lead.source == source)
+    if not show_snoozed:
+        query = query.where(or_(Lead.snooze_until.is_(None), Lead.snooze_until <= today))
     leads = session.exec(query.order_by(Lead.created_at.desc())).all()
     return templates.TemplateResponse("leads/list.html", {
         "request": request,
         "leads": leads,
         "filter_stage": stage,
         "filter_source": source,
+        "show_snoozed": show_snoozed,
+        "today": today,
     })
 
 
@@ -78,6 +117,15 @@ def lead_create(
     salutation: str = Form(""),
     source: str = Form("manual"),
     notes: str = Form(""),
+    snooze_until: str = Form(""),
+    bant_budget: str = Form(""),
+    bant_authority: str = Form(""),
+    bant_need: str = Form(""),
+    bant_timing: str = Form(""),
+    ai_readiness: str = Form(""),
+    pain_points: str = Form(""),
+    next_action: str = Form(""),
+    next_action_date: str = Form(""),
     session: Session = Depends(get_session),
     _=Depends(require_editor),
 ):
@@ -91,6 +139,15 @@ def lead_create(
         salutation=salutation.strip() or None,
         source=LeadSource(source),
         notes=notes.strip() or None,
+        snooze_until=_parse_date(snooze_until),
+        bant_budget=_parse_enum(bant_budget, BantValue),
+        bant_authority=_parse_enum(bant_authority, BantValue),
+        bant_need=_parse_enum(bant_need, BantValue),
+        bant_timing=_parse_enum(bant_timing, BantValue),
+        ai_readiness=_parse_enum(ai_readiness, ReadinessLevel),
+        pain_points=pain_points.strip() or None,
+        next_action=next_action.strip() or None,
+        next_action_date=_parse_date(next_action_date),
     )
     session.add(lead)
     session.commit()
@@ -138,6 +195,7 @@ def lead_detail(request: Request, lead_id: int, session: Session = Depends(get_s
         "stages": stages,
         "notes": notes,
         "ai_active": _ai_active(session),
+        "today": date.today(),
     })
 
 
@@ -163,6 +221,15 @@ def lead_update(
     salutation: str = Form(""),
     source: str = Form("manual"),
     notes: str = Form(""),
+    snooze_until: str = Form(""),
+    bant_budget: str = Form(""),
+    bant_authority: str = Form(""),
+    bant_need: str = Form(""),
+    bant_timing: str = Form(""),
+    ai_readiness: str = Form(""),
+    pain_points: str = Form(""),
+    next_action: str = Form(""),
+    next_action_date: str = Form(""),
     session: Session = Depends(get_session),
     _=Depends(require_editor),
 ):
@@ -178,10 +245,39 @@ def lead_update(
     lead.salutation = salutation.strip() or None
     lead.source = LeadSource(source)
     lead.notes = notes.strip() or None
+    lead.snooze_until = _parse_date(snooze_until)
+    lead.bant_budget = _parse_enum(bant_budget, BantValue)
+    lead.bant_authority = _parse_enum(bant_authority, BantValue)
+    lead.bant_need = _parse_enum(bant_need, BantValue)
+    lead.bant_timing = _parse_enum(bant_timing, BantValue)
+    lead.ai_readiness = _parse_enum(ai_readiness, ReadinessLevel)
+    lead.pain_points = pain_points.strip() or None
+    lead.next_action = next_action.strip() or None
+    lead.next_action_date = _parse_date(next_action_date)
     lead.updated_at = datetime.utcnow()
     session.add(lead)
     session.commit()
     return RedirectResponse(f"/leads/{lead_id}", status_code=303)
+
+
+@router.post("/leads/{lead_id}/snooze", response_class=RedirectResponse)
+def lead_snooze(
+    lead_id: int,
+    days: int = Form(...),
+    session: Session = Depends(get_session),
+    _=Depends(require_editor),
+):
+    lead = session.get(Lead, lead_id)
+    if not lead:
+        raise HTTPException(status_code=404)
+    if days <= 0:
+        lead.snooze_until = None
+    else:
+        lead.snooze_until = date.today() + timedelta(days=days)
+    lead.updated_at = datetime.utcnow()
+    session.add(lead)
+    session.commit()
+    return RedirectResponse(f"/leads/{lead_id}#qualifizierung", status_code=303)
 
 
 @router.post("/leads/{lead_id}/stage")

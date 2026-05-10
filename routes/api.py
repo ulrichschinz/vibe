@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Header
+from sqlalchemy import or_
 from sqlmodel import Session, select
 from datetime import date, datetime
 from decimal import Decimal
@@ -73,6 +74,15 @@ def api_create_lead(
         notes=payload.notes,
         tags=json.dumps(payload.tags) if payload.tags else None,
         agent_metadata=json.dumps(payload.agent_metadata) if payload.agent_metadata else None,
+        snooze_until=payload.snooze_until,
+        bant_budget=payload.bant_budget.value if payload.bant_budget else None,
+        bant_authority=payload.bant_authority.value if payload.bant_authority else None,
+        bant_need=payload.bant_need.value if payload.bant_need else None,
+        bant_timing=payload.bant_timing.value if payload.bant_timing else None,
+        ai_readiness=payload.ai_readiness.value if payload.ai_readiness else None,
+        pain_points=payload.pain_points,
+        next_action=payload.next_action,
+        next_action_date=payload.next_action_date,
     )
     session.add(lead)
     session.commit()
@@ -84,6 +94,7 @@ def api_create_lead(
 def api_list_leads(
     stage: str | None = None,
     source: str | None = None,
+    show_snoozed: bool = False,
     session: Session = Depends(get_session),
     _=Depends(verify_api_key),
 ):
@@ -92,6 +103,9 @@ def api_list_leads(
         query = query.where(Lead.stage == stage)
     if source:
         query = query.where(Lead.source == source)
+    if not show_snoozed:
+        today = date.today()
+        query = query.where(or_(Lead.snooze_until.is_(None), Lead.snooze_until <= today))
     return session.exec(query.order_by(Lead.created_at.desc())).all()
 
 

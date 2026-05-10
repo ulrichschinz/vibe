@@ -32,7 +32,11 @@
   <!-- Header -->
   <div class="app-page-head">
     <div>
-      <span class="ar-eyebrow">// lead · <span class="app-stage-badge app-stage-{{ lead.stage.value }}">{{ STAGE_LABELS[lead.stage] }}</span></span>
+      <span class="ar-eyebrow">// lead · <span class="app-stage-badge app-stage-{{ lead.stage.value }}">{{ STAGE_LABELS[lead.stage] }}</span>
+        {% if lead.is_snoozed(today) %}
+        · <span class="app-stage-badge" style="background:#222;color:#999;">Pausiert bis {{ lead.snooze_until.strftime('%d.%m.%Y') }}</span>
+        {% endif %}
+      </span>
       <h1 class="ar-display-s">{{ lead.display_name() }}</h1>
       {% if lead.name and lead.company %}<p class="ar-body app-company-large">{{ lead.company }}</p>{% endif %}
     </div>
@@ -45,6 +49,7 @@
   <!-- Tab bar -->
   <nav class="app-tabs">
     <a href="#uebersicht" class="app-tab">Übersicht</a>
+    <a href="#qualifizierung" class="app-tab">Qualifizierung{% if lead.bant_score() %}<span class="app-tab-badge">{{ lead.bant_score() }}</span>{% endif %}</a>
     <a href="#notizen" class="app-tab">Notizen{% if notes %}<span class="app-tab-badge">{{ notes|length }}</span>{% endif %}</a>
     <a href="#planung" class="app-tab">Planung{% if lead.plan_text %}<span class="app-tab-badge">●</span>{% endif %}</a>
     <a href="#angebote" class="app-tab">Angebote{% if proposals %}<span class="app-tab-badge">{{ proposals|length }}</span>{% endif %}</a>
@@ -105,6 +110,91 @@
             <span class="ar-slash">//</span>Lead löschen
           </button>
         </form>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- Qualifizierung -->
+  <div id="qualifizierung" class="app-tab-panel">
+    <div class="app-ueber-grid">
+
+      <section class="ar-card app-side-section">
+        <h4 class="app-side-title"><span class="ar-slash">//</span>BANT</h4>
+        <dl class="app-side-dl">
+          <div class="app-side-row">
+            <dt>Budget</dt>
+            <dd>{% if lead.bant_budget %}{{ BANT_LABELS[BantValue(lead.bant_budget)] }}{% else %}—{% endif %}</dd>
+          </div>
+          <div class="app-side-row">
+            <dt>Authority</dt>
+            <dd>{% if lead.bant_authority %}{{ BANT_LABELS[BantValue(lead.bant_authority)] }}{% else %}—{% endif %}</dd>
+          </div>
+          <div class="app-side-row">
+            <dt>Need</dt>
+            <dd>{% if lead.bant_need %}{{ BANT_LABELS[BantValue(lead.bant_need)] }}{% else %}—{% endif %}</dd>
+          </div>
+          <div class="app-side-row">
+            <dt>Timing</dt>
+            <dd>{% if lead.bant_timing %}{{ BANT_LABELS[BantValue(lead.bant_timing)] }}{% else %}—{% endif %}</dd>
+          </div>
+          <div class="app-side-row">
+            <dt>AI-Readiness</dt>
+            <dd>{% if lead.ai_readiness %}{{ READINESS_LABELS[ReadinessLevel(lead.ai_readiness)] }}{% else %}—{% endif %}</dd>
+          </div>
+          <div class="app-side-row" style="border-top:1px solid #2a2a2a;padding-top:0.6rem;margin-top:0.4rem;">
+            <dt>Score</dt>
+            <dd><strong style="font-size:1.4rem;color:#ff6b4a;">{{ lead.bant_score() }}</strong> / 100</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="ar-card app-side-section">
+        <h4 class="app-side-title"><span class="ar-slash">//</span>Pain Points & nächster Schritt</h4>
+        {% if lead.pain_points %}
+        <div style="margin-bottom:1rem;">
+          <span class="ar-eyebrow">// pain points</span>
+          <p class="ar-body" style="white-space:pre-wrap;margin-top:0.4rem;">{{ lead.pain_points }}</p>
+        </div>
+        {% else %}
+        <p class="app-plan-empty">Keine Pain Points erfasst.</p>
+        {% endif %}
+
+        <hr class="app-plan-divider">
+
+        <span class="ar-eyebrow">// nächster schritt</span>
+        {% if lead.next_action %}
+        <p class="ar-body" style="margin-top:0.4rem;">{{ lead.next_action }}</p>
+        {% if lead.next_action_date %}
+        <p class="ar-mono" style="color:#888;font-size:0.85rem;">bis {{ lead.next_action_date.strftime('%d.%m.%Y') }}</p>
+        {% endif %}
+        {% else %}
+        <p class="app-plan-empty">Kein nächster Schritt definiert.</p>
+        {% endif %}
+
+        <hr class="app-plan-divider">
+
+        <span class="ar-eyebrow">// wiedervorlage</span>
+        {% if lead.snooze_until %}
+        <p class="ar-body" style="margin-top:0.4rem;">
+          {% if lead.is_snoozed(today) %}Pausiert bis{% else %}War pausiert bis{% endif %}
+          <strong>{{ lead.snooze_until.strftime('%d.%m.%Y') }}</strong>
+        </p>
+        <form method="post" action="/leads/{{ lead.id }}/snooze" style="margin-top:0.5rem;">
+          <input type="hidden" name="days" value="0">
+          <button type="submit" class="ar-btn ar-btn-ghost ar-btn-sm">Wiedervorlage aufheben</button>
+        </form>
+        {% else %}
+        <p class="app-plan-empty">Lead ist aktiv (nicht pausiert).</p>
+        <div style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap;">
+          {% for d in [3, 7, 14, 30] %}
+          <form method="post" action="/leads/{{ lead.id }}/snooze">
+            <input type="hidden" name="days" value="{{ d }}">
+            <button type="submit" class="ar-btn ar-btn-ghost ar-btn-sm">+{{ d }} Tage</button>
+          </form>
+          {% endfor %}
+        </div>
+        {% endif %}
       </section>
 
     </div>
@@ -255,7 +345,7 @@
 // ── Tab switching ────────────────────────────────────────────────────────────
 function activateTab(hash) {
   const id = (hash || '').replace('#', '');
-  const valid = ['uebersicht', 'notizen', 'planung', 'angebote'];
+  const valid = ['uebersicht', 'qualifizierung', 'notizen', 'planung', 'angebote'];
   const active = valid.includes(id) ? id : 'uebersicht';
   document.querySelectorAll('.app-tab').forEach(t => {
     t.classList.toggle('is-active', t.getAttribute('href') === '#' + active);
