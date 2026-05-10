@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request, Form, HTTPException
+from fastapi import APIRouter, Depends, Request, Form, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
@@ -67,6 +67,7 @@ def dashboard(request: Request, session: Session = Depends(get_session), _=Depen
         "by_stage": by_stage,
         "total": len(active_leads),
         "snoozed_count": snoozed_count,
+        "ai_active": _ai_active(session),
     })
 
 
@@ -95,6 +96,7 @@ def lead_list(
         "filter_source": source,
         "show_snoozed": show_snoozed,
         "today": today,
+        "ai_active": _ai_active(session),
     })
 
 
@@ -104,6 +106,86 @@ def lead_new(request: Request, _=Depends(require_editor)):
         "request": request,
         "lead": None,
         "action": "/leads",
+    })
+
+
+MAX_LINKEDIN_PDF_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+@router.get("/leads/import-linkedin", response_class=HTMLResponse)
+def lead_import_linkedin_form(
+    request: Request,
+    session: Session = Depends(get_session),
+    _=Depends(require_editor),
+):
+    if not _ai_active(session):
+        raise HTTPException(
+            status_code=400,
+            detail="KI-Integration ist nicht aktiv. Bitte unter /admin/ai aktivieren.",
+        )
+    error = request.session.pop("linkedin_import_error", None)
+    return templates.TemplateResponse("leads/import_linkedin.html", {
+        "request": request,
+        "error": error,
+    })
+
+
+@router.post("/leads/import-linkedin", response_class=HTMLResponse)
+async def lead_import_linkedin(
+    request: Request,
+    pdf: UploadFile = File(...),
+    why_good: str = Form(""),
+    session: Session = Depends(get_session),
+    _=Depends(require_editor),
+):
+    if not _ai_active(session):
+        raise HTTPException(status_code=400, detail="KI-Integration ist nicht aktiv.")
+    settings = session.get(AiSettings, 1)
+
+    if pdf.content_type not in ("application/pdf", "application/x-pdf"):
+        request.session["linkedin_import_error"] = "Bitte eine PDF-Datei hochladen."
+        return RedirectResponse("/leads/import-linkedin", status_code=303)
+
+    pdf_bytes = await pdf.read()
+    if not pdf_bytes:
+        request.session["linkedin_import_error"] = "Die Datei ist leer."
+        return RedirectResponse("/leads/import-linkedin", status_code=303)
+    if len(pdf_bytes) > MAX_LINKEDIN_PDF_BYTES:
+        request.session["linkedin_import_error"] = (
+            f"PDF ist zu groß (max. {MAX_LINKEDIN_PDF_BYTES // (1024 * 1024)} MB)."
+        )
+        return RedirectResponse("/leads/import-linkedin", status_code=303)
+
+    from services.linkedin_import import extract_lead_from_pdf, LinkedInImportError
+    try:
+        data = extract_lead_from_pdf(pdf_bytes, why_good, settings)
+    except LinkedInImportError as e:
+        request.session["linkedin_import_error"] = f"Extraktion fehlgeschlagen: {e}"
+        return RedirectResponse("/leads/import-linkedin", status_code=303)
+
+    notes_parts = []
+    if why_good.strip():
+        notes_parts.append("Warum dieser Lead:\n" + why_good.strip())
+    if data.get("notes_block"):
+        notes_parts.append(data["notes_block"])
+    notes_combined = "\n\n---\n\n".join(notes_parts) or None
+
+    preview_lead = Lead(
+        name=data.get("name") or None,
+        company=data.get("company") or None,
+        salutation=data.get("salutation") or None,
+        email=data.get("email") or None,
+        phone=data.get("phone") or None,
+        source=LeadSource.linkedin,
+        notes=notes_combined,
+        pain_points=data.get("pain_points") or None,
+    )
+
+    return templates.TemplateResponse("leads/form.html", {
+        "request": request,
+        "lead": preview_lead,
+        "action": "/leads",
+        "preview_source": "vorschau aus linkedin",
     })
 
 

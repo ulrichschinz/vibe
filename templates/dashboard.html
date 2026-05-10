@@ -33,7 +33,13 @@
   <div class="app-section">
     <div class="app-section-head">
       <span class="ar-eyebrow">// zuletzt aktiv</span>
-      <a href="/leads" class="ar-btn ar-btn-primary ar-btn-sm">Alle Leads →</a>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        {% if ai_active %}
+        <a href="/leads/import-linkedin" class="ar-btn ar-btn-ghost ar-btn-sm">+ Lead aus LinkedIn-PDF</a>
+        {% endif %}
+        <a href="/leads/new" class="ar-btn ar-btn-ghost ar-btn-sm">+ Neuer Lead</a>
+        <a href="/leads" class="ar-btn ar-btn-primary ar-btn-sm">Alle Leads →</a>
+      </div>
     </div>
 
     {% if leads %}

@@ -1,16 +1,25 @@
 {% extends "base.html" %}
-{% block title %}{% if lead %}Lead bearbeiten{% else %}Neuer Lead{% endif %}{% endblock %}
+{% block title %}{% if lead and lead.id %}Lead bearbeiten{% else %}Neuer Lead{% endif %}{% endblock %}
 
 {% block content %}
 <div class="ar-container app-page app-page-narrow">
 
   <div class="app-page-head">
     <div>
-      <span class="ar-eyebrow">{% if lead %}// bearbeiten{% else %}// neuer lead{% endif %}</span>
+      <span class="ar-eyebrow">{% if lead and lead.id %}// bearbeiten{% elif preview_source %}// {{ preview_source }}{% else %}// neuer lead{% endif %}</span>
       <h1 class="ar-display-s">{% if lead %}{{ lead.display_name() }}{% else %}Lead anlegen{% endif %}</h1>
     </div>
-    {% if lead %}<a href="/leads/{{ lead.id }}" class="ar-btn ar-btn-ghost ar-btn-sm">← Zurück</a>{% endif %}
+    {% if lead and lead.id %}<a href="/leads/{{ lead.id }}" class="ar-btn ar-btn-ghost ar-btn-sm">← Zurück</a>{% endif %}
   </div>
+
+  {% if preview_source %}
+  <div class="ar-card" style="background:#1a1a1a;border-color:#3a3a3a;padding:1rem;margin-bottom:1rem;">
+    <span class="ar-eyebrow">// hinweis</span>
+    <p class="ar-body" style="margin-top:0.5rem;margin-bottom:0;">
+      Diese Felder wurden aus dem hochgeladenen PDF extrahiert. Bitte prüfen, ggf. korrigieren oder ergänzen, dann „Lead anlegen" klicken.
+    </p>
+  </div>
+  {% endif %}
 
   <form method="post" action="{{ action }}" class="ar-card app-form">
     <div class="ar-form-grid">
@@ -141,9 +150,9 @@
 
     <div class="app-form-actions">
       <button type="submit" class="ar-btn ar-btn-coral">
-        {% if lead %}Speichern{% else %}Lead anlegen{% endif %}
+        {% if lead and lead.id %}Speichern{% else %}Lead anlegen{% endif %}
       </button>
-      {% if lead %}
+      {% if lead and lead.id %}
       <a href="/leads/{{ lead.id }}" class="ar-btn ar-btn-ghost">Abbrechen</a>
       {% else %}
       <a href="/leads" class="ar-btn ar-btn-ghost">Abbrechen</a>

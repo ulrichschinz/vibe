@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Lead aus LinkedIn-PDF{% endblock %}
+
+{% block content %}
+<div class="ar-container app-page app-page-narrow">
+
+  <div class="app-page-head">
+    <div>
+      <span class="ar-eyebrow">// import</span>
+      <h1 class="ar-display-s">Lead aus LinkedIn-PDF</h1>
+    </div>
+    <a href="/leads" class="ar-btn ar-btn-ghost ar-btn-sm">← Zurück</a>
+  </div>
+
+  {% if error %}
+  <div class="ar-card" style="background:#2a1010;border-color:#5a2020;padding:1rem;margin-bottom:1rem;">
+    <p class="ar-body" style="color:#e88;margin:0;">{{ error }}</p>
+  </div>
+  {% endif %}
+
+  <form method="post" action="/leads/import-linkedin" enctype="multipart/form-data" class="ar-card app-form">
+    <div class="ar-form-grid">
+
+      <div class="ar-field ar-field--full">
+        <label class="ar-eyebrow" for="pdf">LinkedIn-Profil (PDF)</label>
+        <input type="file" id="pdf" name="pdf" class="app-input" accept="application/pdf" required>
+        <p class="app-field-hint" style="margin-top:0.4rem;">
+          LinkedIn → Profil → „Mehr" → „Als PDF speichern". Max. 10 MB.
+        </p>
+      </div>
+
+      <div class="ar-field ar-field--full">
+        <label class="ar-eyebrow" for="why_good">
+          Warum ist dieser Lead gut?
+          <span class="app-field-hint">(optional, hilft der KI bei der Pain-Point-Einschätzung)</span>
+        </label>
+        <textarea id="why_good" name="why_good" class="app-textarea" rows="4"
+                  placeholder="z. B. CEO eines wachsenden Mittelstands, postet aktiv zu KI-Themen, warmer Kontakt aus dem Netzwerk ..."></textarea>
+      </div>
+
+    </div>
+
+    <div class="app-form-actions" style="margin-top:1.5rem;">
+      <button type="submit" class="ar-btn ar-btn-coral">Profil analysieren →</button>
+      <a href="/leads" class="ar-btn ar-btn-ghost">Abbrechen</a>
+    </div>
+
+    <p class="app-field-hint" style="margin-top:1rem;">
+      Das PDF wird einmalig an Claude gesendet und nach der Extraktion verworfen — keine lokale Speicherung.
+    </p>
+  </form>
+
+</div>
+{% endblock %}
