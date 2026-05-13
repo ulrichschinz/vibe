@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel
@@ -6,7 +8,16 @@ from typing import Optional
 from datetime import datetime
 
 from database import get_session
-from models import AiSettings, Lead, Note, PlanningMessage, STAGE_LABELS, SOURCE_LABELS
+from models import (
+    AiSettings,
+    Lead,
+    Note,
+    PlanningMessage,
+    STAGE_LABELS,
+    SOURCE_LABELS,
+    BANT_LABELS,
+    READINESS_LABELS,
+)
 from services.auth import require_editor, require_login
 from services.ai import generate_text, chat_with_context
 
@@ -51,6 +62,56 @@ def ai_generate(
 
 # ── Planning chat ────────────────────────────────────────────────────────────
 
+def _build_qualification_block(lead: Lead) -> str:
+    """Strukturierter Qualifizierungs-Auszug für Prompt und Markdown-Export."""
+    def _label(val: Optional[str], labels: dict) -> str:
+        if not val:
+            return "—"
+        return labels.get(val, val)
+
+    lines: list[str] = []
+    lines.append(
+        f"BANT: Budget={_label(lead.bant_budget, BANT_LABELS)} | "
+        f"Authority={_label(lead.bant_authority, BANT_LABELS)} | "
+        f"Need={_label(lead.bant_need, BANT_LABELS)} | "
+        f"Timing={_label(lead.bant_timing, BANT_LABELS)} "
+        f"(Score: {lead.bant_score()}/100)"
+    )
+    lines.append(f"AI-Readiness: {_label(lead.ai_readiness, READINESS_LABELS)}")
+    lines.append(f"Pain Points: {lead.pain_points or '—'}")
+
+    if lead.next_action or lead.next_action_date:
+        action = lead.next_action or "—"
+        when = lead.next_action_date.strftime("%d.%m.%Y") if lead.next_action_date else "ohne Datum"
+        lines.append(f"Nächster Schritt: {action} ({when})")
+
+    if lead.snooze_until:
+        flag = "aktuell pausiert bis" if lead.is_snoozed() else "Wiedervorlage am"
+        lines.append(f"{flag} {lead.snooze_until.strftime('%d.%m.%Y')}")
+
+    tags = lead.get_tags()
+    if tags:
+        lines.append("Tags: " + ", ".join(str(t) for t in tags))
+
+    contact = []
+    if lead.email:
+        contact.append(lead.email)
+    if lead.phone:
+        contact.append(lead.phone)
+    if contact:
+        lines.append("Kontakt: " + " · ".join(contact))
+
+    meta = lead.get_agent_metadata()
+    if meta:
+        try:
+            meta_json = json.dumps(meta, ensure_ascii=False, indent=2)
+        except Exception:
+            meta_json = str(meta)
+        lines.append("Agent-Metadaten (z.B. LinkedIn-Import):\n" + meta_json)
+
+    return "\n".join(lines)
+
+
 def _build_planning_system(lead: Lead, notes: list) -> str:
     notes_text = "\n".join(
         f"[{n.created_at.strftime('%d.%m.%Y %H:%M')}] {n.body}"
@@ -69,6 +130,7 @@ def _build_planning_system(lead: Lead, notes: list) -> str:
         f"Name: {lead.name or '—'} | Firma: {lead.company or '—'}\n"
         f"Stage: {STAGE_LABELS[lead.stage]} | Quelle: {SOURCE_LABELS[lead.source]}\n"
         f"Lead seit: {lead.created_at.strftime('%d.%m.%Y')}\n\n"
+        f"## Qualifizierung & Status\n{_build_qualification_block(lead)}\n\n"
         f"## Notizen aus bisherigen Gesprächen\n{notes_text}{prev}\n\n"
         "Führe eine fokussierte Diskussion. Stelle gezielte Rückfragen. "
         "Hilf, am Ende einen klaren, umsetzbaren Projektplan zu entwickeln — "
@@ -203,6 +265,7 @@ def plan_prompt_download(lead_id: int, session: Session = Depends(get_session), 
         f"# Projekt-Kontext: {lead.display_name()}\n"
         f"Exportiert: {datetime.utcnow().strftime('%d.%m.%Y')} | "
         f"Status: {STAGE_LABELS[lead.stage]} | Quelle: {SOURCE_LABELS[lead.source]}\n\n"
+        f"## Qualifizierung\n\n{_build_qualification_block(lead)}\n\n"
         f"## Notizen ({len(notes)} Einträge)\n\n{notes_text}\n\n"
         f"## Planungszusammenfassung\n\n{summary_text}\n\n"
         f"## Vollständiger Planungs-Chat\n\n{chat_text}\n\n"
