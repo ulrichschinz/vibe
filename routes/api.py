@@ -71,6 +71,8 @@ def api_create_lead(
         email=payload.email,
         phone=payload.phone,
         source=payload.source,
+        lead_type=payload.lead_type,
+        owner_id=payload.owner_id,
         notes=payload.notes,
         tags=json.dumps(payload.tags) if payload.tags else None,
         agent_metadata=json.dumps(payload.agent_metadata) if payload.agent_metadata else None,

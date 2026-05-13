@@ -57,13 +57,35 @@
                value="{{ lead.phone or '' }}" placeholder="+49 ...">
       </div>
 
-      <div class="ar-field ar-field--full">
+      <div class="ar-field">
         <label class="ar-eyebrow" for="source">Quelle</label>
         <select id="source" name="source" class="app-select">
           {% for src in LeadSource %}
           <option value="{{ src.value }}" {% if lead and lead.source == src %}selected{% endif %}>
             {{ SOURCE_LABELS[src] }}
           </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="ar-field">
+        <label class="ar-eyebrow" for="lead_type">Lead-Typ</label>
+        <select id="lead_type" name="lead_type" class="app-select">
+          {% for lt in LeadType %}
+          <option value="{{ lt.value }}" {% if (lead and lead.lead_type == lt) or (not lead and lt.value == 'direct') %}selected{% endif %}>
+            {{ LEAD_TYPE_LABELS[lt] }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="ar-field ar-field--full">
+        <label class="ar-eyebrow" for="owner_id">Owner</label>
+        <select id="owner_id" name="owner_id" class="app-select">
+          <option value="">— kein Owner —</option>
+          {% set current_owner = lead.owner_id if lead and lead.owner_id else (request.state.user.id if request.state.user else None) %}
+          {% for u in users %}
+          <option value="{{ u.id }}" {% if current_owner == u.id %}selected{% endif %}>{{ u.name }} ({{ u.email }})</option>
           {% endfor %}
         </select>
       </div>

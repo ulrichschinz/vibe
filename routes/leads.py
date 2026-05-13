@@ -9,8 +9,8 @@ import json
 
 from database import get_session
 from models import (
-    Lead, Proposal, Note, PlanningMessage, AiSettings,
-    LeadStage, LeadSource, STAGE_LABELS, SOURCE_LABELS, STAGE_ORDER,
+    Lead, Proposal, Note, PlanningMessage, AiSettings, User,
+    LeadStage, LeadSource, LeadType, STAGE_LABELS, SOURCE_LABELS, STAGE_ORDER, LEAD_TYPE_LABELS,
     PROPOSAL_STATUS_LABELS, BantValue, ReadinessLevel, BANT_LABELS, READINESS_LABELS,
 )
 from services.auth import require_login, require_editor
@@ -47,11 +47,29 @@ templates.env.globals["SOURCE_LABELS"] = SOURCE_LABELS
 templates.env.globals["STAGE_ORDER"] = STAGE_ORDER
 templates.env.globals["LeadStage"] = LeadStage
 templates.env.globals["LeadSource"] = LeadSource
+templates.env.globals["LeadType"] = LeadType
+templates.env.globals["LEAD_TYPE_LABELS"] = LEAD_TYPE_LABELS
 templates.env.globals["PROPOSAL_STATUS_LABELS"] = PROPOSAL_STATUS_LABELS
 templates.env.globals["BANT_LABELS"] = BANT_LABELS
 templates.env.globals["READINESS_LABELS"] = READINESS_LABELS
 templates.env.globals["BantValue"] = BantValue
 templates.env.globals["ReadinessLevel"] = ReadinessLevel
+
+
+def _active_users(session: Session) -> list[User]:
+    return list(session.exec(
+        select(User).where(User.is_active == True).order_by(User.name)
+    ).all())
+
+
+def _parse_owner_id(value: str) -> Optional[int]:
+    value = (value or "").strip()
+    if not value:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -76,6 +94,8 @@ def lead_list(
     request: Request,
     stage: Optional[str] = None,
     source: Optional[str] = None,
+    lead_type: Optional[str] = None,
+    owner_id: Optional[str] = None,
     show_snoozed: bool = False,
     session: Session = Depends(get_session),
     _=Depends(require_login),
@@ -86,14 +106,27 @@ def lead_list(
         query = query.where(Lead.stage == stage)
     if source:
         query = query.where(Lead.source == source)
+    if lead_type:
+        query = query.where(Lead.lead_type == lead_type)
+    owner_filter = _parse_owner_id(owner_id) if owner_id else None
+    if owner_id == "none":
+        query = query.where(Lead.owner_id.is_(None))
+    elif owner_filter is not None:
+        query = query.where(Lead.owner_id == owner_filter)
     if not show_snoozed:
         query = query.where(or_(Lead.snooze_until.is_(None), Lead.snooze_until <= today))
     leads = session.exec(query.order_by(Lead.created_at.desc())).all()
+    users = _active_users(session)
+    owner_map = {u.id: u for u in users}
     return templates.TemplateResponse("leads/list.html", {
         "request": request,
         "leads": leads,
         "filter_stage": stage,
         "filter_source": source,
+        "filter_lead_type": lead_type,
+        "filter_owner_id": owner_id,
+        "users": users,
+        "owner_map": owner_map,
         "show_snoozed": show_snoozed,
         "today": today,
         "ai_active": _ai_active(session),
@@ -101,11 +134,12 @@ def lead_list(
 
 
 @router.get("/leads/new", response_class=HTMLResponse)
-def lead_new(request: Request, _=Depends(require_editor)):
+def lead_new(request: Request, session: Session = Depends(get_session), _=Depends(require_editor)):
     return templates.TemplateResponse("leads/form.html", {
         "request": request,
         "lead": None,
         "action": "/leads",
+        "users": _active_users(session),
     })
 
 
@@ -135,6 +169,7 @@ async def lead_import_linkedin(
     request: Request,
     pdf: UploadFile = File(...),
     why_good: str = Form(""),
+    lead_type: str = Form("direct"),
     session: Session = Depends(get_session),
     _=Depends(require_editor),
 ):
@@ -172,6 +207,13 @@ async def lead_import_linkedin(
     )
     notes = _compose_linkedin_notes(why_good, data, readiness_label)
 
+    try:
+        lt = LeadType(lead_type)
+    except ValueError:
+        lt = LeadType.direct
+    current_user = getattr(request.state, "user", None)
+    owner_id_default = current_user.id if current_user else None
+
     preview_lead = Lead(
         name=data.get("name") or None,
         company=data.get("company") or None,
@@ -179,6 +221,8 @@ async def lead_import_linkedin(
         email=data.get("email") or None,
         phone=data.get("phone") or None,
         source=LeadSource.linkedin,
+        lead_type=lt,
+        owner_id=owner_id_default,
         notes=notes,
         pain_points=data.get("pain_points") or None,
         ai_readiness=ai_readiness,
@@ -191,6 +235,7 @@ async def lead_import_linkedin(
         "lead": preview_lead,
         "action": "/leads",
         "preview_source": "vorschau aus linkedin",
+        "users": _active_users(session),
     })
 
 
@@ -231,6 +276,8 @@ def lead_create(
     phone: str = Form(""),
     salutation: str = Form(""),
     source: str = Form("manual"),
+    lead_type: str = Form("direct"),
+    owner_id: str = Form(""),
     notes: str = Form(""),
     snooze_until: str = Form(""),
     bant_budget: str = Form(""),
@@ -246,6 +293,15 @@ def lead_create(
 ):
     if not name.strip() and not company.strip():
         raise HTTPException(status_code=422, detail="Name oder Firma muss angegeben sein.")
+    try:
+        lt = LeadType(lead_type)
+    except ValueError:
+        lt = LeadType.direct
+    parsed_owner = _parse_owner_id(owner_id)
+    if parsed_owner is None and not (owner_id or "").strip():
+        current_user = getattr(request.state, "user", None)
+        if current_user is not None:
+            parsed_owner = current_user.id
     lead = Lead(
         name=name.strip() or None,
         company=company.strip() or None,
@@ -253,6 +309,8 @@ def lead_create(
         phone=phone.strip() or None,
         salutation=salutation.strip() or None,
         source=LeadSource(source),
+        lead_type=lt,
+        owner_id=parsed_owner,
         notes=notes.strip() or None,
         snooze_until=_parse_date(snooze_until),
         bant_budget=_parse_enum(bant_budget, BantValue),
@@ -303,9 +361,12 @@ def lead_detail(request: Request, lead_id: int, session: Session = Depends(get_s
         select(Note).where(Note.lead_id == lead_id).order_by(Note.created_at.desc())
     ).all()
 
+    owner = session.get(User, lead.owner_id) if lead.owner_id else None
+
     return templates.TemplateResponse("leads/detail.html", {
         "request": request,
         "lead": lead,
+        "owner": owner,
         "proposals": proposals,
         "stages": stages,
         "notes": notes,
@@ -323,6 +384,7 @@ def lead_edit(request: Request, lead_id: int, session: Session = Depends(get_ses
         "request": request,
         "lead": lead,
         "action": f"/leads/{lead_id}/update",
+        "users": _active_users(session),
     })
 
 
@@ -335,6 +397,8 @@ def lead_update(
     phone: str = Form(""),
     salutation: str = Form(""),
     source: str = Form("manual"),
+    lead_type: str = Form("direct"),
+    owner_id: str = Form(""),
     notes: str = Form(""),
     snooze_until: str = Form(""),
     bant_budget: str = Form(""),
@@ -353,12 +417,18 @@ def lead_update(
     lead = session.get(Lead, lead_id)
     if not lead:
         raise HTTPException(status_code=404)
+    try:
+        lt = LeadType(lead_type)
+    except ValueError:
+        lt = LeadType.direct
     lead.name = name.strip() or None
     lead.company = company.strip() or None
     lead.email = email.strip() or None
     lead.phone = phone.strip() or None
     lead.salutation = salutation.strip() or None
     lead.source = LeadSource(source)
+    lead.lead_type = lt
+    lead.owner_id = _parse_owner_id(owner_id)
     lead.notes = notes.strip() or None
     lead.snooze_until = _parse_date(snooze_until)
     lead.bant_budget = _parse_enum(bant_budget, BantValue)

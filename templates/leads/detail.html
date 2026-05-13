@@ -81,6 +81,14 @@
             <dd>{{ SOURCE_LABELS[lead.source] }}</dd>
           </div>
           <div class="app-side-row">
+            <dt>Typ</dt>
+            <dd>{{ LEAD_TYPE_LABELS[lead.lead_type] }}</dd>
+          </div>
+          <div class="app-side-row">
+            <dt>Owner</dt>
+            <dd>{% if owner %}{{ owner.name }} <span style="color:#888;">({{ owner.email }})</span>{% else %}<span style="color:#888;">—</span>{% endif %}</dd>
+          </div>
+          <div class="app-side-row">
             <dt>Seit</dt>
             <dd>{{ lead.created_at.strftime('%d. %B %Y') }}</dd>
           </div>

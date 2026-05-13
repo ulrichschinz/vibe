@@ -30,6 +30,20 @@
       </div>
 
       <div class="ar-field ar-field--full">
+        <label class="ar-eyebrow" for="lead_type">Lead-Typ</label>
+        <select id="lead_type" name="lead_type" class="app-select">
+          {% for lt in LeadType %}
+          <option value="{{ lt.value }}" {% if lt.value == 'direct' %}selected{% endif %}>
+            {{ LEAD_TYPE_LABELS[lt] }}
+          </option>
+          {% endfor %}
+        </select>
+        <p class="app-field-hint" style="margin-top:0.4rem;">
+          Direkt = eigener Kontakt. Partner / Alliance = Opportunity über Partner-Netzwerk.
+        </p>
+      </div>
+
+      <div class="ar-field ar-field--full">
         <label class="ar-eyebrow" for="why_good">
           Warum ist dieser Lead gut?
           <span class="app-field-hint">(optional — hilft der KI bei Buying-Signal- und Pain-Point-Einschätzung)</span>

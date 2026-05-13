@@ -81,6 +81,17 @@ class LeadStage(str, Enum):
     lost = "lost"
 
 
+class LeadType(str, Enum):
+    direct = "direct"
+    partner = "partner"
+
+
+LEAD_TYPE_LABELS = {
+    LeadType.direct: "Direkt",
+    LeadType.partner: "Partner / Alliance",
+}
+
+
 STAGE_LABELS = {
     LeadStage.new: "Neu",
     LeadStage.contacted: "Kontaktiert",
@@ -151,6 +162,8 @@ class Lead(SQLModel, table=True):
     phone: Optional[str] = None
     salutation: Optional[str] = None    # "Frau" / "Herr" / ""
     source: LeadSource = LeadSource.manual
+    lead_type: LeadType = Field(default=LeadType.direct)
+    owner_id: Optional[int] = Field(default=None, foreign_key="user.id")
     stage: LeadStage = LeadStage.new
     notes: Optional[str] = None
     tags: Optional[str] = None          # JSON array string
@@ -304,6 +317,8 @@ class LeadCreate(SQLModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     source: LeadSource = LeadSource.manual
+    lead_type: LeadType = LeadType.direct
+    owner_id: Optional[int] = None
     notes: Optional[str] = None
     tags: Optional[list] = None
     agent_metadata: Optional[dict] = None
@@ -327,6 +342,8 @@ class LeadRead(SQLModel):
     email: Optional[str]
     phone: Optional[str]
     source: LeadSource
+    lead_type: LeadType
+    owner_id: Optional[int] = None
     stage: LeadStage
     notes: Optional[str]
     snooze_until: Optional[date] = None
@@ -346,6 +363,8 @@ class LeadPatch(SQLModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     stage: Optional[LeadStage] = None
+    lead_type: Optional[LeadType] = None
+    owner_id: Optional[int] = None
     notes: Optional[str] = None
     snooze_until: Optional[date] = None
     bant_budget: Optional[BantValue] = None

@@ -38,6 +38,25 @@
       </select>
     </div>
     <div class="app-filter-group">
+      <label class="ar-eyebrow">Typ</label>
+      <select name="lead_type" class="app-select" onchange="this.form.submit()">
+        <option value="">Alle</option>
+        {% for lt in LeadType %}
+        <option value="{{ lt.value }}" {% if filter_lead_type == lt.value %}selected{% endif %}>{{ LEAD_TYPE_LABELS[lt] }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="app-filter-group">
+      <label class="ar-eyebrow">Owner</label>
+      <select name="owner_id" class="app-select" onchange="this.form.submit()">
+        <option value="">Alle</option>
+        <option value="none" {% if filter_owner_id == 'none' %}selected{% endif %}>— kein Owner —</option>
+        {% for u in users %}
+        <option value="{{ u.id }}" {% if filter_owner_id == u.id|string %}selected{% endif %}>{{ u.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="app-filter-group">
       <label class="ar-eyebrow" for="show_snoozed_chk" style="cursor:pointer;">
         <input type="checkbox" id="show_snoozed_chk" name="show_snoozed" value="true"
                {% if show_snoozed %}checked{% endif %} onchange="this.form.submit()"
@@ -45,7 +64,7 @@
         Wiedervorlagen zeigen
       </label>
     </div>
-    {% if filter_stage or filter_source or show_snoozed %}
+    {% if filter_stage or filter_source or filter_lead_type or filter_owner_id or show_snoozed %}
     <a href="/leads" class="ar-btn ar-btn-ghost ar-btn-sm">Filter aufheben</a>
     {% endif %}
   </form>
@@ -60,6 +79,8 @@
           <th>E-Mail</th>
           <th>Stage</th>
           <th>Quelle</th>
+          <th>Typ</th>
+          <th>Owner</th>
           <th>Datum</th>
           <th></th>
         </tr>
@@ -84,6 +105,8 @@
           </td>
           <td><span class="app-stage-badge app-stage-{{ lead.stage.value }}">{{ STAGE_LABELS[lead.stage] }}</span></td>
           <td><span class="ar-mono app-source">{{ SOURCE_LABELS[lead.source] }}</span></td>
+          <td><span class="ar-mono">{{ LEAD_TYPE_LABELS[lead.lead_type] }}</span></td>
+          <td>{% if lead.owner_id and owner_map.get(lead.owner_id) %}{{ owner_map[lead.owner_id].name }}{% else %}<span style="color:#666;">—</span>{% endif %}</td>
           <td><span class="ar-mono app-date">{{ lead.created_at.strftime('%d.%m.%Y') }}</span></td>
           <td><a href="/leads/{{ lead.id }}" class="app-row-action">→</a></td>
         </tr>
