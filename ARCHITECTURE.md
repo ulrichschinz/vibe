@@ -13,9 +13,9 @@
 
 | Metrik | Wert | Beleg |
 |---|---|---|
-| Python LOC gesamt | 8.737 | `find -name '*.py'` |
+| Python LOC gesamt | 8.749 | `find -name '*.py'` |
 | davon Produktivcode | 6.248 | ohne `tests/` |
-| davon Tests | 2.489 | `tests/` |
+| davon Tests | 2.501 | `tests/` |
 | Test/Prod-Verhältnis | ~40 % | |
 | SQLModel-Tabellen | 14 | `grep -c 'table=True' models.py` |
 | HTTP-Endpoints | 72 | `@router.(get\|post\|...)` in `routes/` |
