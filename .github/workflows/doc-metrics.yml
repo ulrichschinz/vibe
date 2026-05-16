@@ -1,0 +1,23 @@
+# Scaling-roadmap Schritt 0: the doc-drift gate.
+#
+# Deliberately minimal — it runs ONLY the ARCHITECTURE.md Kennzahlen
+# assertion, no linter / type-check / test suite. The full GitHub-Actions CI
+# (pytest, ruff, mypy, import-linter, coverage gate) is introduced in
+# Schritt 1 and will subsume / extend this workflow. Until then, this is the
+# single CI check, and it exists so future doc-drift breaks the build.
+name: doc-metrics
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  architecture-metrics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Assert ARCHITECTURE.md Kennzahlen match the codebase
+        run: python3 scripts/check_architecture_metrics.py
