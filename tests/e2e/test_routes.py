@@ -19,8 +19,20 @@ pytestmark = [pytest.mark.e2e]
 
 @pytest.fixture
 def client(engine, tmp_path, monkeypatch):
-    """TestClient sharing the per-test engine via Depends override."""
+    """TestClient sharing the per-test engine.
+
+    Route handlers get the per-test engine via the get_session Depends
+    override. The attach_user middleware (main.py) does NOT use Depends —
+    it opens ``Session(engine)`` against the module-global engine bound at
+    import (main.py: ``from database import ... engine``). dependency
+    overrides cannot reach that, so without redirecting it too, web routes
+    hit the schemaless default DB → ``no such table: user`` (only visible
+    in CI, where no dev leads.db exists). Point both bindings at the
+    per-test engine. Test-only isolation; no production behaviour change.
+    """
     monkeypatch.setenv("INVOICE_ARCHIVE_ROOT", str(tmp_path / "archive"))
+    monkeypatch.setattr("main.engine", engine)
+    monkeypatch.setattr("database.engine", engine)
     from database import get_session
     def override():
         with Session(engine) as s:
