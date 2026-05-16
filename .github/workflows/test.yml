@@ -59,15 +59,18 @@ jobs:
             https://github.com/itplr-kosit/validator-configuration-xrechnung/releases/download/release-2024-06-20/validator-configuration-xrechnung_3.0.2_2024-06-20.zip
           cd .kosit-cache && unzip -o validator.zip && unzip -o scenarios.zip -d scenarios
 
+      # CI installs deps into the runner's system Python (no .venv), so
+      # override the Makefile's PY=.venv/bin/python default — the documented
+      # `make PY=python` escape hatch. No effect on local dev.
       - name: Run unit + integration tests
-        run: make test-fast
+        run: make PY=python test-fast
 
       - name: Run contract tests (KoSIT + PDF/A-3)
-        run: make test-contract
+        run: make PY=python test-contract
         continue-on-error: true   # contract tests rely on external tooling; flag failures but don't block initial setup
 
       - name: Run e2e tests
-        run: make test-e2e
+        run: make PY=python test-e2e
 
       - name: Upload coverage report
         if: always()
