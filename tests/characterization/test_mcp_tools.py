@@ -91,18 +91,18 @@ def test_update_lead_patches_only_given_fields(engine, mcp_module):
     out = call_tool(
         mcp_module.update_lead,
         lead_id=lead_id,
-        stage=LeadStage.qualified,
+        stage=LeadStage.contacted,
         notes="patched",
     )
 
     assert set(out) == _LEAD_KEYS
-    assert out["stage"] == LeadStage.qualified.value
+    assert out["stage"] == LeadStage.contacted.value
     assert out["notes"] == "patched"
     assert out["name"] == "Before"  # untouched
 
     with Session(engine) as s:
         row = s.get(Lead, lead_id)
-        assert row.stage == LeadStage.qualified
+        assert row.stage == LeadStage.contacted
         assert row.notes == "patched"
         assert row.updated_at >= before_updated
 

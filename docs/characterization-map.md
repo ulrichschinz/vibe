@@ -48,7 +48,7 @@
 | `test_api_errors.py::test_add_line_to_unknown_invoice_is_404_detail` | `routes/api.py` Inline-404-Coercion | **8** |
 | `test_api_errors.py::test_get_unknown_invoice_is_404` | `routes/api.py` Inline-404 | **8** |
 | `test_api_errors.py::test_finalize_without_lines_is_422_detail_string` | `routes/api.py` `InvoiceValidationError`→422 | **8** (+ Finalize-Naht **5**) |
-| `test_api_errors.py::test_double_finalize_is_409_and_lines_on_finalized_is_409` | `routes/api.py` `FinalizeError`→409 / Draft-Guard | **8** (+ Finalize-Naht **5**) |
+| `test_api_errors.py::test_double_finalize_is_422_and_lines_on_finalized_is_409` | `routes/api.py` Doppel-Finalize→**422** (InvoiceValidationError vor FinalizeError gefangen) / Draft-Guard→409 | **8** (+ Finalize-Naht **5**) |
 
 ## Abdeckungs-Check gegen den Vertrag
 

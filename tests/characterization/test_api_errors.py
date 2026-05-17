@@ -120,7 +120,12 @@ def test_finalize_without_lines_is_422_detail_string(api):
 
 
 @pytest.mark.characterization
-def test_double_finalize_is_409_and_lines_on_finalized_is_409(api):
+def test_double_finalize_is_422_and_lines_on_finalized_is_409(api):
+    # CHARACTERIZATION FINDING: re-finalizing yields 422, not 409. The
+    # "invoice is not draft" guard raises InvoiceValidationError, which
+    # subclasses FinalizeError; api_finalize catches InvoiceValidationError
+    # FIRST → 422. Schritt 8's central RFC-7807 mapper MUST preserve this
+    # catch ordering (or change it consciously — this test will flag it).
     client, headers, lead_id = api
     d = client.post(
         "/api/invoices/draft",
@@ -138,7 +143,7 @@ def test_double_finalize_is_409_and_lines_on_finalized_is_409(api):
     assert ok.status_code == 200, ok.text
 
     again = client.post(f"/api/invoices/{inv_id}/finalize", headers=headers)
-    assert again.status_code == 409
+    assert again.status_code == 422
     assert set(again.json()) == {"detail"}
 
     on_final = client.post(
