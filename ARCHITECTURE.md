@@ -90,7 +90,9 @@ vibe/
 │                                   open-questions.md
 ├── tests/  (2489 LOC)              unit/ integration/ e2e/ fixtures/
 ├── .coveragerc                     90 % Schwelle (Fokus: invoicing)
-└── (kein pyproject.toml / Linter / mypy / Alembic)
+├── pyproject.toml                  Schritt 1: ruff + mypy + import-linter
+├── scripts/new_domain.py           Schritt 1: `make new-domain X` Scaffold
+└── (noch kein Alembic — Schema via create_all; kommt Schritt 9)
 ```
 
 ## Schichten — und wo die Schichtung bricht
@@ -176,8 +178,10 @@ IntegrityCheckRun                  Unveränderlichkeits-Nachweis
 3. Service-Layer inkonsistent: sauber bei `proposals`/`pdf`/`invoicing`,
    fehlt für Lead-Aggregation/Import/AI-Merge.
 4. `mcp_server.py` dupliziert Lead/Proposal-Logik statt Services zu rufen.
-5. Kein `pyproject.toml`/Linter/Type-Check/CI-Gate; keine Alembic-
-   Migrationen (Schema via `create_all` beim Start).
+5. ~~Kein `pyproject.toml`/Linter/Type-Check/CI-Gate~~ → **Schritt 1
+   gelandet** (`pyproject.toml`, `ruff`, `mypy`, `import-linter`,
+   `make verify`-Gate je PR). Offen bleibt: **keine Alembic-Migrationen**
+   (Schema via `create_all` beim Start) — Schritt 9.
 6. AI-Anbindung an Anthropic gekoppelt, Prompts hartcodiert, Parsing fragil.
 
 **Erhaltenswert:** `docs/adr/` + Runbook + Verfahrensdoku, hohe Invoicing-

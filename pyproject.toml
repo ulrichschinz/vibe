@@ -1,0 +1,104 @@
+# Scaling-roadmap Schritt 1 — Tooling-Fundament.
+#
+# This file is the single config home for ruff (lint+format), mypy
+# (type-check) and import-linter (executable import contracts). It does NOT
+# replace requirements*.txt as the dependency manifest — the app is still
+# pip/uv-installed from those; pyproject here is tool config only (no
+# [project]/[build-system] table, so nothing about packaging changes).
+#
+# Schritt 1 is "repair/extend", not "introduce": Makefile + the GitHub-Actions
+# workflows already existed (issue #2). This adds the missing lint /
+# type-check / import-contract layer and wires it into `make verify`.
+#
+# Strictness is deliberately LAX in Schritt 1 (the gate *mechanism* is the
+# deliverable, not a mass cleanup — that would violate one-concern and the
+# "keine Verhaltensänderung" discipline). Rules sharpen in later steps as
+# code moves into `app/`; legacy modules are type-checked strictly only once
+# they migrate (roadmap principle "lax global, neue Module strict").
+
+# --------------------------------------------------------------------------
+# ruff — lint + format
+# --------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = [
+    ".venv",
+    "archive",
+    "generated_pdfs",
+    "static",
+    ".kosit-cache",
+    "reports",
+]
+
+[tool.ruff.lint]
+# Lenient seed set: real-bug rules (pyflakes F, pycodestyle E4/E7/E9). This
+# is the ruff default select, made explicit. Stylistic/opinionated rule
+# families (I, B, UP, …) are added in later migration steps so Schritt 1
+# stays a tooling step, not a repo-wide reformat/refactor.
+select = ["E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+# Re-export shims (today: top-level package __init__) legitimately import
+# names they don't use locally. The Schritt-4 models shim relies on this too.
+"__init__.py" = ["F401", "F403"]
+"models.py" = ["F401"]
+"tests/*" = ["F401", "F811"]
+
+[tool.ruff.format]
+# Format enforcement (`ruff format --check`, see `make format-check`) is
+# scoped to `app/` — the generated Soll surface the scaffold controls
+# byte-for-byte (Scaffold-Vertrag). Legacy modules and scripts/ tooling are
+# intentionally NOT reformatted in Schritt 1: a repo-wide reformat is churn
+# that belongs to no step, and `services/invoicing/` is explicitly
+# move-not-rewrite — its bytes must stay identical so the
+# characterization/coverage net keeps meaning. Each legacy module gets
+# formatted when it moves into app/ in its migration step.
+
+# --------------------------------------------------------------------------
+# mypy — type-check (lax global, app.* strict)
+# --------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+warn_unused_ignores = false
+# Scope: the new Soll surface (scripts/, app/). Legacy top-level modules
+# join mypy as they migrate into app/ (roadmap: "neue Module strict, lax
+# global" — global laxity here = legacy not yet under the checker, by step).
+files = ["scripts", "app"]
+exclude = "(^|/)(\\.venv|archive|generated_pdfs|reports)/"
+
+[[tool.mypy.overrides]]
+# New modules are strict by construction (the scaffold emits code that
+# passes this). When the billing/CRM code moves into app/domains/* it
+# inherits strict here — that is where legacy code becomes typed.
+module = "app.*"
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_return_any = true
+
+# --------------------------------------------------------------------------
+# import-linter — executable import contracts (Schicht 2: "Soll als Zwang")
+# --------------------------------------------------------------------------
+# Roadmap principle: a rule is INACTIVE until its package exists; each
+# migration step activates/sharpens its edge. `app/domains/billing` does not
+# exist yet (Schritt 2 creates the skeleton, Schritt 4 moves the models,
+# Schritt 5 cuts the _snapshot_customer reach via the BillingOrder contract).
+#
+# So the first ACTIVE contract is seeded on the real current package
+# `services/invoicing/`: it must not reach into the web/REST interface layer
+# (`routes`). This is true today (verified: invoicing imports only `models`,
+# `database` and its own submodules). It is the *seed* of the billing
+# isolation; it SHARPENS in Schritt 5 to also forbid `models`/`domains`
+# (that forbidden edge is the _snapshot_customer reach being replaced) and
+# moves to `app.domains.billing`. Rationale: docs/adr/* (the "why" layer).
+[tool.importlinter]
+root_packages = ["services", "routes"]
+
+[[tool.importlinter.contracts]]
+name = "billing core (services.invoicing) must not import the web/REST interface layer — seed of the billing isolation, sharpens in Schritt 5"
+type = "forbidden"
+source_modules = ["services.invoicing"]
+forbidden_modules = ["routes"]

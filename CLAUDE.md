@@ -36,10 +36,15 @@ python3 scripts/check_architecture_metrics.py
 
 Tests live in `tests/` (unit / integration / e2e). `.coveragerc` enforces a
 90 % coverage gate focused on the compliance-critical `services/invoicing/`.
-No linter / type-checker / GitHub-Actions CI yet — these are introduced in
-**Schritt 1** of `docs/scaling-roadmap.md` (`ruff` + `mypy` + `import-linter`
-+ `make verify` + `make new-domain`). Until then, only the doc-drift gate
-above runs in CI.
+**Schritt 1 (Tooling-Fundament) ist gelandet:** `make verify` =
+`ruff` (Lint) + `ruff format --check` (nur `app/`) + `mypy` (lax global,
+`app.*` strict) + `import-linter` + `make test-fast` + der Schritt-0-
+Doc-Gate. Es ist der Akzeptanz-Gate jedes Migrationsschritts und läuft je
+PR in `.github/workflows/test.yml` (CI ruft `make PY=python verify`); der
+stdlib-Doc-Gate läuft zusätzlich always-on in `doc-metrics.yml`. Neue
+Domäne = ein Befehl: `make new-domain X` (Scaffold-Generator
+`scripts/new_domain.py`). Noch **nicht** vorhanden: Alembic-Migrationen
+(Schema via `create_all`) — kommt in **Schritt 9**.
 
 ## Environment
 
@@ -125,16 +130,18 @@ The local `docker-compose.yml` uses Caddy as reverse proxy (dev/standalone). The
 # Agent contract
 
 > **Status banner.** The repo is *technically* layered today
-> (`routes/` → `services/` → `models.py`). The domain-oriented `app/`
-> structure, `make verify` (`ruff`+`mypy`+`pytest`+`import-linter`) and the
-> `make new-domain X` scaffold below are the **Soll**-Zustand introduced in
-> **Schritt 1–2** of `docs/scaling-roadmap.md` — they do **not** exist yet.
-> This section is anchored now (Schritt 0) so the contract is in the place
-> the agent reads first; until the toolchain lands, apply the *protocol* and
-> *boundaries* onto the current layout (e.g. "domain" ≈ the relevant
-> `routes/`+`services/`+`models.py` slice; "`make verify`" ≈ `pytest` +
-> `python3 scripts/check_architecture_metrics.py`). Each migration step
-> activates the matching rule below; the end state is the full table green.
+> (`routes/` → `services/` → `models.py`). **Schritt 1 ist gelandet:**
+> `make verify` (`ruff` + `mypy` + `import-linter` + `make test-fast` +
+> Doc-Gate) und der `make new-domain X`-Scaffold **existieren und sind das
+> Gate** — `make verify` ist ab jetzt wörtlich gemeint, kein Surrogat
+> mehr. Noch **nicht** vorhanden ist die domänenorientierte `app/`-
+> Struktur selbst (leeres Skelett = **Schritt 2**, Code-Umzug Schritte
+> 4–8). Bis dahin: ein frisch gescaffoldetes `app/domains/X` ist bereits
+> import-linter-/format-konform; bestehende Logik liegt weiter im
+> `routes/`+`services/`+`models.py`-Slice ("domain" ≈ der relevante
+> Slice, bis sie Schritt 4–8 in `app/` zieht). Jeder Migrationsschritt
+> aktiviert/schärft die zu ihm gehörige Contract-Regel; Endzustand =
+> ganze Tabelle grün.
 
 ## Agent-Edit-Protokoll
 
@@ -149,13 +156,22 @@ work stays consistent at 5–10× the current size:
    - Several / cross-domain → logic stays in *its own* domain; data flows
      **only via `contracts/`**, never domain→domain directly.
 3. **Edit order within a domain:** `models → schemas → service → router → test`.
-4. **`make verify` green** (= `ruff` + `mypy` + `pytest` + `import-linter`).
-   Today: `pytest` + `python3 scripts/check_architecture_metrics.py` green;
-   change a metric → update `ARCHITECTURE.md` in the same change.
+4. **`make verify` green** (= `ruff` + `ruff format --check app` + `mypy`
+   + `import-linter` + `make test-fast` + the Schritt-0 doc-gate). CI runs
+   `make PY=python verify` per PR; no local interpreter-with-deps here, so
+   correctness is CI-verified — the stdlib doc-gate
+   (`python3 scripts/check_architecture_metrics.py`) is the only local
+   lever. Change a metric → update `ARCHITECTURE.md` in the same change.
 
-"What breaks if I change X?" → `make whocalls SYMBOL=...` (LSP wrapper,
-Schritt 1) — not a checked-in call graph (a static graph in framework-heavy
-dynamic Python is confidently wrong at the interesting edges).
+"What breaks if I change X?" — **`make whocalls` is not wired yet.** The
+roadmap's LSP-Pfad ties it to `pyright`; Schritt 1 deliberately landed
+`mypy` (per issue #2 / the explicit Schritt-1 scope), so the LSP wrapper
+is a tracked open point, not a shipped command (documenting a missing
+command would be exactly the drift Schritt 0 forbids). Until it lands, use
+`ctx_search` + `import-linter` (the forbidden edges *are* the
+"what may reach this" answer). Still **not** a checked-in call graph (a
+static graph in framework-heavy dynamic Python is confidently wrong at the
+interesting edges).
 
 Invoicing rule (compliance, §14 UStG / ZUGFeRD, ~90 % coverage): its code is
 **moved, never rewritten**; the existing tests are the safety net and stay
@@ -189,13 +205,18 @@ A new domain is a **one-command** step — never hand-assembled (that is how
 "random code in random files" starts):
 
 ```bash
-make new-domain X      # Schritt 1+: generates the 5-file domain skeleton
+make new-domain X [KIND=web|api]   # scripts/new_domain.py — exists (Schritt 1)
 ```
 
-It emits `models.py` / `schemas.py` / `service.py` / `repository.py`
-(empty-with-docstring until a query is duplicated) / `router.py` plus a
-green `tests/test_x.py` smoke test, all **import-linter-conformant by
-construction** (zero manual edits → CI green). Registration is
-auto-discovery (interfaces iterate `app/domains/*`); the scaffold patches no
-central registry by hand. Until Schritt 1 lands, mirror the existing closest
-domain's file set manually and keep the same edit order.
+It emits `app/domains/X/` `models.py` / `schemas.py` / `service.py` /
+`repository.py` (empty-with-docstring until a query is duplicated) /
+`router.py` plus a green `tests/test_X.py` smoke test, all **import-linter-
+and ruff-format-conformant by construction** (zero manual edits → CI green;
+enforced by the `test.yml` scaffold-smoke step). It also seeds
+`app/core/db.py` (shared SQLModel base + session) if absent — a minimal
+seed that Schritt 2/3 supersede. Registration is auto-discovery (interfaces
+iterate `app/domains/*`, Schritt 8); the scaffold patches no central
+registry. Note: until **Schritt 2** lands the empty `app/` skeleton, the
+*existing* CRM/billing logic still lives in `routes/`+`services/`+
+`models.py` — scaffold for genuinely new domains; edit existing logic in
+its current slice with the same edit order.

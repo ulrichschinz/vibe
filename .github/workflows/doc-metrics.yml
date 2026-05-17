@@ -1,10 +1,12 @@
 # Scaling-roadmap Schritt 0: the doc-drift gate.
 #
 # Deliberately minimal — it runs ONLY the ARCHITECTURE.md Kennzahlen
-# assertion, no linter / type-check / test suite. The full GitHub-Actions CI
-# (pytest, ruff, mypy, import-linter, coverage gate) is introduced in
-# Schritt 1 and will subsume / extend this workflow. Until then, this is the
-# single CI check, and it exists so future doc-drift breaks the build.
+# assertion (stdlib, no deps). As of Schritt 1 the full gate
+# (ruff + mypy + import-linter + test-fast + this doc-gate) runs via
+# `make verify` in test.yml on every PR. This workflow is kept as the
+# always-on, dependency-free guard: test.yml triggers only on PR /
+# non-main pushes, so this still breaks the build on a direct main push
+# whose code drifts from the documented Kennzahlen.
 name: doc-metrics
 
 on:

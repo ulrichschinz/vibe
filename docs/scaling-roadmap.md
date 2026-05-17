@@ -190,13 +190,27 @@ risikoarm) — *dann* Code **einmal** an seinen Endplatz bewegen.
      nie vorher (sonst Netz mit Loch).
 
 1. **Tooling-Fundament inkl. ausführbarer Konvention (Schicht 2).**
-   `pyproject.toml` + `ruff` (Lint+Format) + `mypy` (lax, neue Module
-   strict) + GitHub-Actions-CI (`pytest -n auto --cov`, 90 %-Gate auf
-   `invoicing`) **+ `import-linter`** (erste Contract-Regel: spätere
-   `billing/`-Isolation) **+ Scaffold-Generator `make new-domain X`**
-   (s. *Scaffold-Vertrag* unten). Dies ist der eigentliche Anti-„random
-   files"-Mechanismus: der Agent folgt einer Vorlage zuverlässig,
-   improvisiert ohne sie.
+   *Präzisierung (Issue #2): Schritt 1 ist real **„reparieren &
+   erweitern"**, nicht „einführen". `Makefile`, `.github/workflows/
+   test.yml` und `deploy.yml` **existierten bereits** (test.yml war
+   kaputt → vor Schritt 0.5 per separater Fix-PR repariert; s. Memory
+   `scaling-roadmap-progress`). Schritt 1 ergänzt die **fehlende**
+   Lint-/Typecheck-/Import-Contract-Schicht und verdrahtet sie in einen
+   `make verify`-Gate; Architektur und Reihenfolge bleiben unverändert.*
+   Konkret: neu `pyproject.toml` (zentrale Tool-Config) + `ruff`
+   (Lint+Format) + `mypy` (lax global, neue `app.*`-Module strict) **+
+   `import-linter`** (erste **aktive** Contract-Regel auf dem realen
+   heutigen Paket: `services.invoicing` importiert nicht `routes` — die
+   *Saat* der `billing/`-Isolation; sie **schärft sich in Schritt 5** zur
+   vollen Regel „kein `models`/`domains`-Import", sobald die
+   `_snapshot_customer`-Naht durch `BillingOrder` ersetzt ist) **+
+   Scaffold-Generator `make new-domain X`** (s. *Scaffold-Vertrag* unten).
+   Die bestehende GitHub-Actions-CI (`test.yml`) wird **erweitert** statt
+   neu angelegt: `make verify` (= `ruff` + `mypy` + `import-linter` +
+   `test-fast` + Schritt-0-Doc-Gate) läuft je PR; das 90 %-`invoicing`-
+   Coverage-Gate bleibt über `.coveragerc`/`make test`. Dies ist der
+   eigentliche Anti-„random files"-Mechanismus: der Agent folgt einer
+   Vorlage zuverlässig, improvisiert ohne sie.
 
    **Scaffold-Vertrag** (Akzeptanz für `make new-domain X`):
 
