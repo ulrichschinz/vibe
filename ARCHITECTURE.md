@@ -13,10 +13,10 @@
 
 | Metrik | Wert | Beleg |
 |---|---|---|
-| Python LOC gesamt | 9.488 | `find -name '*.py'` |
-| davon Produktivcode | 6.248 | ohne `tests/` |
+| Python LOC gesamt | 9.698 | `find -name '*.py'` |
+| davon Produktivcode | 6.458 | ohne `tests/` |
 | davon Tests | 3.240 | `tests/` |
-| Test/Prod-Verhältnis | ~52 % | Schritt-0.5-Characterization-Netz hinzugefügt |
+| Test/Prod-Verhältnis | ~50 % | Schritt-2 `app/`-Skelett (+210 Prod-LOC, Doc-only) |
 | SQLModel-Tabellen | 14 | `grep -c 'table=True' models.py` |
 | HTTP-Endpoints | 72 | `@router.(get\|post\|...)` in `routes/` |
 | Route-Module | 7 | `routes/*.py` ohne `__init__.py` u. `mcp.py`-Mount |
@@ -92,6 +92,12 @@ vibe/
 ├── .coveragerc                     90 % Schwelle (Fokus: invoicing)
 ├── pyproject.toml                  Schritt 1: ruff + mypy + import-linter
 ├── scripts/new_domain.py           Schritt 1: `make new-domain X` Scaffold
+├── app/                            Schritt 2: finales Soll-Skelett — leere
+│                                   Pakete (Modul-Docstrings, Zweck +
+│                                   Entry-Points) + core/db.py (Seed
+│                                   formalisiert; Schritt 3 ersetzt Internas).
+│                                   Noch KEIN Code-Umzug — Prod-App ist
+│                                   weiter top-level main.py (Schritte 3–8)
 └── (noch kein Alembic — Schema via create_all; kommt Schritt 9)
 ```
 
