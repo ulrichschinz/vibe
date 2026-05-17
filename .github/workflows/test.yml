@@ -70,15 +70,23 @@ jobs:
         run: make PY=python verify
 
       # Scaffold-Vertrag acceptance: a freshly scaffolded domain passes the
-      # tool gate and its smoke test with ZERO manual edits. Created in a
-      # throwaway path and removed before the remaining steps so it never
-      # touches committed LOC / the doc-gate.
+      # tool gate and its smoke test with ZERO manual edits.
+      #
+      # IMPORTANT: only the *generated* scaffold artifacts are throwaway.
+      # Since Schritt 2 `app/` is committed, and since Schritt 3 it is a
+      # production import (`app.core.config`, pulled in via database.py /
+      # main.py). The original `rm -rf app` would delete the committed
+      # skeleton and break every later step whose conftest imports the app
+      # (`ModuleNotFoundError: No module named 'app'`). Remove ONLY the
+      # generated domain + its test + the scaffold sqlite file, then revert
+      # any tracked-file changes the generator might have made.
       - name: Scaffold smoke (new-domain → lint+format+types+contracts+test, zero edits)
         run: |
           python scripts/new_domain.py scaffoldsmoke
           make PY=python lint format-check typecheck contracts
           python -m pytest tests/test_scaffoldsmoke.py -q
-          rm -rf app tests/test_scaffoldsmoke.py scaffold.db
+          rm -rf app/domains/scaffoldsmoke tests/test_scaffoldsmoke.py scaffold.db
+          git checkout -- app 2>/dev/null || true
 
       - name: Run contract tests (KoSIT + PDF/A-3)
         run: make PY=python test-contract
