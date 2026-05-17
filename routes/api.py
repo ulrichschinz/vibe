@@ -6,9 +6,9 @@ from decimal import Decimal
 from typing import Optional
 import hashlib
 import json
-import os
 import uuid
 
+from app.core.config import get_settings
 from database import get_session
 from models import (
     Lead, LeadCreate, LeadRead, LeadPatch, LeadSource, ApiKey,
@@ -43,7 +43,7 @@ def validate_api_key(key: str, session: Session) -> bool:
         session.commit()
         return True
 
-    legacy = os.getenv("API_KEY", "")
+    legacy = get_settings().api_key
     if legacy and key == legacy:
         return True
 

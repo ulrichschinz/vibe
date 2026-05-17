@@ -5,6 +5,11 @@ jinja2==3.1.6
 python-multipart==0.0.20
 weasyprint==63.1
 python-dotenv==1.1.0
+# Schritt 3 — central configuration. pydantic (v2) is already present
+# transitively via fastapi/sqlmodel; pydantic-settings is the separate
+# BaseSettings package. Loose pin (repo style for non-core deps) to stay
+# compatible with whatever pydantic 2.x fastapi/sqlmodel resolve.
+pydantic-settings>=2.4,<3
 bcrypt==5.0.0
 itsdangerous==2.2.0
 anthropic>=0.40.0

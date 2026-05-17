@@ -6,13 +6,13 @@ middleware in routes/mcp.py — tools here trust that the caller is authenticate
 from datetime import datetime, date
 from typing import Any, Optional
 import json
-import os
 
 from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from mcp.server.fastmcp import FastMCP
 
+from app.core.config import get_settings
 from database import engine
 from models import (
     DEFAULT_SERVICES,
@@ -74,7 +74,7 @@ def _note_dict(note: Note) -> dict:
 
 
 def _proposal_pdf_url(proposal_id: int) -> str:
-    host = os.getenv("APP_HOST", "")
+    host = get_settings().app_host
     if host:
         return f"https://{host}/proposals/{proposal_id}/pdf"
     return f"/proposals/{proposal_id}/pdf"

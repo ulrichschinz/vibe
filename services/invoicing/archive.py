@@ -23,6 +23,8 @@ import stat
 from datetime import datetime
 from pathlib import Path
 
+from app.core.config import get_settings
+
 from .finalize import ArchivedDocument, RenderedDocument
 
 
@@ -32,7 +34,7 @@ def get_archive_root() -> Path:
     Production: ``./archive`` relative to project root.
     Tests: per-test ``tmp_path/archive`` via the ``archive_dir`` fixture.
     """
-    root = os.getenv("INVOICE_ARCHIVE_ROOT")
+    root = get_settings().invoice_archive_root
     if root:
         return Path(root)
     return Path(__file__).resolve().parent.parent.parent / "archive"
