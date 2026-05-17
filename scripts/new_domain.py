@@ -313,8 +313,8 @@ def main(argv: list[str] | None = None) -> int:
     _write(REPO / "tests" / f"test_{name}.py", _test(name, cls), force=args.force)
 
     print(
-        f"done. Edit order: models -> schemas -> service -> router -> test. "
-        f"Verify with `make verify`."
+        "done. Edit order: models -> schemas -> service -> router -> test. "
+        "Verify with `make verify`."
     )
     return 0
 
