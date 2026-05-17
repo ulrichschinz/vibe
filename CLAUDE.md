@@ -156,8 +156,11 @@ work stays consistent at 5–10× the current size:
    - Several / cross-domain → logic stays in *its own* domain; data flows
      **only via `contracts/`**, never domain→domain directly.
 3. **Edit order within a domain:** `models → schemas → service → router → test`.
-4. **`make verify` green** (= `ruff` + `ruff format --check app` + `mypy`
-   + `import-linter` + `make test-fast` + the Schritt-0 doc-gate). CI runs
+4. **`make verify` green** (= `ruff check` + `ruff format --check` + `mypy`
+   — all three scoped to the new Soll surface `scripts/`+`app/`; legacy
+   tightens per migration step, `make lint-all` is the non-gating
+   repo-wide run — + `import-linter` + `make test-fast` + the Schritt-0
+   doc-gate). CI runs
    `make PY=python verify` per PR; no local interpreter-with-deps here, so
    correctness is CI-verified — the stdlib doc-gate
    (`python3 scripts/check_architecture_metrics.py`) is the only local

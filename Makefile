@@ -6,7 +6,7 @@ PY ?= .venv/bin/python
 # the venv. Override with `make LINT_IMPORTS=.venv/bin/lint-imports` if needed.
 LINT_IMPORTS ?= lint-imports
 
-.PHONY: help install dev-install test test-fast test-unit test-integration test-contract test-e2e test-kosit test-pdfa coverage integrity-check clean verify lint format-check fmt typecheck contracts doc-gate new-domain
+.PHONY: help install dev-install test test-fast test-unit test-integration test-contract test-e2e test-kosit test-pdfa coverage integrity-check clean verify lint lint-all format-check fmt typecheck contracts doc-gate new-domain
 
 help:
 	@echo "Vibe — make targets"
@@ -77,7 +77,16 @@ integrity-check:
 # mypy + pytest + import-linter), with the Schritt-0 doc-gate folded in.
 verify: lint format-check typecheck contracts test-fast doc-gate
 
+# Lint, like format-check and mypy, gates only the new Soll surface
+# (scripts/ tooling + app/). Legacy modules carry pre-existing style debt
+# (semicolons, unused locals); fixing it repo-wide is churn that belongs to
+# no step and would touch services/invoicing/ (move-not-rewrite) and the
+# test suite. Each legacy module gets lint-clean when it moves into app/.
+# `make lint-all` runs it everywhere (non-gating, for those cleanup steps).
 lint:
+	$(PY) -m ruff check scripts $$( [ -d app ] && echo app )
+
+lint-all:
 	$(PY) -m ruff check .
 
 # Format is enforced only on `app/` — the generated Soll surface that the

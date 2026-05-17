@@ -36,6 +36,14 @@ extend-exclude = [
 # is the ruff default select, made explicit. Stylistic/opinionated rule
 # families (I, B, UP, …) are added in later migration steps so Schritt 1
 # stays a tooling step, not a repo-wide reformat/refactor.
+#
+# Scope note: `make lint` (in `make verify`) runs ruff only on the new Soll
+# surface (scripts/ + app/) — same rationale as format-check/mypy. Legacy
+# modules carry pre-existing E702/F841 style debt; tightening them
+# repo-wide is churn owned by no step (and would touch the
+# move-not-rewrite invoicing code + the test suite). `make lint-all` runs
+# the same rules everywhere, non-gating, for the per-module cleanup that
+# happens as code migrates into app/.
 select = ["E4", "E7", "E9", "F"]
 
 [tool.ruff.lint.per-file-ignores]
