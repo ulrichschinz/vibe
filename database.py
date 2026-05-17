@@ -1,8 +1,9 @@
 from sqlmodel import create_engine, SQLModel, Session
 from sqlalchemy import text, event
-import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./leads.db")
+from app.core.config import get_settings
+
+DATABASE_URL = get_settings().database_url
 
 
 def _make_engine(url: str):

@@ -1,4 +1,3 @@
-import os
 import secrets
 from datetime import datetime
 from fastapi import APIRouter, Depends, Request, Form, HTTPException
@@ -6,6 +5,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
+from app.core.config import get_settings
 from database import get_session
 from models import (
     User, UserRole, ApiKey, USER_ROLE_LABELS,
@@ -132,7 +132,7 @@ def api_keys_list(
     keys = session.exec(select(ApiKey).order_by(ApiKey.created_at.desc())).all()
     return templates.TemplateResponse("admin/api_keys.html", {
         "request": request, "keys": keys, "new_key": None,
-        "app_host": os.getenv("APP_HOST", ""),
+        "app_host": get_settings().app_host,
     })
 
 
@@ -154,7 +154,7 @@ def api_key_create(
     keys = session.exec(select(ApiKey).order_by(ApiKey.created_at.desc())).all()
     return templates.TemplateResponse("admin/api_keys.html", {
         "request": request, "keys": keys, "new_key": raw_key,
-        "app_host": os.getenv("APP_HOST", ""),
+        "app_host": get_settings().app_host,
     })
 
 

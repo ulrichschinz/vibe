@@ -13,17 +13,17 @@
 
 | Metrik | Wert | Beleg |
 |---|---|---|
-| Python LOC gesamt | 9.698 | `find -name '*.py'` |
-| davon Produktivcode | 6.458 | ohne `tests/` |
+| Python LOC gesamt | 9.786 | `find -name '*.py'` |
+| davon Produktivcode | 6.546 | ohne `tests/` |
 | davon Tests | 3.240 | `tests/` |
-| Test/Prod-Verhältnis | ~50 % | Schritt-2 `app/`-Skelett (+210 Prod-LOC, Doc-only) |
+| Test/Prod-Verhältnis | ~50 % | Schritt-3 `core/config.py` (+88 Prod-LOC) |
 | SQLModel-Tabellen | 14 | `grep -c 'table=True' models.py` |
 | HTTP-Endpoints | 72 | `@router.(get\|post\|...)` in `routes/` |
 | Route-Module | 7 | `routes/*.py` ohne `__init__.py` u. `mcp.py`-Mount |
 | MCP-Tools | 16 | `@mcp.tool` in `services/mcp_server.py` |
 | HTML-Templates | 20 | `templates/**/*.html` |
-| Invoicing-Subsystem | 2.135 LOC | `find services/invoicing -name '*.py' \| xargs wc -l` |
-| `os.getenv`-Fundstellen | 6 Dateien | s. „Cross-cutting" |
+| Invoicing-Subsystem | 2.137 LOC | `find services/invoicing -name '*.py' \| xargs wc -l` |
+| `os.getenv`-Fundstellen | 0 Dateien | Schritt 3: zentral in `app/core/config.py` (s. „Cross-cutting") |
 
 > ✅ **CI-erzwungen (Schritt 0):** Diese Tabelle ist die einzige Quelle der
 > Wahrheit für die Kennzahlen. `scripts/check_architecture_metrics.py`
@@ -94,10 +94,11 @@ vibe/
 ├── scripts/new_domain.py           Schritt 1: `make new-domain X` Scaffold
 ├── app/                            Schritt 2: finales Soll-Skelett — leere
 │                                   Pakete (Modul-Docstrings, Zweck +
-│                                   Entry-Points) + core/db.py (Seed
-│                                   formalisiert; Schritt 3 ersetzt Internas).
-│                                   Noch KEIN Code-Umzug — Prod-App ist
-│                                   weiter top-level main.py (Schritte 3–8)
+│                                   Entry-Points) + core/db.py (Scaffold-
+│                                   Seed). Schritt 3: core/config.py LIVE
+│                                   (pydantic-settings, einzige Env-Quelle).
+│                                   Sonst noch KEIN Code-Umzug — Prod-App
+│                                   ist weiter top-level main.py (Schr. 4–8)
 └── (noch kein Alembic — Schema via create_all; kommt Schritt 9)
 ```
 
@@ -168,10 +169,18 @@ IntegrityCheckRun                  Unveränderlichkeits-Nachweis
   `session_manager.run()` gestartet (Mounts haben keinen eigenen Lifespan).
 - **DB:** `database.py` — `journal_mode=WAL`, `foreign_keys=ON`,
   `busy_timeout=30000`, `BEGIN IMMEDIATE` zur Finalize-Serialisierung.
-- **Config (verstreut):** `os.getenv` in `database.py`, `main.py`,
-  `routes/admin.py`, `routes/api.py`, `services/mcp_server.py`,
-  `services/invoicing/archive.py` — **kein** zentrales Settings-Modul,
-  keine Start-Validierung.
+- **Config (zentral, Schritt 3):** `app/core/config.py` — pydantic-
+  settings `Settings`; `get_settings()` ist die einzige Env-Quelle und
+  ersetzt die vormals in 6 Modulen verstreuten Ad-hoc-Env-Reads
+  (`database.py`, `main.py`, `routes/admin.py`, `routes/api.py`,
+  `services/mcp_server.py`, `services/invoicing/archive.py`). Bewusst
+  **verhaltensgleich**: Defaults byte-identisch zu den alten Fallbacks,
+  `get_settings()` **nicht** gecacht (frische `Settings()` je Aufruf →
+  per-call-Env-Semantik + Test-`monkeypatch.setenv` erhalten), alle
+  Nachbearbeitung (`or None`, `.lower()=="true"`) bleibt wörtlich an den
+  Call-Sites. `main.py` behält `load_dotenv()` (kein `.env`-Shift).
+  Start-Validierung (fail-fast) bleibt Soll — kein Feld ist heute
+  `required`, da keine Ist-Stelle bei fehlender Var hart bricht.
 - **Logging/Tracing:** nicht vorhanden (keine Request-IDs, kein Structured
   Logging).
 
