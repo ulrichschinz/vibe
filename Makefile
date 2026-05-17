@@ -101,7 +101,7 @@ fmt:
 	@if [ -d app ]; then $(PY) -m ruff format app; else echo "fmt: app/ not present yet — nothing to format"; fi
 
 typecheck:
-	$(PY) -m mypy
+	$(PY) -m mypy scripts $$( [ -d app ] && echo app )
 
 contracts:
 	$(LINT_IMPORTS)

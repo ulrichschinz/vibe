@@ -70,10 +70,12 @@ select = ["E4", "E7", "E9", "F"]
 python_version = "3.12"
 ignore_missing_imports = true
 warn_unused_ignores = false
-# Scope: the new Soll surface (scripts/, app/). Legacy top-level modules
-# join mypy as they migrate into app/ (roadmap: "neue Module strict, lax
-# global" — global laxity here = legacy not yet under the checker, by step).
-files = ["scripts", "app"]
+# Scope: the new Soll surface (scripts/, app/) — paths are passed by the
+# `typecheck` make target conditionally (app/ may not exist yet), not via
+# `files=` here, so mypy doesn't error on a missing app/ on the committed
+# tree. Legacy top-level modules join mypy as they migrate into app/
+# (roadmap: "neue Module strict, lax global" — global laxity here = legacy
+# not yet under the checker, by step).
 exclude = "(^|/)(\\.venv|archive|generated_pdfs|reports)/"
 
 [[tool.mypy.overrides]]
