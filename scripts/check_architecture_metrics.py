@@ -62,8 +62,17 @@ def m_prod_loc() -> int:
 
 
 def m_tables() -> int:
-    text = (REPO / "models.py").read_text(encoding="utf-8")
-    return sum(1 for ln in text.splitlines() if "table=True" in ln)
+    """Count real SQLModel tables in their post-Schritt-4 homes.
+
+    Before Schritt 4 this was `grep -c 'table=True' models.py`, which also
+    counted the literal comment `# … (no table=True)` (hence the documented
+    value was 14 while there are 13 tables). The split moved every table to
+    `app/domains/*/models.py` + `app/core/{identity,ai_settings}.py`; the
+    top-level `models.py` is now a re-export shim with zero tables. We count
+    actual `class … table=True` definitions, so the metric is now exact (13).
+    """
+    pat = re.compile(r"^class\s+\w+\(.*\btable=True\b", re.M)
+    return sum(len(pat.findall(p.read_text(encoding="utf-8"))) for p in _py_files(REPO / "app"))
 
 
 def m_endpoints() -> int:

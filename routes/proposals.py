@@ -10,7 +10,8 @@ from typing import Optional
 import json
 
 from database import get_session
-from models import Lead, Proposal, ProposalStatus, DEFAULT_SERVICES, PROPOSAL_STATUS_LABELS, AiSettings, PlanningMessage
+from models import Lead, Proposal, ProposalStatus, DEFAULT_SERVICES, AiSettings, PlanningMessage
+from app.shared.labels import PROPOSAL_STATUS_LABELS
 from services.numbering import next_proposal_number
 from services.pdf import generate_proposal_pdf, render_proposal_html
 from services.auth import require_login, require_editor

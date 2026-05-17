@@ -64,7 +64,13 @@ Single-process FastAPI app. No async DB usage — all routes use synchronous SQL
 ```
 main.py          — app factory, middleware (attach_user), lifespan, bootstrap_admin()
 database.py      — SQLite engine + get_session() dependency
-models.py        — all SQLModel table definitions + Pydantic schemas + label/order dicts
+models.py        — Schritt 4: re-export shim + single table-metadata
+                   aggregation module (`__all__`, deterministic order). The
+                   13 tables/enums/schemas now live in
+                   `app/domains/{leads,proposals,billing}/models.py`(+`schemas.py`)
+                   and `app/core/{identity,ai_settings}.py`; label dicts in
+                   `app/shared/labels.py`. Callers still `from models import …`
+                   via the shim (caller migration is Schritte 6–8)
 routes/
   leads.py       — web UI: dashboard, lead CRUD, stage transitions, notes
   invoices.py    — web UI: invoice CRUD, finalize, archive, VAT override
@@ -119,7 +125,7 @@ Invoice 1──* InvoiceLineItem       (compliance domain; soft-FK Invoice.lead_
 User    (standalone; admins manage other users via /admin)
 ```
 
-`LeadStage` order is defined in `STAGE_ORDER` list in `models.py` and drives the pipeline UI in templates.
+`LeadStage` order is defined in `STAGE_ORDER` list in `app/domains/leads/models.py` (re-exported via the `models.py` shim) and drives the pipeline UI in templates.
 
 ## Docker notes
 
@@ -134,12 +140,18 @@ The local `docker-compose.yml` uses Caddy as reverse proxy (dev/standalone). The
 > `make verify` (`ruff` + `mypy` + `import-linter` + `make test-fast` +
 > Doc-Gate) und der `make new-domain X`-Scaffold **existieren und sind das
 > Gate** — `make verify` ist ab jetzt wörtlich gemeint, kein Surrogat
-> mehr. Noch **nicht** vorhanden ist die domänenorientierte `app/`-
-> Struktur selbst (leeres Skelett = **Schritt 2**, Code-Umzug Schritte
-> 4–8). Bis dahin: ein frisch gescaffoldetes `app/domains/X` ist bereits
-> import-linter-/format-konform; bestehende Logik liegt weiter im
-> `routes/`+`services/`+`models.py`-Slice ("domain" ≈ der relevante
-> Slice, bis sie Schritt 4–8 in `app/` zieht). Jeder Migrationsschritt
+> mehr. Das `app/`-Soll-Skelett steht (**Schritt 2**), `core/config.py`
+> ist live (**Schritt 3**), und **Schritt 4 ist gelandet**: `models.py`
+> ist nach `app/domains/{leads,proposals,billing}/models.py`
+> (+`leads/schemas.py`) + `app/core/{identity,ai_settings}.py` +
+> `app/shared/labels.py` gesplittet; `models.py` ist nur noch
+> Re-Export-Shim + Tabellen-Aggregations-Modul. Noch offen ist der
+> **Service-/Interface-Umzug** (Logik aus `routes/`+`services/`,
+> Schritte 6–8). Bis dahin: ein frisch gescaffoldetes `app/domains/X`
+> ist bereits import-linter-/format-konform; bestehende **Logik** liegt
+> weiter im `routes/`+`services/`-Slice und importiert die Modelle über
+> den `models.py`-Shim ("domain" ≈ der relevante Slice, bis sie
+> Schritt 6–8 in `app/` zieht). Jeder Migrationsschritt
 > aktiviert/schärft die zu ihm gehörige Contract-Regel; Endzustand =
 > ganze Tabelle grün.
 
@@ -219,7 +231,10 @@ enforced by the `test.yml` scaffold-smoke step). It also seeds
 `app/core/db.py` (shared SQLModel base + session) if absent — a minimal
 seed that Schritt 2/3 supersede. Registration is auto-discovery (interfaces
 iterate `app/domains/*`, Schritt 8); the scaffold patches no central
-registry. Note: until **Schritt 2** lands the empty `app/` skeleton, the
-*existing* CRM/billing logic still lives in `routes/`+`services/`+
-`models.py` — scaffold for genuinely new domains; edit existing logic in
-its current slice with the same edit order.
+registry. Note: as of **Schritt 4** the *models* live in
+`app/domains/*/models.py` (+`app/core/{identity,ai_settings}.py`,
+`app/shared/labels.py`); the *existing* CRM/billing **logic** still lives
+in `routes/`+`services/` and reaches the models via the `models.py` shim
+(Service-/Interface-Umzug = Schritte 6–8) — scaffold for genuinely new
+domains; edit existing logic in its current slice with the same edit
+order.
