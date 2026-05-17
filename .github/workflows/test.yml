@@ -62,8 +62,23 @@ jobs:
       # CI installs deps into the runner's system Python (no .venv), so
       # override the Makefile's PY=.venv/bin/python default — the documented
       # `make PY=python` escape hatch. No effect on local dev.
-      - name: Run unit + integration tests
-        run: make PY=python test-fast
+      #
+      # `make verify` is THE Schritt-1 gate: ruff lint + ruff format-check
+      # (app/ only — no-op here) + mypy + import-linter + test-fast (unit +
+      # integration + characterization) + the Schritt-0 doc-gate.
+      - name: Verify (lint + types + import-contracts + test-fast + doc-gate)
+        run: make PY=python verify
+
+      # Scaffold-Vertrag acceptance: a freshly scaffolded domain passes the
+      # tool gate and its smoke test with ZERO manual edits. Created in a
+      # throwaway path and removed before the remaining steps so it never
+      # touches committed LOC / the doc-gate.
+      - name: Scaffold smoke (new-domain → lint+format+types+contracts+test, zero edits)
+        run: |
+          python scripts/new_domain.py scaffoldsmoke
+          make PY=python lint format-check typecheck contracts
+          python -m pytest tests/test_scaffoldsmoke.py -q
+          rm -rf app tests/test_scaffoldsmoke.py scaffold.db
 
       - name: Run contract tests (KoSIT + PDF/A-3)
         run: make PY=python test-contract

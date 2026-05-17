@@ -6,3 +6,7 @@ hypothesis==6.122.3
 freezegun==1.5.1
 httpx==0.28.1
 responses==0.25.6
+# Schritt 1 — Tooling-Fundament (lint / type-check / import contracts).
+ruff==0.8.4
+mypy==1.13.0
+import-linter==2.1
