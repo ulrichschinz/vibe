@@ -77,3 +77,7 @@ archive/*
 
 # Claude Code
 .claude/settings.local.json
+
+# Claude Code local runtime state (harness-managed, not project code)
+.claude/scheduled_tasks.lock
+.claude/scheduled_tasks.json
