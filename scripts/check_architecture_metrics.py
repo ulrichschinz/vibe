@@ -75,20 +75,31 @@ def m_tables() -> int:
     return sum(len(pat.findall(p.read_text(encoding="utf-8"))) for p in _py_files(REPO / "app"))
 
 
+def _interface_router_modules() -> list:
+    # Schritt 8: the routers moved routes/ -> app/interfaces/{web,api}.
+    # Route modules = the interface modules that define a router
+    # (web handlers + the REST router); __init__.py is the register()
+    # composition layer and mount.py is the MCP ASGI mount, neither a
+    # route module. `routes/*.py` is now thin test-facing re-export shims.
+    excluded = {"__init__.py", "mount.py"}
+    return [
+        p
+        for d in ("web", "api")
+        for p in (REPO / "app" / "interfaces" / d).glob("*.py")
+        if p.name not in excluded
+    ]
+
+
 def m_endpoints() -> int:
     pat = re.compile(r"@router\.(get|post|put|patch|delete)\b")
     return sum(
         len(pat.findall(p.read_text(encoding="utf-8")))
-        for p in (REPO / "routes").glob("*.py")
+        for p in _interface_router_modules()
     )
 
 
 def m_route_modules() -> int:
-    # routes/*.py minus __init__.py and the mcp.py mount (not a route module).
-    excluded = {"__init__.py", "mcp.py"}
-    return sum(
-        1 for p in (REPO / "routes").glob("*.py") if p.name not in excluded
-    )
+    return len(_interface_router_modules())
 
 
 def m_mcp_tools() -> int:

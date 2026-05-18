@@ -148,9 +148,13 @@ def install_lead_invoice_columns(target_engine):
 
 def create_db():
     # Move-Vertrag (Schritt 4): the table definitions live in
-    # app/domains/*/models.py + app/core/{identity,ai_settings}.py. Importing
-    # the `models` aggregation shim registers every table on the shared
-    # SQLModel.metadata in one deterministic order — create_all depends on it.
+    # app/domains/*/models.py + app/core/{identity,ai_settings}.py.
+    # `models.py` stays the single deterministic table-metadata aggregation
+    # module (its Move-Vertrag role); this registry-bootstrap import is the
+    # only documented `models` reach left. `database` is a top-level module
+    # (not an import-linter root_package), so this is invisible to the
+    # contracts; the Schritt-8 models-shim-death is prod *name-re-export*
+    # scoped — no `services`/`routes`/`app` module imports it (ADR-009 §F).
     import models  # noqa: F401
 
     SQLModel.metadata.create_all(engine)

@@ -1,7 +1,13 @@
-"""Web UI für die Rechnungs-Verwaltung."""
+"""interfaces.web.invoices — Jinja UI: invoice admin (Schritt 8, moved verbatim).
+
+Move-not-rewrite from `routes/invoices.py`; only model imports point at
+`app.domains.*`/`app.core.*` directly. Web error handling (redirect on
+finalize/storno errors) is unchanged — the central RFC-7807 mapper applies
+to the REST surface only (ADR-009 §C).
+"""
+
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
@@ -14,18 +20,15 @@ from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from database import get_session
-from models import (
+from app.core.identity import User, UserRole
+from app.domains.billing.models import (
     Invoice,
     InvoiceKind,
     InvoiceLineItem,
     InvoiceStatus,
     IssuerProfile,
-    Lead,
-    User,
-    UserRole,
-    ViesAuditEntry,
-    ViesResponseStatus,
 )
+from app.domains.leads.models import Lead
 from app.domains.leads.billing_export import build_billing_customer
 from app.shared.labels import INVOICE_STATUS_LABELS
 from services.auth import require_editor, require_login
@@ -71,12 +74,15 @@ def invoice_list(
     if status:
         query = query.where(Invoice.status == status)
     invoices = list(session.exec(query).all())
-    return templates.TemplateResponse("invoices/list.html", {
-        "request": request,
-        "invoices": invoices,
-        "filter_year": year,
-        "filter_status": status,
-    })
+    return templates.TemplateResponse(
+        "invoices/list.html",
+        {
+            "request": request,
+            "invoices": invoices,
+            "filter_year": year,
+            "filter_status": status,
+        },
+    )
 
 
 @router.get("/invoices/new", response_class=HTMLResponse)
@@ -93,13 +99,16 @@ def invoice_new(
             status_code=303,
         )
     lead = session.get(Lead, lead_id) if lead_id else None
-    return templates.TemplateResponse("invoices/edit.html", {
-        "request": request,
-        "invoice": None,
-        "lead": lead,
-        "lines": [],
-        "action": "/invoices/",
-    })
+    return templates.TemplateResponse(
+        "invoices/edit.html",
+        {
+            "request": request,
+            "invoice": None,
+            "lead": lead,
+            "lines": [],
+            "action": "/invoices/",
+        },
+    )
 
 
 @router.post("/invoices/", response_class=RedirectResponse)
@@ -154,26 +163,35 @@ def invoice_detail(
     invoice = session.get(Invoice, invoice_id)
     if invoice is None:
         raise HTTPException(404)
-    lines = list(session.exec(
-        select(InvoiceLineItem)
-        .where(InvoiceLineItem.invoice_id == invoice.id)
-        .order_by(InvoiceLineItem.position)
-    ).all())
+    lines = list(
+        session.exec(
+            select(InvoiceLineItem)
+            .where(InvoiceLineItem.invoice_id == invoice.id)
+            .order_by(InvoiceLineItem.position)
+        ).all()
+    )
     lead = session.get(Lead, invoice.lead_id) if invoice.lead_id else None
-    related = session.get(Invoice, invoice.related_invoice_id) if invoice.related_invoice_id else None
+    related = (
+        session.get(Invoice, invoice.related_invoice_id) if invoice.related_invoice_id else None
+    )
     storno = None
     if invoice.kind == InvoiceKind.invoice:
         storno = session.exec(
-            select(Invoice).where(Invoice.related_invoice_id == invoice.id).where(Invoice.kind == InvoiceKind.storno)
+            select(Invoice)
+            .where(Invoice.related_invoice_id == invoice.id)
+            .where(Invoice.kind == InvoiceKind.storno)
         ).first()
-    return templates.TemplateResponse("invoices/detail.html", {
-        "request": request,
-        "invoice": invoice,
-        "lines": lines,
-        "lead": lead,
-        "related": related,
-        "storno": storno,
-    })
+    return templates.TemplateResponse(
+        "invoices/detail.html",
+        {
+            "request": request,
+            "invoice": invoice,
+            "lines": lines,
+            "lead": lead,
+            "related": related,
+            "storno": storno,
+        },
+    )
 
 
 @router.get("/invoices/{invoice_id}/edit", response_class=HTMLResponse)
@@ -188,19 +206,24 @@ def invoice_edit(
         raise HTTPException(404)
     if invoice.status != InvoiceStatus.draft:
         return RedirectResponse(f"/invoices/{invoice_id}", status_code=303)
-    lines = list(session.exec(
-        select(InvoiceLineItem)
-        .where(InvoiceLineItem.invoice_id == invoice.id)
-        .order_by(InvoiceLineItem.position)
-    ).all())
+    lines = list(
+        session.exec(
+            select(InvoiceLineItem)
+            .where(InvoiceLineItem.invoice_id == invoice.id)
+            .order_by(InvoiceLineItem.position)
+        ).all()
+    )
     lead = session.get(Lead, invoice.lead_id) if invoice.lead_id else None
-    return templates.TemplateResponse("invoices/edit.html", {
-        "request": request,
-        "invoice": invoice,
-        "lead": lead,
-        "lines": lines,
-        "action": f"/invoices/{invoice_id}/update",
-    })
+    return templates.TemplateResponse(
+        "invoices/edit.html",
+        {
+            "request": request,
+            "invoice": invoice,
+            "lead": lead,
+            "lines": lines,
+            "action": f"/invoices/{invoice_id}/update",
+        },
+    )
 
 
 @router.post("/invoices/{invoice_id}/update", response_class=RedirectResponse)
@@ -321,13 +344,21 @@ def invoice_finalize(
         raise HTTPException(404)
 
     # VIES gate is wired up here; non-EU/non-reverse-charge invoices won't trigger it.
-    gate = make_vies_gate(ViesGateOptions(
-        override=vies_override,
-        override_reason=vies_override_reason or None,
-        override_user_id=user.id,
-    )) if user.role == UserRole.admin else make_vies_gate(ViesGateOptions(
-        override_user_id=user.id,
-    ))
+    gate = (
+        make_vies_gate(
+            ViesGateOptions(
+                override=vies_override,
+                override_reason=vies_override_reason or None,
+                override_user_id=user.id,
+            )
+        )
+        if user.role == UserRole.admin
+        else make_vies_gate(
+            ViesGateOptions(
+                override_user_id=user.id,
+            )
+        )
+    )
 
     options = FinalizeOptions(
         renderer=render_document,
@@ -339,7 +370,8 @@ def invoice_finalize(
     )
     try:
         finalize_invoice(
-            session, invoice_id,
+            session,
+            invoice_id,
             idempotency_key=str(uuid.uuid4()),
             options=options,
         )
@@ -357,7 +389,9 @@ def invoice_finalize(
 
 
 @router.post("/invoices/{invoice_id}/mark-sent", response_class=RedirectResponse)
-def invoice_mark_sent(invoice_id: int, session: Session = Depends(get_session), _=Depends(require_editor)):
+def invoice_mark_sent(
+    invoice_id: int, session: Session = Depends(get_session), _=Depends(require_editor)
+):
     try:
         mark_sent(session, invoice_id)
     except (FinalizeError, InvoiceStateError) as exc:
@@ -366,7 +400,9 @@ def invoice_mark_sent(invoice_id: int, session: Session = Depends(get_session), 
 
 
 @router.post("/invoices/{invoice_id}/mark-paid", response_class=RedirectResponse)
-def invoice_mark_paid(invoice_id: int, session: Session = Depends(get_session), _=Depends(require_editor)):
+def invoice_mark_paid(
+    invoice_id: int, session: Session = Depends(get_session), _=Depends(require_editor)
+):
     try:
         mark_paid(session, invoice_id)
     except (FinalizeError, InvoiceStateError) as exc:

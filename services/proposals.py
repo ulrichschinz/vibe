@@ -4,7 +4,8 @@ from typing import Optional
 
 from sqlmodel import Session
 
-from models import Lead, Proposal, ProposalStatus
+from app.domains.leads.models import Lead
+from app.domains.proposals.models import Proposal, ProposalStatus
 from services.numbering import next_proposal_number
 
 

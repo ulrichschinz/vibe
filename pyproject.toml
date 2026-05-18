@@ -52,6 +52,15 @@ select = ["E4", "E7", "E9", "F"]
 "__init__.py" = ["F401", "F403"]
 "models.py" = ["F401"]
 "tests/*" = ["F401", "F811"]
+# Schritt 8 (ADR-009 §E): the web/REST handler bodies were moved verbatim
+# (move-not-rewrite) into app/interfaces/. E712 (`col == True`) and E741
+# (`for l in …`) are pre-existing legacy ORM idioms; restyling them is a
+# behaviour-adjacent rewrite owned by no step (same rationale as the
+# `app.interfaces.*` mypy `ignore_errors`). F401 stays active — genuinely
+# dead imports are still removed. The NEW logic modules
+# (app.core.errors, app.domains.billing.service) are fully linted.
+"app/interfaces/web/*" = ["E712", "E741"]
+"app/interfaces/api/*" = ["E712", "E741"]
 
 [tool.ruff.format]
 # Format enforcement (`ruff format --check`, see `make format-check`) is
@@ -89,6 +98,33 @@ check_untyped_defs = true
 no_implicit_optional = true
 warn_return_any = true
 
+[[tool.mypy.overrides]]
+# Schritt 8 (ADR-009 §E): the web/REST handler bodies were *moved verbatim*
+# (move-not-rewrite) from `routes/` into `app/interfaces/` — they carry the
+# pre-existing untyped FastAPI signatures (`_=Depends(...)`, no return
+# annotations) + untyped SQLModel ORM expressions. `routes/`/`services/`
+# were NEVER in the mypy run pre-S8 (`typecheck` = `mypy scripts app`);
+# this override preserves that status so the mechanical move does not turn
+# into a repo-wide type-rewrite ("legacy is under the checker only once it
+# is *properly* migrated" — the Schritt-1 scoping decision). The genuinely
+# NEW logic — `app.core.errors` mapper, `app.domains.billing.service`
+# facade — lives OUTSIDE `app.interfaces.*` and stays fully `app.*`-strict.
+module = "app.interfaces.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+# Schritt 8: the moved `app.interfaces.*` handlers import the legacy
+# `services.*` package (invoicing core, pdf, numbering, proposals, the
+# ai/linkedin shims). Pre-S8 `services/*` was NEVER in the `mypy scripts
+# app` graph — only `routes/`/`services.mcp_server` reached it and neither
+# is in scope. The move newly pulls it in; this override keeps the
+# move-not-rewrite legacy package un-gated by mypy exactly as before
+# ("legacy is under the checker only once properly migrated" — the
+# Schritt-1 scoping decision; `services/invoicing/` is explicitly
+# move-not-rewrite). ADR-009 §E.
+module = "services.*"
+ignore_errors = true
+
 # --------------------------------------------------------------------------
 # import-linter — executable import contracts (Schicht 2: "Soll als Zwang")
 # --------------------------------------------------------------------------
@@ -125,13 +161,14 @@ warn_return_any = true
 root_packages = ["services", "routes", "app"]
 
 [[tool.importlinter.contracts]]
-name = "billing core (services.invoicing) must not import CRM — Naht via the BillingOrder contract (Schritt 5)"
+name = "billing core (services.invoicing) must not import CRM/interfaces — Naht via the BillingOrder contract (Schritt 5, +interfaces Schritt 8)"
 type = "forbidden"
 source_modules = ["services.invoicing"]
 forbidden_modules = [
     "routes",
     "app.domains.leads",
     "app.domains.proposals",
+    "app.interfaces",
 ]
 
 # Schritt 7 (MCP-Entdopplung) — the `interfaces/mcp` row of the roadmap edge
@@ -164,11 +201,49 @@ forbidden_modules = [
 # package exists / each step activates its own edge (roadmap Schicht 2).
 # Rationale: docs/adr/008-mcp-dedup-interface-edge.md.
 [[tool.importlinter.contracts]]
-name = "MCP interface (services.mcp_server) must not directly import/construct domain models — MCP-Entdopplung (Schritt 7)"
+# Schritt 8 extends the Schritt-7 `interfaces/mcp` row to the billing
+# models: the new `app.domains.billing.service` facade absorbed the last
+# direct `Invoice(...)`/`InvoiceLineItem(...)` construction the invoice
+# tools did, so `services.mcp_server` now imports **no** domain model
+# directly. `mcp_server` stays physically here (frozen `m.engine` seam,
+# ADR-009 §B), so it remains the `source_modules`. `allow_indirect_imports
+# = "True"` keeps forbidding only the **direct** model import while letting
+# the legitimate intra-domain `service → models` chain through (the exact
+# ADR-008 subtlety; the inverse of the transitive Schritt-5 billing rule).
+[[tool.importlinter.contracts]]
+name = "MCP interface (services.mcp_server) must not directly import/construct domain models — MCP-Entdopplung (Schritt 7, +billing Schritt 8)"
 type = "forbidden"
 source_modules = ["services.mcp_server"]
 forbidden_modules = [
     "app.domains.leads.models",
     "app.domains.proposals.models",
+    "app.domains.billing.models",
 ]
 allow_indirect_imports = "True"
+
+# Schritt 8 (ADR-009 §G) — the reusable-kernel + cross-domain rows of the
+# roadmap edge table, activated for exactly the edges that hold after the
+# move-not-rewrite split (a rule is inactive until its state holds —
+# roadmap Schicht 2). The web/REST `interfaces ↛ domains/*/models` row and
+# the `shared ↛ domains` row are deliberately NOT activated yet (the moved
+# CRUD handlers still construct models — move-not-rewrite; labels are
+# enum-keyed on domain enums — Schritt-4 decision). Both are a later
+# refactor owned by no current step; rationale: docs/adr/009.
+[[tool.importlinter.contracts]]
+name = "reusable kernel (app.core) is domain-agnostic — knows no domain/interface/contract (Schritt 8)"
+type = "forbidden"
+source_modules = ["app.core"]
+forbidden_modules = [
+    "app.domains",
+    "app.interfaces",
+    "app.contracts",
+]
+
+[[tool.importlinter.contracts]]
+name = "domains are independent — cross-domain only via app.contracts (Schritt 8)"
+type = "independence"
+modules = [
+    "app.domains.leads",
+    "app.domains.proposals",
+    "app.domains.billing",
+]

@@ -10,16 +10,14 @@ load_dotenv()
 
 from database import create_db, engine
 from app.core.config import get_settings
-from models import User, UserRole, IssuerProfile
+from app.core.identity import User, UserRole
+from app.domains.billing.models import IssuerProfile
 import services.invoicing.immutability  # noqa: F401  registers SA event listeners
 from sqlmodel import Session, select
 from services.auth import hash_password, NeedsLoginException
-from routes import leads, proposals, api, invoices
-from routes import auth as auth_routes
-from routes import admin as admin_routes
-from routes import ai as ai_routes
-from routes.mcp import mcp_app
-from services.mcp_server import mcp as mcp_server
+from app.interfaces import api as api_iface
+from app.interfaces import mcp as mcp_iface
+from app.interfaces import web as web_iface
 
 STATIC_DIR = Path(__file__).parent / "static"
 BRAND_DIR = STATIC_DIR / "brand"
@@ -87,7 +85,7 @@ async def lifespan(app: FastAPI):
     bootstrap_admin()
     bootstrap_issuer()
     # MCP session manager's task group must live for the app's lifetime
-    async with mcp_server.session_manager.run():
+    async with mcp_iface.session_manager():
         yield
 
 
@@ -124,11 +122,13 @@ async def needs_login_handler(request: Request, exc: NeedsLoginException):
     return RedirectResponse(url="/login", status_code=303)
 
 
-app.include_router(auth_routes.router)
-app.include_router(admin_routes.router)
-app.include_router(ai_routes.router)
-app.include_router(leads.router)
-app.include_router(proposals.router)
-app.include_router(invoices.router)
-app.include_router(api.router)
-app.mount("/mcp", mcp_app)
+# Schritt 8: the delivery layer is wired through app.interfaces.{web,api,mcp}
+# instead of the old top-level routes/ modules. `web.register` includes the
+# Jinja routers (+ Scaffold-Vertrag domain auto-discovery), `api.register`
+# adds the REST router + the central RFC-7807 problem+json mapper, and
+# `mcp.register` mounts the X-API-Key-gated FastMCP app at /mcp. The web
+# routers keep their FastAPI-default error behaviour; only the REST surface
+# gets problem+json (ADR-009).
+web_iface.register(app)
+api_iface.register(app)
+mcp_iface.register(app)

@@ -1,10 +1,14 @@
+"""interfaces.web.auth — login/logout (Schritt 8, moved verbatim from
+`routes/auth.py`; `User` import points at `app.core.identity` directly).
+"""
+
 from fastapi import APIRouter, Depends, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 
 from database import get_session
-from models import User
+from app.core.identity import User
 from services.auth import verify_password
 
 router = APIRouter()
@@ -26,9 +30,7 @@ def login(
     password: str = Form(...),
     session: Session = Depends(get_session),
 ):
-    user = session.exec(
-        select(User).where(User.email == email, User.is_active == True)
-    ).first()
+    user = session.exec(select(User).where(User.email == email, User.is_active == True)).first()
     if not user or not verify_password(password, user.hashed_password):
         return templates.TemplateResponse(
             "auth/login.html",
