@@ -13,8 +13,8 @@
 
 | Metrik | Wert | Beleg |
 |---|---|---|
-| Python LOC gesamt | 10.140 | `find -name '*.py'` |
-| davon Produktivcode | 6.831 | ohne `tests/` |
+| Python LOC gesamt | 10.143 | `find -name '*.py'` |
+| davon Produktivcode | 6.834 | ohne `tests/` |
 | davon Tests | 3.309 | `tests/` |
 | Test/Prod-Verhältnis | ~49 % | Schritt-4 `models.py`-Split (Move + Shim) |
 | SQLModel-Tabellen | 13 | `table=True`-Klassen in `app/**/models.py` + `app/core/{identity,ai_settings}.py` (Schritt 4 korrigiert: vorher 14 durch eine mitgezählte Kommentarzeile in `models.py`, real 13 Entitäten) |
@@ -99,11 +99,11 @@ vibe/
 │   ├── core/config.py          ...  Schritt 3: pydantic-settings (Env-Quelle)
 │   ├── core/identity.py         51  Schritt 4: User/UserRole/ApiKey
 │   ├── core/ai_settings.py      32  Schritt 4: AiProvider/AiSettings
-│   ├── domains/leads/models.py 163  Schritt 4: Lead/Note/PlanningMessage +
+│   ├── domains/leads/models.py 164  Schritt 4: Lead/Note/PlanningMessage +
 │   │                                Lead-Enums + STAGE_ORDER
 │   ├── domains/leads/schemas.py 87  Schritt 4: LeadCreate/Read/Patch
 │   ├── domains/proposals/          Schritt 4: Proposal + ProposalStatus +
-│   │   models.py                95  DEFAULT_SERVICES
+│   │   models.py                97  DEFAULT_SERVICES
 │   ├── domains/billing/            Schritt 4: eigenes Billing-Tabellen-
 │   │   models.py               250  Schema (Invoice/LineItem/Sequence/Vies/
 │   │                                Integrity + IssuerProfile), byte-gleich

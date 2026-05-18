@@ -34,6 +34,7 @@ from app.core.db import SQLModel
 
 class IssuerProfile(SQLModel, table=True):
     """Singleton (id=1). Stammdaten des Rechnungsausstellers."""
+
     id: int = Field(default=1, primary_key=True)
     legal_name: str
     street: str
@@ -190,19 +191,17 @@ class Invoice(SQLModel, table=True):
 
 
 class InvoiceLineItem(SQLModel, table=True):
-    __table_args__ = (
-        UniqueConstraint("invoice_id", "position", name="uq_line_invoice_position"),
-    )
+    __table_args__ = (UniqueConstraint("invoice_id", "position", name="uq_line_invoice_position"),)
 
     id: Optional[int] = Field(default=None, primary_key=True)
     invoice_id: int = Field(foreign_key="invoice.id")
-    position: int                         # 1-based, gap-free per invoice
+    position: int  # 1-based, gap-free per invoice
     description: str = Field(sa_column=Column(Text))
     quantity: Decimal = Field(sa_column=Column(Numeric(12, 4), nullable=False))
-    unit: str = "Std"                     # Std | Tag | Stk | Pauschal
+    unit: str = "Std"  # Std | Tag | Stk | Pauschal
     unit_price_net: Decimal = Field(sa_column=Column(Numeric(12, 2), nullable=False))
     vat_rate: Decimal = Field(sa_column=Column(Numeric(5, 2), nullable=False))
-    vat_code: str = "S"                   # EN16931: S | AE | E | G | O | Z
+    vat_code: str = "S"  # EN16931: S | AE | E | G | O | Z
     line_net: Decimal = Field(sa_column=Column(Numeric(12, 2), nullable=False))
     line_vat: Decimal = Field(sa_column=Column(Numeric(12, 2), nullable=False))
     line_gross: Decimal = Field(sa_column=Column(Numeric(12, 2), nullable=False))
@@ -210,6 +209,7 @@ class InvoiceLineItem(SQLModel, table=True):
 
 class InvoiceNumberSequence(SQLModel, table=True):
     """Race-safe Counter pro Geschäftsjahr. Update unter BEGIN IMMEDIATE."""
+
     fiscal_year: int = Field(primary_key=True)
     prefix: str = "RE"
     last_sequence: int = 0

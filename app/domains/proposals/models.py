@@ -72,14 +72,16 @@ class Proposal(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     lead_id: int = Field(foreign_key="lead.id")
-    number: str               # AR-2026-001
+    number: str  # AR-2026-001
     title: str
     intro_text: Optional[str] = None
     services: str = Field(default=json.dumps(DEFAULT_SERVICES))
     total_value: Optional[float] = None
     duration: Optional[str] = None
     payment_terms: Optional[str] = "50 % bei Projektstart, 50 % bei Abschluss"
-    travel_costs: Optional[str] = "Reisekosten werden nach Aufwand und vorheriger Abstimmung gesondert in Rechnung gestellt."
+    travel_costs: Optional[str] = (
+        "Reisekosten werden nach Aufwand und vorheriger Abstimmung gesondert in Rechnung gestellt."
+    )
     validity_days: int = 30
     status: ProposalStatus = ProposalStatus.draft
     sent_at: Optional[datetime] = None

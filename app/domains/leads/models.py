@@ -87,13 +87,13 @@ class Lead(SQLModel, table=True):
     company: Optional[str] = Field(default=None, sa_column=Column(String, nullable=True))
     email: Optional[str] = None
     phone: Optional[str] = None
-    salutation: Optional[str] = None    # "Frau" / "Herr" / ""
+    salutation: Optional[str] = None  # "Frau" / "Herr" / ""
     source: LeadSource = LeadSource.manual
     lead_type: LeadType = Field(default=LeadType.direct)
     owner_id: Optional[int] = Field(default=None, foreign_key="user.id")
     stage: LeadStage = LeadStage.new
     notes: Optional[str] = None
-    tags: Optional[str] = None          # JSON array string
+    tags: Optional[str] = None  # JSON array string
     agent_metadata: Optional[str] = None  # JSON object string
     plan_text: Optional[str] = Field(default=None, sa_column=Column(Text))
     # Invoicing extension (added 2026-05): for §14 UStG-compliant recipient block.
@@ -102,16 +102,16 @@ class Lead(SQLModel, table=True):
     postal_code: Optional[str] = None
     city: Optional[str] = None
     country_code: Optional[str] = Field(default="DE")  # ISO-3166-1 alpha-2
-    vat_id: Optional[str] = None                       # USt-IdNr.
+    vat_id: Optional[str] = None  # USt-IdNr.
     is_business: Optional[bool] = Field(default=True)
-    tax_country: Optional[str] = None                  # falls abweichend von country_code
+    tax_country: Optional[str] = None  # falls abweichend von country_code
     # Wiedervorlage / Qualifizierung (added 2026-05).
     snooze_until: Optional[date] = Field(default=None, sa_column=Column(Date, nullable=True))
-    bant_budget: Optional[str] = None     # BantValue
+    bant_budget: Optional[str] = None  # BantValue
     bant_authority: Optional[str] = None
     bant_need: Optional[str] = None
     bant_timing: Optional[str] = None
-    ai_readiness: Optional[str] = None    # ReadinessLevel
+    ai_readiness: Optional[str] = None  # ReadinessLevel
     pain_points: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
     next_action: Optional[str] = None
     next_action_date: Optional[date] = Field(default=None, sa_column=Column(Date, nullable=True))
@@ -129,6 +129,7 @@ class Lead(SQLModel, table=True):
         return sum(
             _BANT_SCORE.get(v, 0)
             for v in (self.bant_budget, self.bant_authority, self.bant_need, self.bant_timing)
+            if v is not None
         )
 
     def get_tags(self) -> list:
@@ -159,5 +160,5 @@ class PlanningMessage(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     lead_id: int = Field(foreign_key="lead.id")
-    role: str          # "user" | "assistant"
+    role: str  # "user" | "assistant"
     content: str = Field(sa_column=Column(Text))
