@@ -380,7 +380,7 @@ def mcp_list_leads(
     if not show_snoozed:
         today = date.today()
         query = query.where(
-            or_(Lead.snooze_until.is_(None), Lead.snooze_until <= today)  # type: ignore[union-attr,operator]
+            or_(Lead.snooze_until.is_(None), Lead.snooze_until <= today)  # type: ignore[arg-type,union-attr,operator]
         )
     query = query.order_by(Lead.created_at.desc()).limit(  # type: ignore[attr-defined]
         max(1, min(limit, 500))
