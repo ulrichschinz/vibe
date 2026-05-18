@@ -25,7 +25,11 @@ import pkgutil
 
 from fastapi import FastAPI
 
-import app.domains
+from app import domains as _domains_pkg  # module-level alias: the
+
+# `register(app)`/`_discover_domain_routers(app)` params shadow the `app`
+# package name, so the domain auto-discovery must reach the package via
+# this alias, not `app.domains`.
 from app.interfaces.web import admin, ai, auth, invoices, leads, proposals
 
 _WEB_ROUTERS = (auth, admin, ai, leads, proposals, invoices)
@@ -38,7 +42,7 @@ def _discover_domain_routers(app: FastAPI) -> None:
     needs no central registry patch. Domains without a `router` module are
     skipped silently (they are pure logic/data packages today).
     """
-    for mod in pkgutil.iter_modules(app.domains.__path__):
+    for mod in pkgutil.iter_modules(_domains_pkg.__path__):
         try:
             router_mod = importlib.import_module(f"app.domains.{mod.name}.router")
         except ModuleNotFoundError:
