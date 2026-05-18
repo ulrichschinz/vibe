@@ -1,24 +1,22 @@
-import logging
 from copy import deepcopy
 
 from fastapi import APIRouter, Depends, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.templating import Jinja2Templates
-from sqlmodel import Session, select
+from sqlmodel import Session
 from datetime import datetime, timedelta
 from typing import Optional
 import json
 
 from database import get_session
-from models import Lead, Proposal, ProposalStatus, DEFAULT_SERVICES, AiSettings, PlanningMessage
+from models import Lead, Proposal, ProposalStatus, DEFAULT_SERVICES, AiSettings
 from app.shared.labels import PROPOSAL_STATUS_LABELS
+from app.domains.leads import service as leads_service
+from app.domains.proposals import service as proposals_service
 from services.numbering import next_proposal_number
 from services.pdf import generate_proposal_pdf, render_proposal_html
 from services.auth import require_login, require_editor
 from services.proposals import create_proposal as create_proposal_svc, mark_proposal_sent as mark_proposal_sent_svc
-from services.ai import generate_proposal_drafts, AiDraftError
-
-log = logging.getLogger(__name__)
 
 
 def _ai_active(session: Session) -> bool:
@@ -38,40 +36,16 @@ def proposal_new(request: Request, lead_id: int, from_plan: bool = False, sessio
     if not lead:
         raise HTTPException(status_code=404)
 
-    services = deepcopy(DEFAULT_SERVICES)
-    prefill_intro = None
-
     if from_plan:
         ai_settings = session.get(AiSettings, 1)
         ai_ok = bool(ai_settings and ai_settings.is_active and ai_settings.api_key)
-        messages = []
-        if ai_ok:
-            messages = list(session.exec(
-                select(PlanningMessage)
-                .where(PlanningMessage.lead_id == lead_id)
-                .order_by(PlanningMessage.created_at)
-            ).all())
-
-        if ai_ok and messages:
-            try:
-                drafts = generate_proposal_drafts(lead, messages, ai_settings)
-                prefill_intro = drafts["intro"] or lead.plan_text
-                # All 3 service blocks are enabled when prefilled from chat —
-                # the operator turns them off manually in the editor.
-                by_id = {s["id"]: s for s in drafts["services"]}
-                for svc in services:
-                    d = by_id.get(svc["id"])
-                    if d and d["description"]:
-                        svc["description"] = d["description"]
-                    if d and d["deliverables"]:
-                        svc["deliverables"] = d["deliverables"]
-                    if d and (d["description"] or d["deliverables"]):
-                        svc["enabled"] = True
-            except Exception:
-                log.exception("KI-Draft fehlgeschlagen, Fallback auf plan_text")
-                prefill_intro = lead.plan_text
-        else:
-            prefill_intro = lead.plan_text
+        messages = leads_service.planning_messages(session, lead_id) if ai_ok else []
+        services, prefill_intro = proposals_service.build_proposal_prefill(
+            lead, messages, ai_settings, ai_ok
+        )
+    else:
+        services = deepcopy(DEFAULT_SERVICES)
+        prefill_intro = None
 
     return templates.TemplateResponse("proposals/editor.html", {
         "request": request,

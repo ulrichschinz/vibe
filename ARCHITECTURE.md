@@ -13,10 +13,10 @@
 
 | Metrik | Wert | Beleg |
 |---|---|---|
-| Python LOC gesamt | 10.379 | `find -name '*.py'` |
-| davon Produktivcode | 7.049 | ohne `tests/` |
+| Python LOC gesamt | 10.640 | `find -name '*.py'` |
+| davon Produktivcode | 7.310 | ohne `tests/` |
 | davon Tests | 3.330 | `tests/` |
-| Test/Prod-Verhältnis | ~47 % | Schritt-5 `BillingOrder`-Vertrag + Naht-Kappung |
+| Test/Prod-Verhältnis | ~46 % | Schritt-6 Service-Umzug (Routes→`app/`), Tests unverändert |
 | SQLModel-Tabellen | 13 | `table=True`-Klassen in `app/**/models.py` + `app/core/{identity,ai_settings}.py` (Schritt 4 korrigiert: vorher 14 durch eine mitgezählte Kommentarzeile in `models.py`, real 13 Entitäten) |
 | HTTP-Endpoints | 72 | `@router.(get\|post\|...)` in `routes/` |
 | Route-Module | 7 | `routes/*.py` ohne `__init__.py` u. `mcp.py`-Mount |
@@ -51,23 +51,28 @@ vibe/
 │                                    (`__all__`, deterministische Reihenfolge);
 │                                    KEINE Definition mehr — Tabellen/Enums/
 │                                    Schemas liegen in `app/` (s. u.)
-├── routes/                    1933  Web-UI + REST + MCP-Mount
-│   ├── leads.py                539  Lead-CRUD, Notes, LinkedIn-Import-UI,
-│   │                                Lead→Proposal — mischt UI+Logik
+├── routes/                    1761  Web-UI + REST + MCP-Mount (Schritt 6:
+│   │                                Lead/Proposal/AI-Logik → app/, Routes
+│   │                                rufen jetzt den Service)
+│   ├── leads.py                481  Lead-CRUD, Notes; Dashboard/LinkedIn-
+│   │                                Import rufen leads/service (Schritt 6)
 │   ├── invoices.py             441  Invoice-CRUD, finalize, Archiv, VAT-
 │   │                                Override — mischt UI+Orchestrierung
 │   ├── api.py                  362  12 JSON-Endpoints für Agenten,
 │   │                                X-API-Key, validate_api_key()
-│   ├── ai.py                   282  Planning-Chat, Outline→Proposal
+│   ├── ai.py                   193  Planning-Chat-Endpoints — Prompt-/
+│   │                                History-Logik → leads/service (Schritt 6)
 │   ├── admin.py                279  User/API-Key/Issuer/VIES-Verwaltung
-│   ├── proposals.py            212  Proposal-CRUD + Editor + Dokument
+│   ├── proposals.py            187  Proposal-CRUD; from_plan ruft
+│   │                                proposals/service (Schritt 6)
 │   ├── mcp.py                   45  ASGI-Mount /mcp + X-API-Key-Middleware
 │   └── auth.py                  45  Login/Logout (Session)
-├── services/                  3116  Business-Logik (inkonsistent genutzt)
+├── services/                  2898  Business-Logik (inkonsistent genutzt)
 │   ├── mcp_server.py           531  FastMCP + 16 Tools — dupliziert tw.
 │   │                                Lead/Proposal-Logik statt Service-Call
-│   ├── ai.py                   145  Anthropic-Wrapper, Prompts hartcodiert
-│   ├── linkedin_import.py      136  LinkedIn-PDF → Lead-Extraktion
+│   ├── ai.py                    35  Schritt 6: Re-Export-Shim → app/core/ai
+│   │                                (frozen monkeypatch-Naht bis Schritt 7)
+│   ├── linkedin_import.py       28  Schritt 6: Re-Export-Shim → app/core/ai
 │   ├── pdf.py                   72  Jinja2→WeasyPrint (saubere Funktion)
 │   ├── proposals.py             54  create/mark_sent (sauberer Service)
 │   ├── auth.py                  46  Hashing, require_login/_editor/_admin
@@ -100,21 +105,29 @@ vibe/
 │   ├── core/config.py          ...  Schritt 3: pydantic-settings (Env-Quelle)
 │   ├── core/identity.py         51  Schritt 4: User/UserRole/ApiKey
 │   ├── core/ai_settings.py      32  Schritt 4: AiProvider/AiSettings
+│   ├── core/ai.py              305  Schritt 6: Anthropic-Adapter + Prompt-
+│   │                                Registry + ===MARKER===/<json>-Parser
+│   │                                (verbatim aus services/ai+linkedin)
 │   ├── domains/leads/models.py 164  Schritt 4: Lead/Note/PlanningMessage +
 │   │                                Lead-Enums + STAGE_ORDER
 │   ├── domains/leads/schemas.py 87  Schritt 4: LeadCreate/Read/Patch
 │   ├── domains/leads/              Schritt 5: BillingOrder-Naht (CRM-
 │   │   billing_export.py        54  Export: Lead → BillingCustomer)
+│   ├── domains/leads/              Schritt 6: Dashboard-Aggregation,
+│   │   service.py               260  LinkedIn-Orchestrierung, Planning-
+│   │                                Chat-Historie + Prompt-Builder
 │   ├── domains/proposals/          Schritt 4: Proposal + ProposalStatus +
 │   │   models.py                97  DEFAULT_SERVICES
+│   ├── domains/proposals/          Schritt 6: AI-Draft-Erzeugung + Merge/
+│   │   service.py               103  Prefill (verbatim aus routes/proposals)
 │   ├── domains/billing/            Schritt 4: eigenes Billing-Tabellen-
 │   │   models.py               250  Schema (Invoice/LineItem/Sequence/Vies/
 │   │                                Integrity + IssuerProfile), byte-gleich
 │   ├── contracts/                  Schritt 5: BillingOrder-DTO (reines
 │   │   billing_order.py        125  pydantic; CRM↔Billing-Vertrag, frozen)
 │   └── shared/labels.py         95  Schritt 4: alle *_LABELS (Daten)
-│                                    Restl. Pakete docstring-only bis Schr. 6–8;
-│                                    Prod-App noch top-level main.py (Schr. 6–8)
+│                                    interfaces/* docstring-only bis Schr. 7–8;
+│                                    Prod-App noch top-level main.py (Schr. 7–8)
 └── (noch kein Alembic — Schema via create_all; kommt Schritt 9)
 ```
 
@@ -140,13 +153,23 @@ vibe/
 ```
 
 **Bruchstellen konkret:**
-- `routes/leads.py` — Dashboard-Aggregation, LinkedIn-Import-Orchestrierung,
-  Lead→Proposal-Erzeugung direkt im Handler.
-- `routes/proposals.py` — AI-Draft-Erzeugung + Merge-Logik im Handler.
-- `routes/api.py` — RFC-7807-Fehler-Coercion inline pro Endpoint.
+- ~~`routes/leads.py` — Dashboard-Aggregation, LinkedIn-Import-
+  Orchestrierung~~ → **Schritt 6 gelandet**: `app/domains/leads/service.py`
+  (Routes rufen den Service). Lead→Proposal-Erzeugung läuft weiter über
+  `services/proposals.py` (sauber; MCP teilt sie — Schritt 7).
+- ~~`routes/proposals.py` — AI-Draft-Erzeugung + Merge-Logik im Handler~~ →
+  **Schritt 6 gelandet**: `app/domains/proposals/service.py`; der Anthropic-
+  Adapter + Prompts + `===MARKER===`/`<json>`-Parser liegen in
+  `app/core/ai.py` (verbatim verschoben, **kein** Robustheits-Fix —
+  Struktur-Schuld 6). `services/ai.py`/`services/linkedin_import.py` sind
+  jetzt Re-Export-Shims (frozen monkeypatch-Naht bis Schritt 7).
+- `routes/ai.py` — Planning-Chat-Endpoints; Prompt-Builder + PlanningMessage-
+  Historie sind **Schritt 6** nach `app/domains/leads/service.py` (Planning
+  gehört zum Lead) gewandert, der Router hält nur HTTP + den AI-Transport.
+- `routes/api.py` — RFC-7807-Fehler-Coercion inline pro Endpoint (Schritt 8).
 - `services/mcp_server.py` — `create_lead`/`update_lead` instanziieren
   `Lead(...)` selbst (Duplikat); nur `create_proposal`/`mark_proposal_sent`
-  rufen den Service. Jedes Tool öffnet eigene `Session(engine)`.
+  rufen den Service. Jedes Tool öffnet eigene `Session(engine)` (Schritt 7).
 
 ## Datenmodell
 
@@ -211,17 +234,30 @@ die Pipeline-UI.
    gesplittet; `models.py` ist nur noch Re-Export-Shim +
    Tabellen-Aggregations-Modul. Offen: der Shim lebt noch (Aufrufer
    wandern Schritte 6–8; Shim-Sterbe-Gate erst im PR des letzten
-   Aufrufers).
-2. Dicke Route-Module (`leads.py` 539, `invoices.py` 441) mischen UI,
-   Business-Logik und Orchestrierung → schwer testbar ohne HTTP.
-3. Service-Layer inkonsistent: sauber bei `proposals`/`pdf`/`invoicing`,
-   fehlt für Lead-Aggregation/Import/AI-Merge.
+   Aufrufers). Schritt 6 hat zusätzlich die *AI-Adapter*-Shims
+   `services/ai.py`/`services/linkedin_import.py` erzeugt (Re-Export auf
+   `app/core/ai.py`; sie sind die frozen monkeypatch-Naht der Schritt-0.5-
+   Char-Tests und sterben mit ihnen in Schritt 7).
+2. Dicke Route-Module: `leads.py` 539→481, `proposals.py` 212→187,
+   `ai.py` 282→193 — **Schritt 6** zog Dashboard-Aggregation, LinkedIn-
+   Orchestrierung, AI-Draft-Merge und Planning-Historie/Prompt-Builder in
+   `app/domains/{leads,proposals}/service.py`. Verbleibend dick:
+   `invoices.py` 441 (mischt UI+Orchestrierung) — eigener späterer Schnitt.
+3. ~~Service-Layer inkonsistent: fehlt für Lead-Aggregation/Import/
+   AI-Merge~~ → **Schritt 6 gelandet**: `app/domains/leads/service.py` +
+   `app/domains/proposals/service.py` + `app/core/ai.py` (Adapter). Sauber
+   bei `proposals`/`pdf`/`invoicing` bleibt; MCP-Entdopplung = Schritt 7.
 4. `mcp_server.py` dupliziert Lead/Proposal-Logik statt Services zu rufen.
 5. ~~Kein `pyproject.toml`/Linter/Type-Check/CI-Gate~~ → **Schritt 1
    gelandet** (`pyproject.toml`, `ruff`, `mypy`, `import-linter`,
    `make verify`-Gate je PR). Offen bleibt: **keine Alembic-Migrationen**
    (Schema via `create_all` beim Start) — Schritt 9.
-6. AI-Anbindung an Anthropic gekoppelt, Prompts hartcodiert, Parsing fragil.
+6. AI-Anbindung an Anthropic gekoppelt, Prompts hartcodiert, Parsing
+   fragil. **Schritt 6** hat das *isoliert* (alles in `app/core/ai.py`,
+   eine Adapter-Stelle) aber bewusst **nicht behoben** — die Prompts und
+   die `===MARKER===`/`<json>`-Parser sind byte-für-byte verschoben (keine
+   Verhaltensänderung). Der Robustheits-/Provider-Abstraktions-Fix ist ein
+   eigenes späteres Item, jetzt mit klarem Single Point of Change.
 
 **Erhaltenswert:** `docs/adr/` + Runbook + Verfahrensdoku, hohe Invoicing-
 Coverage (`.coveragerc` 90 %), geteiltes `validate_api_key()`, schlanke
