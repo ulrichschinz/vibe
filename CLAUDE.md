@@ -153,8 +153,9 @@ The local `docker-compose.yml` uses Caddy as reverse proxy (dev/standalone). The
 > `BillingCustomer`-Snapshot via injiziertem `customer_resolver` entgegen
 > (byte-äquivalent — einzige inhaltliche Änderung im Plan). Die
 > `import-linter`-Billing-Regel ist auf
-> `services.invoicing ↛ routes/models/app.domains.{leads,proposals}`
-> geschärft (Rationale: `docs/adr/007-billing-order-contract.md`). Noch
+> `services.invoicing ↛ routes/app.domains.{leads,proposals}` geschärft
+> (der `models`-Shim ist transitiv mit abgedeckt; Rationale:
+> `docs/adr/007-billing-order-contract.md`). Noch
 > offen ist der **Service-/Interface-Umzug** (Logik aus
 > `routes/`+`services/`, Schritte 6–8) — die *übrigen* (Nicht-Billing-)
 > Aufrufer importieren die Modelle weiter über den `models.py`-Shim

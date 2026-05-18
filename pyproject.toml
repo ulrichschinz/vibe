@@ -104,19 +104,25 @@ warn_return_any = true
 # (`app.contracts.billing_order`) and every invoicing model import was
 # repointed from the `models` shim to billing's own
 # `app.domains.billing.models`, the billing core must import **nothing** from
-# CRM: not `routes`, not the `models` shim (it aggregates `domains/*` incl.
-# `Lead`), and not the other domains' packages (`app.domains.leads`,
-# `app.domains.proposals`). It MAY still import its own
-# `app.domains.billing.*`, `app.contracts.*`, `app.core.*`, `app.shared.*`.
-# This is the `domains/billing/*` row of the roadmap edge table; only the
-# billing line is sharpened here — the full interface edge set is Schritt 7.
-# Rationale (the "why" layer): docs/adr/007-billing-order-contract.md.
+# CRM: not `routes`, and not the other domains' packages
+# (`app.domains.leads`, `app.domains.proposals`). The top-level `models`
+# shim re-exports `domains/*` — forbidding the domain packages catches a
+# reach through the shim **transitively** too (import-linter `forbidden`
+# contracts detect indirect imports by default:
+# `services.invoicing → models → app.domains.leads` is flagged). That is
+# the precise encoding of the roadmap rule "billing ↛ domains/*/models",
+# without listing the bare `models` module (a single .py module is not a
+# valid grimp `root_package` — only packages are). Billing MAY still import
+# its own `app.domains.billing.*`, `app.contracts.*`, `app.core.*`,
+# `app.shared.*`. This is the `domains/billing/*` row of the roadmap edge
+# table; only the billing line is sharpened here — the full interface edge
+# set is Schritt 7. Rationale: docs/adr/007-billing-order-contract.md.
 #
-# `app` and `models` are added to root_packages so the rule can name them;
+# `app` is added to root_packages so the rule can name the domain packages;
 # correctness is CI-verified (no local interpreter with app deps — grimp
 # needs to import the package graph; same constraint as Schritt 4).
 [tool.importlinter]
-root_packages = ["services", "routes", "app", "models"]
+root_packages = ["services", "routes", "app"]
 
 [[tool.importlinter.contracts]]
 name = "billing core (services.invoicing) must not import CRM — Naht via the BillingOrder contract (Schritt 5; full interface edge set Schritt 7)"
@@ -124,7 +130,6 @@ type = "forbidden"
 source_modules = ["services.invoicing"]
 forbidden_modules = [
     "routes",
-    "models",
     "app.domains.leads",
     "app.domains.proposals",
 ]

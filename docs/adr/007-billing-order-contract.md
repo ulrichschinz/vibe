@@ -52,9 +52,15 @@ Alle Invoicing-Modell-Importe wurden vom `models`-Shim auf
 
 `import-linter` (`pyproject.toml`) wird von der Saat
 `services.invoicing ↛ routes` zur vollen Billing-Regel geschärft:
-`services.invoicing` darf **nichts** aus `routes`, dem `models`-Shim,
-`app.domains.leads` oder `app.domains.proposals` importieren. Erlaubt
-bleiben `app.domains.billing.*` (eigene Modelle), `app.contracts.*`,
+`services.invoicing` darf **nichts** aus `routes`, `app.domains.leads`
+oder `app.domains.proposals` importieren. Der `models`-Shim re-exportiert
+`domains/*`; ihn nennt die Regel **nicht** explizit (ein einzelnes
+`.py`-Modul ist kein gültiges grimp-`root_package`) — der `forbidden`-
+Contract erkennt indirekte Importe per Default, also wird ein Reach
+`services.invoicing → models → app.domains.leads` **transitiv** erkannt.
+Das ist die exakte Kodierung der Roadmap-Regel „billing ↛ domains/*/
+models" ohne das nackte `models`-Modul. Erlaubt bleiben
+`app.domains.billing.*` (eigene Modelle), `app.contracts.*`,
 `app.core.*`, `app.shared.*`. Das ist die `domains/billing/*`-Zeile der
 Roadmap-Kantentabelle; die volle Interface-Kantenmenge folgt in Schritt 7.
 

@@ -259,8 +259,9 @@ direkte CRM-Reach existiert nicht mehr:
   Lead-Löschung lässt finalisierte Rechnungen unberührt.
 
 Erzwungen durch die geschärfte `import-linter`-Regel
-„`services.invoicing` ↛ `routes`/`models`/`app.domains.leads`/
-`app.domains.proposals`" (`pyproject.toml`; Rationale
+„`services.invoicing` ↛ `routes`/`app.domains.leads`/
+`app.domains.proposals`" (`pyproject.toml`; der `models`-Shim ist über
+die transitive `forbidden`-Erkennung mit abgedeckt — Rationale
 `docs/adr/007-billing-order-contract.md`). Geteiltes `get_session`/`engine`
 (`database.py`) bleibt bis zum Service-Umzug (Schritte 6–8); die volle
 Interface-Kantenmenge folgt in Schritt 7.
