@@ -24,9 +24,10 @@ intercepting through the same module object until it retires (Schritt 7).
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import date, datetime
 from typing import Any, Optional
 
+from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from app.domains.leads.models import (
@@ -35,6 +36,7 @@ from app.domains.leads.models import (
     LeadSource,
     LeadStage,
     LeadType,
+    Note,
     PlanningMessage,
     ReadinessLevel,
 )
@@ -258,3 +260,217 @@ def clear_planning_messages(session: Session, lead_id: int) -> None:
     for m in msgs:
         session.delete(m)
     session.commit()
+
+
+# ── MCP-facing Lead/Note operations (Schritt 7: MCP-Entdopplung) ───────────
+#
+# Verbatim move of the duplicated construction/query/serialization that lived
+# in ``services/mcp_server.py``'s create_lead/update_lead/list_leads/get_lead/
+# add_note/list_notes tools (ARCHITECTURE.md Struktur-Schuld 4). "Keine
+# Verhaltensänderung": the bodies are byte-for-byte the originals — only the
+# ``with Session(engine)`` block is replaced by the caller-supplied
+# ``session`` (Scaffold-/Service-Vertrag: the service is pure logic, the MCP
+# interface owns the engine/session lifecycle) and ``# type: ignore`` were
+# added on the ORM expressions for the ``app.*``-strict mypy gate (type-only,
+# no behaviour change — the documented Schritt-4/6 pattern). The enums above
+# are re-exported here so the MCP tool signatures can type-hint via the
+# service module without importing ``domains/leads/models`` directly
+# (import-linter Schritt-7 rule).
+
+
+def serialize_lead(lead: Lead) -> dict:
+    return {
+        "id": lead.id,
+        "created_at": lead.created_at.isoformat(),
+        "updated_at": lead.updated_at.isoformat(),
+        "name": lead.name,
+        "company": lead.company,
+        "email": lead.email,
+        "phone": lead.phone,
+        "salutation": lead.salutation,
+        "source": lead.source.value if lead.source else None,
+        "stage": lead.stage.value if lead.stage else None,
+        "notes": lead.notes,
+        "tags": lead.get_tags(),
+        "agent_metadata": lead.get_agent_metadata(),
+        "snooze_until": lead.snooze_until.isoformat() if lead.snooze_until else None,
+        "is_snoozed": lead.is_snoozed(),
+        "bant_budget": lead.bant_budget,
+        "bant_authority": lead.bant_authority,
+        "bant_need": lead.bant_need,
+        "bant_timing": lead.bant_timing,
+        "bant_score": lead.bant_score(),
+        "ai_readiness": lead.ai_readiness,
+        "pain_points": lead.pain_points,
+        "next_action": lead.next_action,
+        "next_action_date": lead.next_action_date.isoformat() if lead.next_action_date else None,
+    }
+
+
+def serialize_note(note: Note) -> dict:
+    return {
+        "id": note.id,
+        "lead_id": note.lead_id,
+        "body": note.body,
+        "created_at": note.created_at.isoformat(),
+    }
+
+
+def mcp_create_lead(
+    session: Session,
+    name: Optional[str] = None,
+    company: Optional[str] = None,
+    email: Optional[str] = None,
+    phone: Optional[str] = None,
+    salutation: Optional[str] = None,
+    source: LeadSource = LeadSource.agent,
+    notes: Optional[str] = None,
+    tags: Optional[list[str]] = None,
+    agent_metadata: Optional[dict] = None,
+    snooze_until: Optional[str] = None,
+    bant_budget: Optional[BantValue] = None,
+    bant_authority: Optional[BantValue] = None,
+    bant_need: Optional[BantValue] = None,
+    bant_timing: Optional[BantValue] = None,
+    ai_readiness: Optional[ReadinessLevel] = None,
+    pain_points: Optional[str] = None,
+    next_action: Optional[str] = None,
+    next_action_date: Optional[str] = None,
+) -> dict:
+    if not name and not company:
+        raise ValueError("name or company must be provided")
+    lead = Lead(
+        name=name,
+        company=company,
+        email=email,
+        phone=phone,
+        salutation=salutation,
+        source=source,
+        notes=notes,
+        tags=json.dumps(tags) if tags else None,
+        agent_metadata=json.dumps(agent_metadata) if agent_metadata else None,
+        snooze_until=date.fromisoformat(snooze_until) if snooze_until else None,
+        bant_budget=bant_budget.value if bant_budget else None,
+        bant_authority=bant_authority.value if bant_authority else None,
+        bant_need=bant_need.value if bant_need else None,
+        bant_timing=bant_timing.value if bant_timing else None,
+        ai_readiness=ai_readiness.value if ai_readiness else None,
+        pain_points=pain_points,
+        next_action=next_action,
+        next_action_date=date.fromisoformat(next_action_date) if next_action_date else None,
+    )
+    session.add(lead)
+    session.commit()
+    session.refresh(lead)
+    return serialize_lead(lead)
+
+
+def mcp_list_leads(
+    session: Session,
+    stage: Optional[LeadStage] = None,
+    source: Optional[LeadSource] = None,
+    show_snoozed: bool = False,
+    limit: int = 50,
+) -> list[dict]:
+    query = select(Lead)
+    if stage:
+        query = query.where(Lead.stage == stage)
+    if source:
+        query = query.where(Lead.source == source)
+    if not show_snoozed:
+        today = date.today()
+        query = query.where(
+            or_(Lead.snooze_until.is_(None), Lead.snooze_until <= today)  # type: ignore[arg-type,union-attr,operator]
+        )
+    query = query.order_by(Lead.created_at.desc()).limit(  # type: ignore[attr-defined]
+        max(1, min(limit, 500))
+    )
+    return [serialize_lead(ld) for ld in session.exec(query).all()]
+
+
+def mcp_get_lead(session: Session, lead_id: int) -> dict:
+    lead = session.get(Lead, lead_id)
+    if not lead:
+        raise LookupError(f"Lead {lead_id} not found")
+    return serialize_lead(lead)
+
+
+def mcp_update_lead(
+    session: Session,
+    lead_id: int,
+    name: Optional[str] = None,
+    company: Optional[str] = None,
+    email: Optional[str] = None,
+    phone: Optional[str] = None,
+    stage: Optional[LeadStage] = None,
+    notes: Optional[str] = None,
+    snooze_until: Optional[str] = None,
+    bant_budget: Optional[BantValue] = None,
+    bant_authority: Optional[BantValue] = None,
+    bant_need: Optional[BantValue] = None,
+    bant_timing: Optional[BantValue] = None,
+    ai_readiness: Optional[ReadinessLevel] = None,
+    pain_points: Optional[str] = None,
+    next_action: Optional[str] = None,
+    next_action_date: Optional[str] = None,
+) -> dict:
+    lead = session.get(Lead, lead_id)
+    if not lead:
+        raise LookupError(f"Lead {lead_id} not found")
+    if name is not None:
+        lead.name = name
+    if company is not None:
+        lead.company = company
+    if email is not None:
+        lead.email = email
+    if phone is not None:
+        lead.phone = phone
+    if stage is not None:
+        lead.stage = stage
+    if notes is not None:
+        lead.notes = notes
+    if snooze_until is not None:
+        lead.snooze_until = date.fromisoformat(snooze_until) if snooze_until else None
+    if bant_budget is not None:
+        lead.bant_budget = bant_budget.value
+    if bant_authority is not None:
+        lead.bant_authority = bant_authority.value
+    if bant_need is not None:
+        lead.bant_need = bant_need.value
+    if bant_timing is not None:
+        lead.bant_timing = bant_timing.value
+    if ai_readiness is not None:
+        lead.ai_readiness = ai_readiness.value
+    if pain_points is not None:
+        lead.pain_points = pain_points
+    if next_action is not None:
+        lead.next_action = next_action
+    if next_action_date is not None:
+        lead.next_action_date = date.fromisoformat(next_action_date) if next_action_date else None
+    lead.updated_at = datetime.utcnow()
+    session.add(lead)
+    session.commit()
+    session.refresh(lead)
+    return serialize_lead(lead)
+
+
+def mcp_add_note(session: Session, lead_id: int, body: str) -> dict:
+    body = (body or "").strip()
+    if not body:
+        raise ValueError("body must not be empty")
+    if not session.get(Lead, lead_id):
+        raise LookupError(f"Lead {lead_id} not found")
+    note = Note(lead_id=lead_id, body=body)
+    session.add(note)
+    session.commit()
+    session.refresh(note)
+    return serialize_note(note)
+
+
+def mcp_list_notes(session: Session, lead_id: int) -> list[dict]:
+    if not session.get(Lead, lead_id):
+        raise LookupError(f"Lead {lead_id} not found")
+    notes = session.exec(
+        select(Note).where(Note.lead_id == lead_id).order_by(Note.created_at.desc())  # type: ignore[attr-defined]
+    ).all()
+    return [serialize_note(n) for n in notes]

@@ -164,17 +164,33 @@ The local `docker-compose.yml` uses Caddy as reverse proxy (dev/standalone). The
 > `app/core/ai.py` (kein Robustheits-Fix — Struktur-Schuld 6).
 > `services/ai.py`/`services/linkedin_import.py` sind jetzt Re-Export-
 > Shims = die frozen monkeypatch-Naht der Schritt-0.5-Char-Tests (sie
-> sterben mit ihnen in Schritt 7). `routes/{leads,proposals,ai}.py` rufen
-> nur noch den Service; 140 Char-Tests 0-Diff. Kein `pyproject`-Regel-
-> wechsel (Schritt 7 schärft die Interface-/MCP-Kanten); der verschobene
-> Code ist contract-treu (`core/ai ↛ domains/*`; `domains/<x> ↛
-> domains/<y>` — der Service-Service-Übergang nur über die transitionale
-> Legacy-Shim-Naht, Familie des `models.py`-Shims). Noch offen ist der
-> **MCP-Entdopplungs-/Interface-Split** (Schritte 7–8) — die *übrigen*
-> (Nicht-Billing-) Aufrufer importieren die Modelle weiter über den
-> `models.py`-Shim; die volle Interface-Kantenmenge folgt Schritt 7. Jeder
-> Migrationsschritt aktiviert/schärft die zu ihm gehörige Contract-Regel;
-> Endzustand = ganze Tabelle grün.
+> sterben mit ihnen — Lebenszyklus, frühestens Schritt 8, nicht
+> Schritt 7: jene Char-Tests sind Schritt-6-zugeordnet und bleiben bis
+> Schritt 8 unverändert grün). `routes/{leads,proposals,ai}.py` rufen
+> nur noch den Service; 140 Char-Tests 0-Diff. **Schritt 7 ist
+> gelandet:** die MCP-Entdopplung — die Lead/Note/Proposal-Tools in
+> `services/mcp_server.py` sind dünn und delegieren an
+> `app/domains/{leads,proposals}/service.py` (Konstruktion/Query/
+> Serialisierung **byte-für-byte** dorthin verschoben; einzige
+> nicht-verbatim Änderung: `with Session(engine)` → caller-owned
+> `session`, plus `# type: ignore` auf ORM-Ausdrücke). Das geteilte
+> `services/proposals.py` bleibt **unangetastet** (auch von
+> `routes/proposals.py` verbatim genutzt). Eine neue
+> `import-linter`-`forbidden`-Regel `services.mcp_server ↛
+> app.domains.{leads,proposals}.models` mit `allow_indirect_imports`
+> aktiviert die **`interfaces/mcp`-Zeile** der Kantentabelle
+> (verbietet *direkte* Modell-Importe, lässt den intra-domain
+> `service → models`-Pfad zu — invers zur Schritt-5-Billing-Regel;
+> Rationale `docs/adr/008-mcp-dedup-interface-edge.md`); die
+> Schritt-5-Billing-Regel wurde nur umbenannt. REST + MCP + Web teilen
+> jetzt eine Logik. **Nicht** in Schritt 7: die billing-internen
+> Invoice-Draft/Line-Tools konstruieren weiter `Invoice(...)` (kein
+> CRM-Duplikat; Finalize/Storno via `BillingOrder`-Vertrag seit
+> Schritt 5) — Billing-MCP-Facade + die web/api-Interface-Zeilen + der
+> `models.py`-Shim-Tod sind **Schritt 8** (die übrigen Nicht-Billing-
+> Aufrufer importieren bis dahin via Shim). 140 Char-Tests 0-Diff, kein
+> Char-Lifecycle-Delete. Jeder Migrationsschritt aktiviert/schärft die
+> zu ihm gehörige Contract-Regel; Endzustand = ganze Tabelle grün.
 
 ## Agent-Edit-Protokoll
 

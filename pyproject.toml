@@ -125,7 +125,7 @@ warn_return_any = true
 root_packages = ["services", "routes", "app"]
 
 [[tool.importlinter.contracts]]
-name = "billing core (services.invoicing) must not import CRM — Naht via the BillingOrder contract (Schritt 5; full interface edge set Schritt 7)"
+name = "billing core (services.invoicing) must not import CRM — Naht via the BillingOrder contract (Schritt 5)"
 type = "forbidden"
 source_modules = ["services.invoicing"]
 forbidden_modules = [
@@ -133,3 +133,42 @@ forbidden_modules = [
     "app.domains.leads",
     "app.domains.proposals",
 ]
+
+# Schritt 7 (MCP-Entdopplung) — the `interfaces/mcp` row of the roadmap edge
+# table. The MCP interface (`services/mcp_server.py`, not yet under
+# `app/interfaces/` — that move is Schritt 8) must not **construct domain
+# models**: ARCHITECTURE.md Struktur-Schuld 4 (`create_lead`/`update_lead`
+# instantiating `Lead(...)` as a duplicate of the route/REST logic). The
+# duplicated construction/query/serialization moved verbatim into
+# `app/domains/{leads,proposals}/service.py`; the tools now only own the
+# Session(engine) lifecycle and delegate.
+#
+# `allow_indirect_imports = "True"` encodes exactly "no DIRECT domain-model
+# import in the MCP interface" while permitting the legitimate intra-domain
+# `service → models` / `schemas → models` chain (the interface reaches the
+# enums/logic through the service module, never `domains/*/models` itself).
+# This is the inverse of the Schritt-5 billing rule, which relies on the
+# DEFAULT (transitive) detection to catch the `models`-shim reach — here a
+# transitive flag would wrongly forbid `mcp_server → leads.service →
+# leads.models`. The shared clean `services/proposals.py` is left untouched
+# (also used verbatim by `routes/proposals.py`); it is a service, not the
+# MCP interface, so its `Proposal(...)` construction is legitimate.
+#
+# Scope: only the `interfaces/mcp` row is activated here, for the
+# **Lead/Proposal** duplicate (Schuld 4). The billing invoice-draft/line
+# tools' construction (billing-internal, NOT the CRM duplicate; finalize
+# already routes Billing via the BillingOrder contract since Schritt 5) goes
+# through a billing facade with the web/api interface rows in Schritt 8 —
+# pulling interface-shaped code into `services/invoicing/` now would also
+# risk the `.coveragerc` 90 % billing gate. A rule is inactive until its
+# package exists / each step activates its own edge (roadmap Schicht 2).
+# Rationale: docs/adr/008-mcp-dedup-interface-edge.md.
+[[tool.importlinter.contracts]]
+name = "MCP interface (services.mcp_server) must not directly import/construct domain models — MCP-Entdopplung (Schritt 7)"
+type = "forbidden"
+source_modules = ["services.mcp_server"]
+forbidden_modules = [
+    "app.domains.leads.models",
+    "app.domains.proposals.models",
+]
+allow_indirect_imports = "True"

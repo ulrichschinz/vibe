@@ -13,10 +13,10 @@
 
 | Metrik | Wert | Beleg |
 |---|---|---|
-| Python LOC gesamt | 10.640 | `find -name '*.py'` |
-| davon Produktivcode | 7.310 | ohne `tests/` |
+| Python LOC gesamt | 10.835 | `find -name '*.py'` |
+| davon Produktivcode | 7.505 | ohne `tests/` |
 | davon Tests | 3.330 | `tests/` |
-| Test/Prod-Verhältnis | ~46 % | Schritt-6 Service-Umzug (Routes→`app/`), Tests unverändert |
+| Test/Prod-Verhältnis | ~44 % | Schritt-7 MCP-Entdopplung (mcp_server→`app/`-Service), Tests unverändert |
 | SQLModel-Tabellen | 13 | `table=True`-Klassen in `app/**/models.py` + `app/core/{identity,ai_settings}.py` (Schritt 4 korrigiert: vorher 14 durch eine mitgezählte Kommentarzeile in `models.py`, real 13 Entitäten) |
 | HTTP-Endpoints | 72 | `@router.(get\|post\|...)` in `routes/` |
 | Route-Module | 7 | `routes/*.py` ohne `__init__.py` u. `mcp.py`-Mount |
@@ -67,9 +67,11 @@ vibe/
 │   │                                proposals/service (Schritt 6)
 │   ├── mcp.py                   45  ASGI-Mount /mcp + X-API-Key-Middleware
 │   └── auth.py                  45  Login/Logout (Session)
-├── services/                  2898  Business-Logik (inkonsistent genutzt)
-│   ├── mcp_server.py           531  FastMCP + 16 Tools — dupliziert tw.
-│   │                                Lead/Proposal-Logik statt Service-Call
+├── services/                  2803  Business-Logik (inkonsistent genutzt)
+│   ├── mcp_server.py           436  FastMCP + 16 Tools — Schritt 7: dünn,
+│   │                                delegiert an app/domains/*/service
+│   │                                (nur Session(engine)-Lifecycle); Invoice-
+│   │                                Tools unverändert (Finalize via Vertrag)
 │   ├── ai.py                    35  Schritt 6: Re-Export-Shim → app/core/ai
 │   │                                (frozen monkeypatch-Naht bis Schritt 7)
 │   ├── linkedin_import.py       28  Schritt 6: Re-Export-Shim → app/core/ai
@@ -94,7 +96,7 @@ vibe/
 ├── templates/  (20 HTML)            base + dashboard + auth/ + admin/ +
 │                                    leads/ + invoices/ + proposals/
 ├── static/brand/                   Logos, tokens.css, components.* (gebundelt)
-├── docs/                           adr/ (7 ADRs), runbook.md,
+├── docs/                           adr/ (8 ADRs), runbook.md,
 │                                   verfahrensdokumentation.md, discovery.md,
 │                                   open-questions.md
 ├── tests/  (2489 LOC)              unit/ integration/ e2e/ fixtures/
@@ -113,13 +115,14 @@ vibe/
 │   ├── domains/leads/schemas.py 87  Schritt 4: LeadCreate/Read/Patch
 │   ├── domains/leads/              Schritt 5: BillingOrder-Naht (CRM-
 │   │   billing_export.py        54  Export: Lead → BillingCustomer)
-│   ├── domains/leads/              Schritt 6: Dashboard-Aggregation,
-│   │   service.py               260  LinkedIn-Orchestrierung, Planning-
-│   │                                Chat-Historie + Prompt-Builder
+│   ├── domains/leads/              Schritt 6: Dashboard/LinkedIn/Planning;
+│   │   service.py               476  Schritt 7: + Lead/Note-MCP-Ops
+│   │                                (verbatim aus mcp_server, dict-Serializer)
 │   ├── domains/proposals/          Schritt 4: Proposal + ProposalStatus +
 │   │   models.py                97  DEFAULT_SERVICES
-│   ├── domains/proposals/          Schritt 6: AI-Draft-Erzeugung + Merge/
-│   │   service.py               103  Prefill (verbatim aus routes/proposals)
+│   ├── domains/proposals/          Schritt 6: AI-Draft+Merge/Prefill;
+│   │   service.py               185  Schritt 7: + serialize_proposal/list/get
+│   │                                (create/mark-sent bleiben in services/)
 │   ├── domains/billing/            Schritt 4: eigenes Billing-Tabellen-
 │   │   models.py               250  Schema (Invoice/LineItem/Sequence/Vies/
 │   │                                Integrity + IssuerProfile), byte-gleich
@@ -140,10 +143,10 @@ vibe/
    routes/leads,        routes/api.py          services/mcp_server.py
    invoices, ...        (X-API-Key)            (X-API-Key, 16 Tools)
         │                     │                      │
-        │   ╲ Logik bricht    │  ╲ Fehler-Mapping    │  ╲ DUPLIZIERT
-        │    ╲ in Route       │   ╲ inline           │   ╲ Lead/Proposal
-        ▼     ▼               ▼                       ▼    ╲ statt Service
-        services/  ◄────────── (nur teilweise genutzt) ────╯
+        │   ╲ Logik bricht    │  ╲ Fehler-Mapping    │  Schritt 7: dünn,
+        │    ╲ in Route       │   ╲ inline           │  ruft den Service
+        ▼     ▼               ▼                       ▼  (kein Duplikat mehr)
+        services/  / app/domains/*/service.py  ◄───────────╯
         │      proposals.py / pdf.py / invoicing/  = sauber
         ▼
    models.py  (alle Domänen in EINER Datei)
@@ -167,9 +170,14 @@ vibe/
   Historie sind **Schritt 6** nach `app/domains/leads/service.py` (Planning
   gehört zum Lead) gewandert, der Router hält nur HTTP + den AI-Transport.
 - `routes/api.py` — RFC-7807-Fehler-Coercion inline pro Endpoint (Schritt 8).
-- `services/mcp_server.py` — `create_lead`/`update_lead` instanziieren
-  `Lead(...)` selbst (Duplikat); nur `create_proposal`/`mark_proposal_sent`
-  rufen den Service. Jedes Tool öffnet eigene `Session(engine)` (Schritt 7).
+- ~~`services/mcp_server.py` — `create_lead`/`update_lead` instanziieren
+  `Lead(...)` selbst (Duplikat)~~ → **Schritt 7 gelandet**: die Lead/Note/
+  Proposal-Tools sind dünn und delegieren an
+  `app/domains/{leads,proposals}/service.py` (verbatim verschoben); das Tool
+  besitzt nur noch den `Session(engine)`-Lifecycle (caller-owned Session des
+  Service-Vertrags). Invoice-Tools unverändert: Finalize/Storno laufen seit
+  Schritt 5 über den `BillingOrder`-Vertrag; die Billing-MCP-Facade +
+  web/api-Interface-Kanten + Shim-Tod sind Schritt 8.
 
 ## Datenmodell
 
@@ -247,7 +255,17 @@ die Pipeline-UI.
    AI-Merge~~ → **Schritt 6 gelandet**: `app/domains/leads/service.py` +
    `app/domains/proposals/service.py` + `app/core/ai.py` (Adapter). Sauber
    bei `proposals`/`pdf`/`invoicing` bleibt; MCP-Entdopplung = Schritt 7.
-4. `mcp_server.py` dupliziert Lead/Proposal-Logik statt Services zu rufen.
+4. ~~`mcp_server.py` dupliziert Lead/Proposal-Logik statt Services zu
+   rufen~~ → **Schritt 7 gelandet**: die Lead/Note/Proposal-Tools rufen
+   `app/domains/{leads,proposals}/service.py` (Konstruktion/Query/
+   Serialisierung byte-für-byte dorthin verschoben); eine `import-linter`-
+   Regel (`services.mcp_server ↛ app.domains.{leads,proposals}.models`,
+   `allow_indirect_imports`) verhindert die Rückkehr des Duplikats. REST +
+   MCP + Web teilen damit eine Logik. Offen: die billing-internen
+   Invoice-Draft/Line-Tools konstruieren noch `Invoice(...)` (kein
+   CRM-Duplikat; Finalize läuft seit Schritt 5 über den Vertrag) — Billing-
+   MCP-Facade + web/api-Interface-Kanten + `models`-Shim-Tod = Schritt 8.
+   Rationale: `docs/adr/008-mcp-dedup-interface-edge.md`.
 5. ~~Kein `pyproject.toml`/Linter/Type-Check/CI-Gate~~ → **Schritt 1
    gelandet** (`pyproject.toml`, `ruff`, `mypy`, `import-linter`,
    `make verify`-Gate je PR). Offen bleibt: **keine Alembic-Migrationen**
@@ -299,8 +317,14 @@ Erzwungen durch die geschärfte `import-linter`-Regel
 `app.domains.proposals`" (`pyproject.toml`; der `models`-Shim ist über
 die transitive `forbidden`-Erkennung mit abgedeckt — Rationale
 `docs/adr/007-billing-order-contract.md`). Geteiltes `get_session`/`engine`
-(`database.py`) bleibt bis zum Service-Umzug (Schritte 6–8); die volle
-Interface-Kantenmenge folgt in Schritt 7.
+(`database.py`) bleibt bis zum Interface-Split (Schritt 8). Schritt 7
+aktivierte die **`interfaces/mcp`-Zeile** der Kantentabelle für den
+Lead/Proposal-Duplikat (`services.mcp_server ↛
+app.domains.{leads,proposals}.models`, `allow_indirect_imports` — DIREKTE
+Modell-Importe verboten, der intra-domain `service → models`-Pfad bleibt
+erlaubt; Rationale `docs/adr/008-mcp-dedup-interface-edge.md`); die
+web/api-Interface-Zeilen + die Billing-MCP-Facade + der `models`-Shim-Tod
+folgen in Schritt 8.
 
 ## Code-Navigation für Agenten
 
