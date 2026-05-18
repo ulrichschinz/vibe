@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from sqlalchemy import event, inspect
 
-from models import Invoice, InvoiceLineItem, InvoiceStatus
+from app.domains.billing.models import Invoice, InvoiceLineItem, InvoiceStatus
 
 
 class ImmutableInvoiceError(Exception):

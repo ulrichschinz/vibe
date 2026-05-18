@@ -93,22 +93,43 @@ warn_return_any = true
 # import-linter — executable import contracts (Schicht 2: "Soll als Zwang")
 # --------------------------------------------------------------------------
 # Roadmap principle: a rule is INACTIVE until its package exists; each
-# migration step activates/sharpens its edge. `app/domains/billing` does not
-# exist yet (Schritt 2 creates the skeleton, Schritt 4 moves the models,
-# Schritt 5 cuts the _snapshot_customer reach via the BillingOrder contract).
+# migration step activates/sharpens its edge. `app/domains/billing` now
+# exists (Schritt 2 created the skeleton, Schritt 4 moved the models) and
+# Schritt 5 cut the `_snapshot_customer` reach via the `BillingOrder`
+# contract — so this step sharpens the billing edge accordingly.
 #
-# So the first ACTIVE contract is seeded on the real current package
-# `services/invoicing/`: it must not reach into the web/REST interface layer
-# (`routes`). This is true today (verified: invoicing imports only `models`,
-# `database` and its own submodules). It is the *seed* of the billing
-# isolation; it SHARPENS in Schritt 5 to also forbid `models`/`domains`
-# (that forbidden edge is the _snapshot_customer reach being replaced) and
-# moves to `app.domains.billing`. Rationale: docs/adr/* (the "why" layer).
+# Schritt 5 SHARPENS this rule. The seed (services.invoicing ↛ routes) was
+# the start of the billing isolation; now that the `_snapshot_customer()`
+# `Lead` reach is replaced by the `BillingOrder` contract
+# (`app.contracts.billing_order`) and every invoicing model import was
+# repointed from the `models` shim to billing's own
+# `app.domains.billing.models`, the billing core must import **nothing** from
+# CRM: not `routes`, and not the other domains' packages
+# (`app.domains.leads`, `app.domains.proposals`). The top-level `models`
+# shim re-exports `domains/*` — forbidding the domain packages catches a
+# reach through the shim **transitively** too (import-linter `forbidden`
+# contracts detect indirect imports by default:
+# `services.invoicing → models → app.domains.leads` is flagged). That is
+# the precise encoding of the roadmap rule "billing ↛ domains/*/models",
+# without listing the bare `models` module (a single .py module is not a
+# valid grimp `root_package` — only packages are). Billing MAY still import
+# its own `app.domains.billing.*`, `app.contracts.*`, `app.core.*`,
+# `app.shared.*`. This is the `domains/billing/*` row of the roadmap edge
+# table; only the billing line is sharpened here — the full interface edge
+# set is Schritt 7. Rationale: docs/adr/007-billing-order-contract.md.
+#
+# `app` is added to root_packages so the rule can name the domain packages;
+# correctness is CI-verified (no local interpreter with app deps — grimp
+# needs to import the package graph; same constraint as Schritt 4).
 [tool.importlinter]
-root_packages = ["services", "routes"]
+root_packages = ["services", "routes", "app"]
 
 [[tool.importlinter.contracts]]
-name = "billing core (services.invoicing) must not import the web/REST interface layer — seed of the billing isolation, sharpens in Schritt 5"
+name = "billing core (services.invoicing) must not import CRM — Naht via the BillingOrder contract (Schritt 5; full interface edge set Schritt 7)"
 type = "forbidden"
 source_modules = ["services.invoicing"]
-forbidden_modules = ["routes"]
+forbidden_modules = [
+    "routes",
+    "app.domains.leads",
+    "app.domains.proposals",
+]

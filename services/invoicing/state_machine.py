@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Mapping
 
-from models import InvoiceStatus
+from app.domains.billing.models import InvoiceStatus
 
 
 class InvoiceStateError(Exception):

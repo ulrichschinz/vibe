@@ -143,6 +143,27 @@ def make_draft_invoice(session: Session, lead: Lead, *, leistungsdatum=_SENTINEL
         leistungsdatum=leistungsdatum,
         title="Beratungsleistung",
         currency="EUR",
+        # Scaling-roadmap Schritt 5 — the customer snapshot is no longer
+        # auto-read from Lead *inside* finalize; it arrives via the CRM-built
+        # BillingOrder seam (`FinalizeOptions.customer_resolver`), wired only
+        # in the prod callers (routes/api/mcp). These integration helpers call
+        # `finalize_invoice` directly with no resolver, so we pre-fill cust_*
+        # from the lead here — byte-equivalent to the old in-finalize
+        # `_snapshot_customer(lead)` (same `name or company` precedence;
+        # explicit `cust_*` overrides below still win). Assertions unchanged →
+        # the 90 % invoicing safety net stays green; the seam itself is
+        # covered by the characterization tests through the prod callers.
+        cust_legal_name=lead.name or lead.company,
+        cust_company=lead.company,
+        cust_salutation=lead.salutation,
+        cust_street=lead.street,
+        cust_street2=lead.street2,
+        cust_postal_code=lead.postal_code,
+        cust_city=lead.city,
+        cust_country_code=lead.country_code,
+        cust_vat_id=lead.vat_id,
+        cust_is_business=lead.is_business,
+        cust_email=lead.email,
     )
     defaults.update(overrides)
     inv = Invoice(**defaults)
