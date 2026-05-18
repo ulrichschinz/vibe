@@ -26,6 +26,7 @@ from models import (
     ViesAuditEntry,
     ViesResponseStatus,
 )
+from app.domains.leads.billing_export import build_billing_customer
 from app.shared.labels import INVOICE_STATUS_LABELS
 from services.auth import require_editor, require_login
 from services.invoicing.archive import archive_document
@@ -332,6 +333,9 @@ def invoice_finalize(
         renderer=render_document,
         archiver=archive_document,
         vies_gate=gate,
+        # Schritt 5: CRM builds the BillingOrder customer snapshot; billing
+        # consumes the contract instead of reading Lead itself.
+        customer_resolver=lambda lead_id: build_billing_customer(session, lead_id),
     )
     try:
         finalize_invoice(

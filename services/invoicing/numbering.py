@@ -20,7 +20,7 @@ from typing import Tuple
 
 from sqlmodel import Session, select
 
-from models import InvoiceNumberSequence
+from app.domains.billing.models import InvoiceNumberSequence
 
 PREFIX = "RE"
 

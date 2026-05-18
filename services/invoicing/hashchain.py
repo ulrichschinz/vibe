@@ -12,7 +12,7 @@ from typing import Iterable
 
 from sqlmodel import Session, select
 
-from models import Invoice, InvoiceStatus
+from app.domains.billing.models import Invoice, InvoiceStatus
 
 
 def genesis_hash(fiscal_year: int) -> str:

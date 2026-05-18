@@ -141,17 +141,25 @@ The local `docker-compose.yml` uses Caddy as reverse proxy (dev/standalone). The
 > Doc-Gate) und der `make new-domain X`-Scaffold **existieren und sind das
 > Gate** — `make verify` ist ab jetzt wörtlich gemeint, kein Surrogat
 > mehr. Das `app/`-Soll-Skelett steht (**Schritt 2**), `core/config.py`
-> ist live (**Schritt 3**), und **Schritt 4 ist gelandet**: `models.py`
-> ist nach `app/domains/{leads,proposals,billing}/models.py`
-> (+`leads/schemas.py`) + `app/core/{identity,ai_settings}.py` +
-> `app/shared/labels.py` gesplittet; `models.py` ist nur noch
-> Re-Export-Shim + Tabellen-Aggregations-Modul. Noch offen ist der
-> **Service-/Interface-Umzug** (Logik aus `routes/`+`services/`,
-> Schritte 6–8). Bis dahin: ein frisch gescaffoldetes `app/domains/X`
-> ist bereits import-linter-/format-konform; bestehende **Logik** liegt
-> weiter im `routes/`+`services/`-Slice und importiert die Modelle über
-> den `models.py`-Shim ("domain" ≈ der relevante Slice, bis sie
-> Schritt 6–8 in `app/` zieht). Jeder Migrationsschritt
+> ist live (**Schritt 3**), `models.py` ist gesplittet (**Schritt 4**:
+> `app/domains/{leads,proposals,billing}/models.py` (+`leads/schemas.py`)
+> + `app/core/{identity,ai_settings}.py` + `app/shared/labels.py`;
+> `models.py` ist nur noch Re-Export-Shim + Tabellen-Aggregations-Modul),
+> und **Schritt 5 ist gelandet**: der `BillingOrder`-Vertrag
+> (`app/contracts/billing_order.py`) + die CRM-Export-Naht
+> (`app/domains/leads/billing_export.py`) sind live; `services/invoicing/`
+> importiert `Lead`/den `models`-Shim nicht mehr (Modelle direkt aus
+> `app.domains.billing.models`), `_snapshot_customer()` nimmt den
+> `BillingCustomer`-Snapshot via injiziertem `customer_resolver` entgegen
+> (byte-äquivalent — einzige inhaltliche Änderung im Plan). Die
+> `import-linter`-Billing-Regel ist auf
+> `services.invoicing ↛ routes/models/app.domains.{leads,proposals}`
+> geschärft (Rationale: `docs/adr/007-billing-order-contract.md`). Noch
+> offen ist der **Service-/Interface-Umzug** (Logik aus
+> `routes/`+`services/`, Schritte 6–8) — die *übrigen* (Nicht-Billing-)
+> Aufrufer importieren die Modelle weiter über den `models.py`-Shim
+> ("domain" ≈ der relevante Slice, bis sie Schritt 6–8 in `app/` zieht);
+> die volle Interface-Kantenmenge folgt Schritt 7. Jeder Migrationsschritt
 > aktiviert/schärft die zu ihm gehörige Contract-Regel; Endzustand =
 > ganze Tabelle grün.
 

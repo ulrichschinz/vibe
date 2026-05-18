@@ -360,6 +360,9 @@ from models import (
     InvoiceKind as _InvoiceKind,
     InvoiceStatus as _InvoiceStatus,
 )
+from app.domains.leads.billing_export import (
+    build_billing_customer as _build_billing_customer,
+)
 from services.invoicing.archive import archive_document as _archive_document
 from services.invoicing.document import render_document as _render_document
 from services.invoicing.finalize import (
@@ -482,7 +485,12 @@ def finalize_invoice(invoice_id: int, idempotency_key: Optional[str] = None) -> 
             inv = _finalize_invoice(
                 s, invoice_id,
                 idempotency_key=idempotency_key or str(_uuid.uuid4()),
-                options=_FinalizeOptions(renderer=_render_document, archiver=_archive_document),
+                options=_FinalizeOptions(
+                    renderer=_render_document,
+                    archiver=_archive_document,
+                    # Schritt 5: CRM builds the BillingOrder customer snapshot.
+                    customer_resolver=lambda lead_id: _build_billing_customer(s, lead_id),
+                ),
             )
         except (_InvoiceValidationError, _FinalizeError) as exc:
             raise ValueError(str(exc))

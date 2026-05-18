@@ -32,7 +32,7 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from database import engine  # noqa: E402
-from models import (  # noqa: E402
+from app.domains.billing.models import (  # noqa: E402
     IntegrityCheckResult,
     IntegrityCheckRun,
     Invoice,

@@ -21,7 +21,7 @@ from typing import Optional
 
 from sqlmodel import Session
 
-from models import Invoice, ViesAuditEntry, ViesResponseStatus
+from app.domains.billing.models import Invoice, ViesAuditEntry, ViesResponseStatus
 
 log = logging.getLogger(__name__)
 

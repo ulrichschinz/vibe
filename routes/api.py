@@ -9,6 +9,7 @@ import json
 import uuid
 
 from app.core.config import get_settings
+from app.domains.leads.billing_export import build_billing_customer
 from database import get_session
 from models import (
     Lead, LeadCreate, LeadRead, LeadPatch, LeadSource, ApiKey,
@@ -288,6 +289,8 @@ def api_finalize(
     options = FinalizeOptions(
         renderer=render_document,
         archiver=archive_document,
+        # Schritt 5: CRM builds the BillingOrder customer snapshot.
+        customer_resolver=lambda lead_id: build_billing_customer(session, lead_id),
     )
     try:
         inv = finalize_invoice(

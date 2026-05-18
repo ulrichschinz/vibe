@@ -19,12 +19,12 @@ from typing import Callable, Optional
 
 from sqlmodel import Session, select
 
-from models import (
+from app.contracts.billing_order import BillingCustomer
+from app.domains.billing.models import (
     Invoice,
     InvoiceLineItem,
     InvoiceStatus,
     IssuerProfile,
-    Lead,
 )
 
 from .numbering import assign_next_number
@@ -170,25 +170,32 @@ def _snapshot_issuer(invoice: Invoice, issuer: IssuerProfile) -> None:
     invoice.iss_contact_phone = issuer.contact_phone
 
 
-def _snapshot_customer(invoice: Invoice, lead: Optional[Lead]) -> None:
+def _snapshot_customer(invoice: Invoice, customer: Optional[BillingCustomer]) -> None:
     """R-04: copy customer block. ``cust_*`` fields can also be set directly
     on the invoice prior to finalize (e.g. via API/MCP) — we only auto-snapshot
-    from Lead if a Lead is bound and the invoice fields are empty."""
-    if lead is None:
+    from the ``BillingCustomer`` contract if one was exported and the invoice
+    fields are empty.
+
+    Schritt 5: the data now arrives as the published ``BillingCustomer``
+    snapshot built CRM-side (``options.customer_resolver``) instead of a
+    direct ``Lead`` read. The merge logic — incl. the ``name or company``
+    precedence and "explicit invoice value wins" — is byte-equivalent to the
+    pre-split behaviour; only the data *source* changed (the Naht)."""
+    if customer is None:
         return
     # Only fill empty fields — explicit invoice-level overrides win.
-    invoice.cust_legal_name = invoice.cust_legal_name or lead.name or lead.company
-    invoice.cust_company = invoice.cust_company or lead.company
-    invoice.cust_salutation = invoice.cust_salutation or lead.salutation
-    invoice.cust_street = invoice.cust_street or lead.street
-    invoice.cust_street2 = invoice.cust_street2 or lead.street2
-    invoice.cust_postal_code = invoice.cust_postal_code or lead.postal_code
-    invoice.cust_city = invoice.cust_city or lead.city
-    invoice.cust_country_code = invoice.cust_country_code or lead.country_code
-    invoice.cust_vat_id = invoice.cust_vat_id or lead.vat_id
+    invoice.cust_legal_name = invoice.cust_legal_name or customer.name or customer.company
+    invoice.cust_company = invoice.cust_company or customer.company
+    invoice.cust_salutation = invoice.cust_salutation or customer.salutation
+    invoice.cust_street = invoice.cust_street or customer.street
+    invoice.cust_street2 = invoice.cust_street2 or customer.street2
+    invoice.cust_postal_code = invoice.cust_postal_code or customer.postal_code
+    invoice.cust_city = invoice.cust_city or customer.city
+    invoice.cust_country_code = invoice.cust_country_code or customer.country_code
+    invoice.cust_vat_id = invoice.cust_vat_id or customer.vat_id
     if invoice.cust_is_business is None:
-        invoice.cust_is_business = lead.is_business
-    invoice.cust_email = invoice.cust_email or lead.email
+        invoice.cust_is_business = customer.is_business
+    invoice.cust_email = invoice.cust_email or customer.email
 
 
 def _validate_customer_snapshot(invoice: Invoice) -> None:
@@ -244,6 +251,14 @@ class FinalizeOptions:
     on_late_leistungsdatum: Optional[Callable[[Invoice], None]] = None
     # VIES gate (Phase 6 will provide a real impl). Default no-op.
     vies_gate: Optional[Callable[[Invoice, "Session"], None]] = None
+    # Schritt 5 — CRM-side BillingOrder export seam. Given the bound
+    # ``invoice.lead_id``, returns the published ``BillingCustomer`` snapshot
+    # (or None). Injected like renderer/archiver/vies_gate so billing never
+    # imports CRM. Default None → no auto-snapshot (e.g. the storno path,
+    # whose cust_* are already copied verbatim).
+    customer_resolver: Optional[
+        Callable[[Optional[int]], Optional[BillingCustomer]]
+    ] = None
 
 
 def finalize_invoice(
@@ -295,9 +310,15 @@ def finalize_invoice(
     _validate_invoice_for_finalize(invoice, lines, issuer)
 
     # ── Snapshot first (R-04) ──
-    lead = session.get(Lead, invoice.lead_id) if invoice.lead_id else None
+    # Schritt 5: customer arrives via the CRM-built BillingOrder snapshot
+    # (injected resolver), not a direct Lead read — billing imports no CRM.
+    customer = (
+        options.customer_resolver(invoice.lead_id)
+        if options.customer_resolver is not None
+        else None
+    )
     _snapshot_issuer(invoice, issuer)
-    _snapshot_customer(invoice, lead)
+    _snapshot_customer(invoice, customer)
     _validate_customer_snapshot(invoice)
 
     # ── VAT engine (R-06) ──
@@ -465,7 +486,7 @@ def create_storno(
         3. Finalize it (assigns its own number).
         4. Mark the original as cancelled.
     """
-    from models import InvoiceKind, InvoiceLineItem
+    from app.domains.billing.models import InvoiceKind, InvoiceLineItem
     options = options or FinalizeOptions()
 
     original = session.get(Invoice, original_invoice_id)

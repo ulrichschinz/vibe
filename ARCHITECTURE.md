@@ -13,16 +13,16 @@
 
 | Metrik | Wert | Beleg |
 |---|---|---|
-| Python LOC gesamt | 10.143 | `find -name '*.py'` |
-| davon Produktivcode | 6.834 | ohne `tests/` |
-| davon Tests | 3.309 | `tests/` |
-| Test/Prod-Verhältnis | ~49 % | Schritt-4 `models.py`-Split (Move + Shim) |
+| Python LOC gesamt | 10.379 | `find -name '*.py'` |
+| davon Produktivcode | 7.049 | ohne `tests/` |
+| davon Tests | 3.330 | `tests/` |
+| Test/Prod-Verhältnis | ~47 % | Schritt-5 `BillingOrder`-Vertrag + Naht-Kappung |
 | SQLModel-Tabellen | 13 | `table=True`-Klassen in `app/**/models.py` + `app/core/{identity,ai_settings}.py` (Schritt 4 korrigiert: vorher 14 durch eine mitgezählte Kommentarzeile in `models.py`, real 13 Entitäten) |
 | HTTP-Endpoints | 72 | `@router.(get\|post\|...)` in `routes/` |
 | Route-Module | 7 | `routes/*.py` ohne `__init__.py` u. `mcp.py`-Mount |
 | MCP-Tools | 16 | `@mcp.tool` in `services/mcp_server.py` |
 | HTML-Templates | 20 | `templates/**/*.html` |
-| Invoicing-Subsystem | 2.137 LOC | `find services/invoicing -name '*.py' \| xargs wc -l` |
+| Invoicing-Subsystem | 2.158 LOC | `find services/invoicing -name '*.py' \| xargs wc -l` |
 | `os.getenv`-Fundstellen | 0 Dateien | Schritt 3: zentral in `app/core/config.py` (s. „Cross-cutting") |
 
 > ✅ **CI-erzwungen (Schritt 0):** Diese Tabelle ist die einzige Quelle der
@@ -73,7 +73,8 @@ vibe/
 │   ├── auth.py                  46  Hashing, require_login/_editor/_admin
 │   ├── numbering.py             12  Proposal-Nummer
 │   └── invoicing/             1819  COMPLIANCE-KERN, stark getestet
-│       ├── finalize.py         542  Atomare Finalisierung (Orchestrator)
+│       ├── finalize.py         563  Atomare Finalisierung (Orchestrator);
+│       │                            Schritt 5: Lead-Reach → BillingOrder
 │       ├── document.py         514  PDF-Render + VAT-Tabellen-Aufbau
 │       ├── vies.py             224  EU-USt-IdNr.-Prüfung (zeep/SOAP)
 │       ├── vat.py              200  VAT-Sätze, Reverse-Charge-Regeln
@@ -88,7 +89,7 @@ vibe/
 ├── templates/  (20 HTML)            base + dashboard + auth/ + admin/ +
 │                                    leads/ + invoices/ + proposals/
 ├── static/brand/                   Logos, tokens.css, components.* (gebundelt)
-├── docs/                           adr/ (6 ADRs), runbook.md,
+├── docs/                           adr/ (7 ADRs), runbook.md,
 │                                   verfahrensdokumentation.md, discovery.md,
 │                                   open-questions.md
 ├── tests/  (2489 LOC)              unit/ integration/ e2e/ fixtures/
@@ -102,11 +103,15 @@ vibe/
 │   ├── domains/leads/models.py 164  Schritt 4: Lead/Note/PlanningMessage +
 │   │                                Lead-Enums + STAGE_ORDER
 │   ├── domains/leads/schemas.py 87  Schritt 4: LeadCreate/Read/Patch
+│   ├── domains/leads/              Schritt 5: BillingOrder-Naht (CRM-
+│   │   billing_export.py        54  Export: Lead → BillingCustomer)
 │   ├── domains/proposals/          Schritt 4: Proposal + ProposalStatus +
 │   │   models.py                97  DEFAULT_SERVICES
 │   ├── domains/billing/            Schritt 4: eigenes Billing-Tabellen-
 │   │   models.py               250  Schema (Invoice/LineItem/Sequence/Vies/
 │   │                                Integrity + IssuerProfile), byte-gleich
+│   ├── contracts/                  Schritt 5: BillingOrder-DTO (reines
+│   │   billing_order.py        125  pydantic; CRM↔Billing-Vertrag, frozen)
 │   └── shared/labels.py         95  Schritt 4: alle *_LABELS (Daten)
 │                                    Restl. Pakete docstring-only bis Schr. 6–8;
 │                                    Prod-App noch top-level main.py (Schr. 6–8)
@@ -222,27 +227,43 @@ die Pipeline-UI.
 Coverage (`.coveragerc` 90 %), geteiltes `validate_api_key()`, schlanke
 `attach_user`-Middleware, klar gekapseltes `services/invoicing/`.
 
-## Invoicing↔CRM-Naht (der künftige Vertrags-Schnitt)
+## Invoicing↔CRM-Naht (Vertrags-Schnitt — Schritt 5 gekappt)
 
-Trotz Sammeldatei `models.py` ist Invoicing schon **lose gekoppelt** —
-relevant für die geplante Billing-Bounded-Context-Trennung
-(siehe [`docs/scaling-roadmap.md`](docs/scaling-roadmap.md)):
+Seit Schritt 5 ist die Naht **explizit als Vertrag** geschnitten — der
+direkte CRM-Reach existiert nicht mehr:
 
-- **Einziger echter Inward-Reach:**
-  `services/invoicing/finalize.py::_snapshot_customer()` liest
-  `Lead.{salutation,street,street2,postal_code,city,country_code,
-  vat_id,is_business,email,name,company}`.
-- Zusätzlich: `IssuerProfile`-Singleton-Read in `finalize.py`,
-  geteiltes `get_session`/`engine` (`database.py`), `require_editor`.
+- **Kein `Lead`-Import in Billing.** `services/invoicing/finalize.py`
+  importiert `Lead` nicht mehr; `_snapshot_customer()` nimmt den
+  `BillingCustomer`-Snapshot aus `app/contracts/billing_order.py` entgegen.
+  Die CRM-Seite (`app/domains/leads/billing_export.build_billing_customer`)
+  projiziert `Lead.{salutation,street,street2,postal_code,city,
+  country_code,vat_id,is_business,email,name,company}` → `BillingCustomer`;
+  er wird wie `renderer`/`archiver`/`vies_gate` über
+  `FinalizeOptions.customer_resolver` in den Prod-Aufrufern
+  (`routes/invoices.py`, `routes/api.py`, `services/mcp_server.py`)
+  injiziert. Die `name or company`-Präzedenz und der Merge bleiben
+  **byte-äquivalent** — nur die Datenquelle änderte sich (die einzige
+  inhaltliche Änderung im Plan; sonst move-not-rewrite).
+- **Kein `models`-Shim in Billing.** Alle 8 Invoicing-Module importieren
+  ihre — seit Schritt 4 billing-eigenen — Modelle direkt aus
+  `app.domains.billing.models` statt über den aggregierenden
+  `models`-Shim (der `domains/*` re-exportiert).
+- **`IssuerProfile`-Read bleibt billing-intern** (seit Schritt 4 ist
+  `IssuerProfile` ein Billing-Modell — keine verbotene Kante; bewusst
+  nicht über den Vertrag umgeleitet, da das eine zweite, unnötige
+  Verhaltensänderung wäre). Der Vertrag *definiert* `issuer{}`/`lines[]`/
+  `meta{}` für Vollständigkeit (extraktions-fähig), verdrahtet aber nur
+  `customer{}`.
 - **Bereits CRM-unabhängig nach Finalize:** Snapshot in `cust_*`/`iss_*`-
   Spalten der `Invoice`; Soft-FK `Invoice.lead_id` **ohne Cascade** →
   Lead-Löschung lässt finalisierte Rechnungen unberührt.
-- VAT-/Dokument-/Numbering-/Hashchain-Logik ist rein bzw. self-contained
-  (kein `models`-/CRM-Import außer den o.g. Punkten).
 
-Konsequenz: Diese Naht ist der genaue Schnittpunkt für den künftigen
-`BillingOrder`-Vertrag — der `_snapshot_customer`-Reach wird durch ein
-explizites Export-DTO ersetzt; danach importiert Billing nichts CRM-seitig.
+Erzwungen durch die geschärfte `import-linter`-Regel
+„`services.invoicing` ↛ `routes`/`models`/`app.domains.leads`/
+`app.domains.proposals`" (`pyproject.toml`; Rationale
+`docs/adr/007-billing-order-contract.md`). Geteiltes `get_session`/`engine`
+(`database.py`) bleibt bis zum Service-Umzug (Schritte 6–8); die volle
+Interface-Kantenmenge folgt in Schritt 7.
 
 ## Code-Navigation für Agenten
 
