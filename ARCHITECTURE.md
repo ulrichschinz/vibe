@@ -13,8 +13,8 @@
 
 | Metrik | Wert | Beleg |
 |---|---|---|
-| Python LOC gesamt | 10.636 | `find -name '*.py'` |
-| davon Produktivcode | 7.306 | ohne `tests/` |
+| Python LOC gesamt | 10.640 | `find -name '*.py'` |
+| davon Produktivcode | 7.310 | ohne `tests/` |
 | davon Tests | 3.330 | `tests/` |
 | Test/Prod-Verhältnis | ~46 % | Schritt-6 Service-Umzug (Routes→`app/`), Tests unverändert |
 | SQLModel-Tabellen | 13 | `table=True`-Klassen in `app/**/models.py` + `app/core/{identity,ai_settings}.py` (Schritt 4 korrigiert: vorher 14 durch eine mitgezählte Kommentarzeile in `models.py`, real 13 Entitäten) |
@@ -105,7 +105,7 @@ vibe/
 │   ├── core/config.py          ...  Schritt 3: pydantic-settings (Env-Quelle)
 │   ├── core/identity.py         51  Schritt 4: User/UserRole/ApiKey
 │   ├── core/ai_settings.py      32  Schritt 4: AiProvider/AiSettings
-│   ├── core/ai.py              301  Schritt 6: Anthropic-Adapter + Prompt-
+│   ├── core/ai.py              305  Schritt 6: Anthropic-Adapter + Prompt-
 │   │                                Registry + ===MARKER===/<json>-Parser
 │   │                                (verbatim aus services/ai+linkedin)
 │   ├── domains/leads/models.py 164  Schritt 4: Lead/Note/PlanningMessage +

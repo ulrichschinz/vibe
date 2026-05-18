@@ -242,7 +242,7 @@ def planning_messages(session: Session, lead_id: int) -> list[PlanningMessage]:
         session.exec(
             select(PlanningMessage)
             .where(PlanningMessage.lead_id == lead_id)
-            .order_by(PlanningMessage.created_at)
+            .order_by(PlanningMessage.created_at)  # type: ignore[arg-type]
         ).all()
     )
 

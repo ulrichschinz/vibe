@@ -114,7 +114,7 @@ def _call_anthropic(system: str, user_content: str, settings: AiSettings) -> str
         system=system,
         messages=[{"role": "user", "content": user_content}],
     )
-    return message.content[0].text  # type: ignore[no-any-return]
+    return message.content[0].text  # type: ignore[union-attr,no-any-return]
 
 
 def chat_with_context(messages: list, system: str, settings: AiSettings) -> str:
@@ -128,7 +128,7 @@ def chat_with_context(messages: list, system: str, settings: AiSettings) -> str:
         system=system,
         messages=messages,
     )
-    return resp.content[0].text  # type: ignore[no-any-return]
+    return resp.content[0].text  # type: ignore[union-attr,no-any-return]
 
 
 def _parse_proposal_drafts(text: str) -> dict:
@@ -284,7 +284,11 @@ def extract_lead_from_pdf(pdf_bytes: bytes, why_good: str, settings: AiSettings)
     except anthropic.APIError as e:
         raise LinkedInImportError(f"KI-Anfrage fehlgeschlagen: {e}") from e
 
-    text_parts = [b.text for b in message.content if getattr(b, "type", None) == "text"]
+    text_parts = [
+        b.text  # type: ignore[union-attr]
+        for b in message.content
+        if getattr(b, "type", None) == "text"
+    ]
     return _parse_json_block("\n".join(text_parts))
 
 
