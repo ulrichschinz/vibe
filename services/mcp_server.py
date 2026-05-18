@@ -3,28 +3,16 @@
 The server is mounted at /mcp by routes/mcp.py. Auth is enforced by an ASGI
 middleware in routes/mcp.py — tools here trust that the caller is authenticated.
 """
-from datetime import datetime, date
-from typing import Any, Optional
+from typing import Optional
 import json
 
-from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from mcp.server.fastmcp import FastMCP
 
-from app.core.config import get_settings
 from database import engine
-from models import (
-    DEFAULT_SERVICES,
-    BantValue,
-    Lead,
-    LeadSource,
-    LeadStage,
-    Note,
-    Proposal,
-    ProposalStatus,
-    ReadinessLevel,
-)
+from app.domains.leads import service as leads_service
+from app.domains.proposals import service as proposals_service
 from services.proposals import (
     create_proposal as create_proposal_svc,
     mark_proposal_sent as mark_proposal_sent_svc,
@@ -32,74 +20,27 @@ from services.proposals import (
 
 mcp = FastMCP(name="Vibe Lead Manager", streamable_http_path="/")
 
-
-# ── serializers ─────────────────────────────────────────────────────────────
-
-def _lead_dict(lead: Lead) -> dict:
-    return {
-        "id": lead.id,
-        "created_at": lead.created_at.isoformat(),
-        "updated_at": lead.updated_at.isoformat(),
-        "name": lead.name,
-        "company": lead.company,
-        "email": lead.email,
-        "phone": lead.phone,
-        "salutation": lead.salutation,
-        "source": lead.source.value if lead.source else None,
-        "stage": lead.stage.value if lead.stage else None,
-        "notes": lead.notes,
-        "tags": lead.get_tags(),
-        "agent_metadata": lead.get_agent_metadata(),
-        "snooze_until": lead.snooze_until.isoformat() if lead.snooze_until else None,
-        "is_snoozed": lead.is_snoozed(),
-        "bant_budget": lead.bant_budget,
-        "bant_authority": lead.bant_authority,
-        "bant_need": lead.bant_need,
-        "bant_timing": lead.bant_timing,
-        "bant_score": lead.bant_score(),
-        "ai_readiness": lead.ai_readiness,
-        "pain_points": lead.pain_points,
-        "next_action": lead.next_action,
-        "next_action_date": lead.next_action_date.isoformat() if lead.next_action_date else None,
-    }
-
-
-def _note_dict(note: Note) -> dict:
-    return {
-        "id": note.id,
-        "lead_id": note.lead_id,
-        "body": note.body,
-        "created_at": note.created_at.isoformat(),
-    }
-
-
-def _proposal_pdf_url(proposal_id: int) -> str:
-    host = get_settings().app_host
-    if host:
-        return f"https://{host}/proposals/{proposal_id}/pdf"
-    return f"/proposals/{proposal_id}/pdf"
-
-
-def _proposal_dict(p: Proposal) -> dict:
-    return {
-        "id": p.id,
-        "number": p.number,
-        "lead_id": p.lead_id,
-        "title": p.title,
-        "intro_text": p.intro_text,
-        "services": p.get_services(),
-        "total_value": p.total_value,
-        "duration": p.duration,
-        "payment_terms": p.payment_terms,
-        "travel_costs": p.travel_costs,
-        "validity_days": p.validity_days,
-        "status": p.status.value if p.status else None,
-        "sent_at": p.sent_at.isoformat() if p.sent_at else None,
-        "created_at": p.created_at.isoformat(),
-        "updated_at": p.updated_at.isoformat(),
-        "pdf_url": _proposal_pdf_url(p.id) if p.id else None,
-        "pdf_url_note": "Open in browser while logged in to Vibe; not fetchable with X-API-Key.",
-    }
+# Schritt 7 (MCP-Entdopplung): the Lead/Note/Proposal tools below are thin —
+# they own only the Session(engine) lifecycle (the caller-owned session of the
+# Scaffold-/Service-Vertrag) and delegate construction/query/serialization to
+# the owning domain service (app/domains/{leads,proposals}/service.py). The
+# previously duplicated `Lead(...)`/`Note(...)` construction and the
+# `_lead_dict`/`_note_dict`/`_proposal_dict` serializers moved there
+# byte-for-byte (ARCHITECTURE.md Struktur-Schuld 4). `create_proposal`/
+# `mark_proposal_sent` keep calling the clean shared, untouched
+# `services/proposals.py` directly (it was never the duplicate) and only
+# attach `proposals_service.serialize_proposal`. The enums used in the
+# tool signatures are referenced via the service modules so this interface
+# does not import `domains/*/models` (import-linter rule, this step). Invoice
+# tools are unchanged — finalize/storno already route Billing through the
+# `BillingOrder` contract (Schritt 5); the billing-MCP facade + the web/api
+# interface edge rows + the `models`-shim death are Schritt 8.
+LeadSource = leads_service.LeadSource
+LeadStage = leads_service.LeadStage
+BantValue = leads_service.BantValue
+ReadinessLevel = leads_service.ReadinessLevel
+ProposalStatus = proposals_service.ProposalStatus
+DEFAULT_SERVICES = proposals_service.DEFAULT_SERVICES
 
 
 # ── lead tools ──────────────────────────────────────────────────────────────
@@ -129,10 +70,9 @@ def create_lead(
     `source` defaults to "agent" so leads created via MCP are easy to filter.
     Date fields (`snooze_until`, `next_action_date`) are ISO-8601 strings (YYYY-MM-DD).
     `bant_*` accept "yes" / "open" / "no". `ai_readiness` accepts "high" / "medium" / "low"."""
-    if not name and not company:
-        raise ValueError("name or company must be provided")
     with Session(engine) as session:
-        lead = Lead(
+        return leads_service.mcp_create_lead(
+            session,
             name=name,
             company=company,
             email=email,
@@ -140,22 +80,18 @@ def create_lead(
             salutation=salutation,
             source=source,
             notes=notes,
-            tags=json.dumps(tags) if tags else None,
-            agent_metadata=json.dumps(agent_metadata) if agent_metadata else None,
-            snooze_until=date.fromisoformat(snooze_until) if snooze_until else None,
-            bant_budget=bant_budget.value if bant_budget else None,
-            bant_authority=bant_authority.value if bant_authority else None,
-            bant_need=bant_need.value if bant_need else None,
-            bant_timing=bant_timing.value if bant_timing else None,
-            ai_readiness=ai_readiness.value if ai_readiness else None,
+            tags=tags,
+            agent_metadata=agent_metadata,
+            snooze_until=snooze_until,
+            bant_budget=bant_budget,
+            bant_authority=bant_authority,
+            bant_need=bant_need,
+            bant_timing=bant_timing,
+            ai_readiness=ai_readiness,
             pain_points=pain_points,
             next_action=next_action,
-            next_action_date=date.fromisoformat(next_action_date) if next_action_date else None,
+            next_action_date=next_action_date,
         )
-        session.add(lead)
-        session.commit()
-        session.refresh(lead)
-        return _lead_dict(lead)
 
 
 @mcp.tool()
@@ -169,26 +105,16 @@ def list_leads(
     By default, leads with `snooze_until` in the future are hidden — pass
     `show_snoozed=True` to include them."""
     with Session(engine) as session:
-        query = select(Lead)
-        if stage:
-            query = query.where(Lead.stage == stage)
-        if source:
-            query = query.where(Lead.source == source)
-        if not show_snoozed:
-            today = date.today()
-            query = query.where(or_(Lead.snooze_until.is_(None), Lead.snooze_until <= today))
-        query = query.order_by(Lead.created_at.desc()).limit(max(1, min(limit, 500)))
-        return [_lead_dict(l) for l in session.exec(query).all()]
+        return leads_service.mcp_list_leads(
+            session, stage=stage, source=source, show_snoozed=show_snoozed, limit=limit
+        )
 
 
 @mcp.tool()
 def get_lead(lead_id: int) -> dict:
     """Get a single lead by ID."""
     with Session(engine) as session:
-        lead = session.get(Lead, lead_id)
-        if not lead:
-            raise LookupError(f"Lead {lead_id} not found")
-        return _lead_dict(lead)
+        return leads_service.mcp_get_lead(session, lead_id)
 
 
 @mcp.tool()
@@ -214,31 +140,25 @@ def update_lead(
     Pass an empty string for `snooze_until`/`next_action_date` to clear them.
     `bant_*` accept "yes" / "open" / "no"; `ai_readiness` accepts "high" / "medium" / "low"."""
     with Session(engine) as session:
-        lead = session.get(Lead, lead_id)
-        if not lead:
-            raise LookupError(f"Lead {lead_id} not found")
-        if name is not None: lead.name = name
-        if company is not None: lead.company = company
-        if email is not None: lead.email = email
-        if phone is not None: lead.phone = phone
-        if stage is not None: lead.stage = stage
-        if notes is not None: lead.notes = notes
-        if snooze_until is not None:
-            lead.snooze_until = date.fromisoformat(snooze_until) if snooze_until else None
-        if bant_budget is not None: lead.bant_budget = bant_budget.value
-        if bant_authority is not None: lead.bant_authority = bant_authority.value
-        if bant_need is not None: lead.bant_need = bant_need.value
-        if bant_timing is not None: lead.bant_timing = bant_timing.value
-        if ai_readiness is not None: lead.ai_readiness = ai_readiness.value
-        if pain_points is not None: lead.pain_points = pain_points
-        if next_action is not None: lead.next_action = next_action
-        if next_action_date is not None:
-            lead.next_action_date = date.fromisoformat(next_action_date) if next_action_date else None
-        lead.updated_at = datetime.utcnow()
-        session.add(lead)
-        session.commit()
-        session.refresh(lead)
-        return _lead_dict(lead)
+        return leads_service.mcp_update_lead(
+            session,
+            lead_id,
+            name=name,
+            company=company,
+            email=email,
+            phone=phone,
+            stage=stage,
+            notes=notes,
+            snooze_until=snooze_until,
+            bant_budget=bant_budget,
+            bant_authority=bant_authority,
+            bant_need=bant_need,
+            bant_timing=bant_timing,
+            ai_readiness=ai_readiness,
+            pain_points=pain_points,
+            next_action=next_action,
+            next_action_date=next_action_date,
+        )
 
 
 # ── note tools ──────────────────────────────────────────────────────────────
@@ -246,29 +166,15 @@ def update_lead(
 @mcp.tool()
 def add_note(lead_id: int, body: str) -> dict:
     """Append a note to a lead."""
-    body = (body or "").strip()
-    if not body:
-        raise ValueError("body must not be empty")
     with Session(engine) as session:
-        if not session.get(Lead, lead_id):
-            raise LookupError(f"Lead {lead_id} not found")
-        note = Note(lead_id=lead_id, body=body)
-        session.add(note)
-        session.commit()
-        session.refresh(note)
-        return _note_dict(note)
+        return leads_service.mcp_add_note(session, lead_id, body)
 
 
 @mcp.tool()
 def list_notes(lead_id: int) -> list[dict]:
     """List notes attached to a lead, newest first."""
     with Session(engine) as session:
-        if not session.get(Lead, lead_id):
-            raise LookupError(f"Lead {lead_id} not found")
-        notes = session.exec(
-            select(Note).where(Note.lead_id == lead_id).order_by(Note.created_at.desc())
-        ).all()
-        return [_note_dict(n) for n in notes]
+        return leads_service.mcp_list_notes(session, lead_id)
 
 
 # ── proposal tools ──────────────────────────────────────────────────────────
@@ -306,7 +212,7 @@ def create_proposal(
             )
         except LookupError as e:
             raise LookupError(str(e))
-        return _proposal_dict(proposal)
+        return proposals_service.serialize_proposal(proposal)
 
 
 @mcp.tool()
@@ -316,23 +222,14 @@ def list_proposals(
 ) -> list[dict]:
     """List proposals, newest first. Optionally filter by lead and/or status."""
     with Session(engine) as session:
-        query = select(Proposal)
-        if lead_id is not None:
-            query = query.where(Proposal.lead_id == lead_id)
-        if status:
-            query = query.where(Proposal.status == status)
-        query = query.order_by(Proposal.created_at.desc())
-        return [_proposal_dict(p) for p in session.exec(query).all()]
+        return proposals_service.list_proposals(session, lead_id=lead_id, status=status)
 
 
 @mcp.tool()
 def get_proposal(proposal_id: int) -> dict:
     """Get a single proposal with all fields and a pdf_url for browser download."""
     with Session(engine) as session:
-        proposal = session.get(Proposal, proposal_id)
-        if not proposal:
-            raise LookupError(f"Proposal {proposal_id} not found")
-        return _proposal_dict(proposal)
+        return proposals_service.get_proposal(session, proposal_id)
 
 
 @mcp.tool()
@@ -343,7 +240,7 @@ def mark_proposal_sent(proposal_id: int) -> dict:
             proposal = mark_proposal_sent_svc(session, proposal_id)
         except LookupError as e:
             raise LookupError(str(e))
-        return _proposal_dict(proposal)
+        return proposals_service.serialize_proposal(proposal)
 
 
 # ─────────────────────────────────────────────────────────────────────────
