@@ -17,6 +17,7 @@ from app.shared.labels import (
     STAGE_LABELS, SOURCE_LABELS, LEAD_TYPE_LABELS,
     PROPOSAL_STATUS_LABELS, BANT_LABELS, READINESS_LABELS,
 )
+from app.domains.leads import service as leads_service
 from services.auth import require_login, require_editor
 
 
@@ -78,17 +79,10 @@ def _parse_owner_id(value: str) -> Optional[int]:
 
 @router.get("/", response_class=HTMLResponse)
 def dashboard(request: Request, session: Session = Depends(get_session), _=Depends(require_login)):
-    today = date.today()
-    all_leads = session.exec(select(Lead).order_by(Lead.created_at.desc())).all()
-    active_leads = [l for l in all_leads if not l.is_snoozed(today)]
-    snoozed_count = len(all_leads) - len(active_leads)
-    by_stage = {s: sum(1 for l in active_leads if l.stage == s) for s in LeadStage}
+    overview = leads_service.dashboard_overview(session)
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
-        "leads": active_leads,
-        "by_stage": by_stage,
-        "total": len(active_leads),
-        "snoozed_count": snoozed_count,
+        **overview,
         "ai_active": _ai_active(session),
     })
 
@@ -195,44 +189,16 @@ async def lead_import_linkedin(
         )
         return RedirectResponse("/leads/import-linkedin", status_code=303)
 
-    from services.linkedin_import import extract_lead_from_pdf, LinkedInImportError
+    from services.linkedin_import import LinkedInImportError
+    current_user = getattr(request.state, "user", None)
+    owner_id_default = current_user.id if current_user else None
     try:
-        data = extract_lead_from_pdf(pdf_bytes, why_good, settings)
+        preview_lead = leads_service.linkedin_preview(
+            pdf_bytes, why_good, lead_type, owner_id_default, settings
+        )
     except LinkedInImportError as e:
         request.session["linkedin_import_error"] = f"Extraktion fehlgeschlagen: {e}"
         return RedirectResponse("/leads/import-linkedin", status_code=303)
-
-    ai_readiness = _parse_enum(data.get("ai_readiness_level"), ReadinessLevel)
-    bant_authority = _parse_enum(data.get("bant_authority"), BantValue)
-    bant_need = _parse_enum(data.get("bant_need"), BantValue)
-
-    readiness_label = (
-        READINESS_LABELS[ReadinessLevel(ai_readiness)] if ai_readiness else None
-    )
-    notes = _compose_linkedin_notes(why_good, data, readiness_label)
-
-    try:
-        lt = LeadType(lead_type)
-    except ValueError:
-        lt = LeadType.direct
-    current_user = getattr(request.state, "user", None)
-    owner_id_default = current_user.id if current_user else None
-
-    preview_lead = Lead(
-        name=data.get("name") or None,
-        company=data.get("company") or None,
-        salutation=data.get("salutation") or None,
-        email=data.get("email") or None,
-        phone=data.get("phone") or None,
-        source=LeadSource.linkedin,
-        lead_type=lt,
-        owner_id=owner_id_default,
-        notes=notes,
-        pain_points=data.get("pain_points") or None,
-        ai_readiness=ai_readiness,
-        bant_authority=bant_authority,
-        bant_need=bant_need,
-    )
 
     return templates.TemplateResponse("leads/form.html", {
         "request": request,
@@ -241,34 +207,6 @@ async def lead_import_linkedin(
         "preview_source": "vorschau aus linkedin",
         "users": _active_users(session),
     })
-
-
-def _compose_linkedin_notes(why_good: str, data: dict, readiness_label: Optional[str]) -> Optional[str]:
-    """Build the structured notes block from the sales-extraction fields."""
-    parts: list[str] = []
-    if why_good.strip():
-        parts.append("Warum dieser Lead (Vertrieb):\n" + why_good.strip())
-
-    sections = [
-        ("Firma", data.get("company_summary")),
-        ("Buying Signals", data.get("buying_signals")),
-        ("Decision-Role", data.get("decision_role")),
-        ("Fit für Agentic Reach", data.get("agentic_reach_fit")),
-        (
-            f"AI-Readiness: {readiness_label}" if readiness_label else "AI-Readiness",
-            data.get("ai_readiness_reason"),
-        ),
-        ("Karriere-Highlights", data.get("career_highlights")),
-    ]
-    body_parts = [
-        f"## {header}\n{body.strip()}"
-        for header, body in sections
-        if body and body.strip()
-    ]
-    if body_parts:
-        parts.append("\n\n".join(body_parts))
-
-    return "\n\n---\n\n".join(parts) or None
 
 
 @router.post("/leads", response_class=RedirectResponse)

@@ -155,14 +155,26 @@ The local `docker-compose.yml` uses Caddy as reverse proxy (dev/standalone). The
 > `import-linter`-Billing-Regel ist auf
 > `services.invoicing ↛ routes/app.domains.{leads,proposals}` geschärft
 > (der `models`-Shim ist transitiv mit abgedeckt; Rationale:
-> `docs/adr/007-billing-order-contract.md`). Noch
-> offen ist der **Service-/Interface-Umzug** (Logik aus
-> `routes/`+`services/`, Schritte 6–8) — die *übrigen* (Nicht-Billing-)
-> Aufrufer importieren die Modelle weiter über den `models.py`-Shim
-> ("domain" ≈ der relevante Slice, bis sie Schritt 6–8 in `app/` zieht);
-> die volle Interface-Kantenmenge folgt Schritt 7. Jeder Migrationsschritt
-> aktiviert/schärft die zu ihm gehörige Contract-Regel; Endzustand =
-> ganze Tabelle grün.
+> `docs/adr/007-billing-order-contract.md`). **Schritt 6 ist gelandet:**
+> die Business-Logik ist aus den Routes gezogen — Dashboard-Aggregation,
+> LinkedIn-Import-Orchestrierung und die Planning-Chat-Historie/Prompt-
+> Builder liegen in `app/domains/leads/service.py`, AI-Draft-Erzeugung +
+> Merge in `app/domains/proposals/service.py`, der Anthropic-Adapter +
+> Prompt-Registry + `===MARKER===`/`<json>`-Parser **verbatim** in
+> `app/core/ai.py` (kein Robustheits-Fix — Struktur-Schuld 6).
+> `services/ai.py`/`services/linkedin_import.py` sind jetzt Re-Export-
+> Shims = die frozen monkeypatch-Naht der Schritt-0.5-Char-Tests (sie
+> sterben mit ihnen in Schritt 7). `routes/{leads,proposals,ai}.py` rufen
+> nur noch den Service; 140 Char-Tests 0-Diff. Kein `pyproject`-Regel-
+> wechsel (Schritt 7 schärft die Interface-/MCP-Kanten); der verschobene
+> Code ist contract-treu (`core/ai ↛ domains/*`; `domains/<x> ↛
+> domains/<y>` — der Service-Service-Übergang nur über die transitionale
+> Legacy-Shim-Naht, Familie des `models.py`-Shims). Noch offen ist der
+> **MCP-Entdopplungs-/Interface-Split** (Schritte 7–8) — die *übrigen*
+> (Nicht-Billing-) Aufrufer importieren die Modelle weiter über den
+> `models.py`-Shim; die volle Interface-Kantenmenge folgt Schritt 7. Jeder
+> Migrationsschritt aktiviert/schärft die zu ihm gehörige Contract-Regel;
+> Endzustand = ganze Tabelle grün.
 
 ## Agent-Edit-Protokoll
 
