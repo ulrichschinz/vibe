@@ -200,7 +200,7 @@ forbidden_modules = [
 # risk the `.coveragerc` 90 % billing gate. A rule is inactive until its
 # package exists / each step activates its own edge (roadmap Schicht 2).
 # Rationale: docs/adr/008-mcp-dedup-interface-edge.md.
-[[tool.importlinter.contracts]]
+#
 # Schritt 8 extends the Schritt-7 `interfaces/mcp` row to the billing
 # models: the new `app.domains.billing.service` facade absorbed the last
 # direct `Invoice(...)`/`InvoiceLineItem(...)` construction the invoice
