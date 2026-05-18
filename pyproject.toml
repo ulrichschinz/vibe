@@ -239,6 +239,14 @@ forbidden_modules = [
     "app.contracts",
 ]
 
+# The `independence` check is transitive; it would otherwise route through
+# the enum-keyed `app.shared.labels` (Schritt-4 decision: labels key on the
+# domain enums, so `shared.labels -> app.domains.*.models`). That is the
+# documented, deliberately-NOT-activated `shared ↛ domains` edge (ADR-009
+# §G) — it is a label/enum bridge, **not** cross-domain *logic* coupling.
+# `ignore_imports` neutralizes exactly that transit so the contract measures
+# genuine domain↔domain edges only (grep-verified: none). Killing the bridge
+# itself needs an enum relocation owned by no current step.
 [[tool.importlinter.contracts]]
 name = "domains are independent — cross-domain only via app.contracts (Schritt 8)"
 type = "independence"
@@ -246,4 +254,9 @@ modules = [
     "app.domains.leads",
     "app.domains.proposals",
     "app.domains.billing",
+]
+ignore_imports = [
+    "app.shared.labels -> app.domains.leads.models",
+    "app.shared.labels -> app.domains.proposals.models",
+    "app.shared.labels -> app.domains.billing.models",
 ]

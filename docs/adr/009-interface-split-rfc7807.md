@@ -157,7 +157,12 @@ Zustand gilt — Roadmap Schicht 2):
   `app.contracts`).
 - **`domains/<x> ↛ domains/<y>` (aktiv):** `independence`-Contract über
   `app.domains.{leads,proposals,billing}` — grep-verifiziert: nur
-  intra-domain-Importe. Der Schritt-6-Transitional-Seam
+  intra-domain-Importe. `independence` ist transitiv und liefe sonst über
+  die enum-keyed `app.shared.labels` (`shared.labels → domains/*/models` —
+  die unten bewusst NICHT aktivierte `shared ↛ domains`-Kante); ein
+  `ignore_imports` neutralisiert exakt diese Label/Enum-Brücke, damit der
+  Contract echte Domänen-Logik-Kopplung misst, nicht den Label-Transit.
+  Der Schritt-6-Transitional-Seam
   (`app.domains.proposals.service → services.ai`,
   `app.domains.leads.service → services.linkedin_import`) ist `services.*`,
   **nicht** `app.domains.*` → keine Independence-Verletzung; er stirbt mit
