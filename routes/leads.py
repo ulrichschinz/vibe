@@ -10,8 +10,12 @@ import json
 from database import get_session
 from models import (
     Lead, Proposal, Note, PlanningMessage, AiSettings, User,
-    LeadStage, LeadSource, LeadType, STAGE_LABELS, SOURCE_LABELS, STAGE_ORDER, LEAD_TYPE_LABELS,
-    PROPOSAL_STATUS_LABELS, BantValue, ReadinessLevel, BANT_LABELS, READINESS_LABELS,
+    LeadStage, LeadSource, LeadType, STAGE_ORDER,
+    BantValue, ReadinessLevel,
+)
+from app.shared.labels import (
+    STAGE_LABELS, SOURCE_LABELS, LEAD_TYPE_LABELS,
+    PROPOSAL_STATUS_LABELS, BANT_LABELS, READINESS_LABELS,
 )
 from services.auth import require_login, require_editor
 

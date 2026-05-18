@@ -8,10 +8,11 @@ from sqlmodel import Session, select
 from app.core.config import get_settings
 from database import get_session
 from models import (
-    User, UserRole, ApiKey, USER_ROLE_LABELS,
-    AiSettings, AiProvider, AI_PROVIDER_LABELS,
+    User, UserRole, ApiKey,
+    AiSettings, AiProvider,
     IssuerProfile, ViesAuditEntry,
 )
+from app.shared.labels import USER_ROLE_LABELS, AI_PROVIDER_LABELS
 from services.auth import require_admin, hash_password, hash_api_key
 
 router = APIRouter(prefix="/admin")

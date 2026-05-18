@@ -13,11 +13,11 @@
 
 | Metrik | Wert | Beleg |
 |---|---|---|
-| Python LOC gesamt | 9.786 | `find -name '*.py'` |
-| davon Produktivcode | 6.546 | ohne `tests/` |
-| davon Tests | 3.240 | `tests/` |
-| Test/Prod-Verhältnis | ~50 % | Schritt-3 `core/config.py` (+88 Prod-LOC) |
-| SQLModel-Tabellen | 14 | `grep -c 'table=True' models.py` |
+| Python LOC gesamt | 10.143 | `find -name '*.py'` |
+| davon Produktivcode | 6.834 | ohne `tests/` |
+| davon Tests | 3.309 | `tests/` |
+| Test/Prod-Verhältnis | ~49 % | Schritt-4 `models.py`-Split (Move + Shim) |
+| SQLModel-Tabellen | 13 | `table=True`-Klassen in `app/**/models.py` + `app/core/{identity,ai_settings}.py` (Schritt 4 korrigiert: vorher 14 durch eine mitgezählte Kommentarzeile in `models.py`, real 13 Entitäten) |
 | HTTP-Endpoints | 72 | `@router.(get\|post\|...)` in `routes/` |
 | Route-Module | 7 | `routes/*.py` ohne `__init__.py` u. `mcp.py`-Mount |
 | MCP-Tools | 16 | `@mcp.tool` in `services/mcp_server.py` |
@@ -46,8 +46,11 @@ vibe/
 │                                    Lifespan (MCP session_manager), Seeding
 ├── database.py                 170  SQLite-Engine, Pragmas (WAL, FK,
 │                                    busy_timeout), BEGIN IMMEDIATE
-├── models.py                   610  ALLE 14 Tabellen + ~15 Enums +
-│                                    Label-Dicts + Pydantic-Schemas
+├── models.py                   108  Schritt 4: nur noch Re-Export-Shim +
+│                                    einziges Tabellen-Aggregations-Modul
+│                                    (`__all__`, deterministische Reihenfolge);
+│                                    KEINE Definition mehr — Tabellen/Enums/
+│                                    Schemas liegen in `app/` (s. u.)
 ├── routes/                    1933  Web-UI + REST + MCP-Mount
 │   ├── leads.py                539  Lead-CRUD, Notes, LinkedIn-Import-UI,
 │   │                                Lead→Proposal — mischt UI+Logik
@@ -92,13 +95,21 @@ vibe/
 ├── .coveragerc                     90 % Schwelle (Fokus: invoicing)
 ├── pyproject.toml                  Schritt 1: ruff + mypy + import-linter
 ├── scripts/new_domain.py           Schritt 1: `make new-domain X` Scaffold
-├── app/                            Schritt 2: finales Soll-Skelett — leere
-│                                   Pakete (Modul-Docstrings, Zweck +
-│                                   Entry-Points) + core/db.py (Scaffold-
-│                                   Seed). Schritt 3: core/config.py LIVE
-│                                   (pydantic-settings, einzige Env-Quelle).
-│                                   Sonst noch KEIN Code-Umzug — Prod-App
-│                                   ist weiter top-level main.py (Schr. 4–8)
+├── app/                            Soll-Skelett (Schritt 2) + LIVE-Code:
+│   ├── core/config.py          ...  Schritt 3: pydantic-settings (Env-Quelle)
+│   ├── core/identity.py         51  Schritt 4: User/UserRole/ApiKey
+│   ├── core/ai_settings.py      32  Schritt 4: AiProvider/AiSettings
+│   ├── domains/leads/models.py 164  Schritt 4: Lead/Note/PlanningMessage +
+│   │                                Lead-Enums + STAGE_ORDER
+│   ├── domains/leads/schemas.py 87  Schritt 4: LeadCreate/Read/Patch
+│   ├── domains/proposals/          Schritt 4: Proposal + ProposalStatus +
+│   │   models.py                97  DEFAULT_SERVICES
+│   ├── domains/billing/            Schritt 4: eigenes Billing-Tabellen-
+│   │   models.py               250  Schema (Invoice/LineItem/Sequence/Vies/
+│   │                                Integrity + IssuerProfile), byte-gleich
+│   └── shared/labels.py         95  Schritt 4: alle *_LABELS (Daten)
+│                                    Restl. Pakete docstring-only bis Schr. 6–8;
+│                                    Prod-App noch top-level main.py (Schr. 6–8)
 └── (noch kein Alembic — Schema via create_all; kommt Schritt 9)
 ```
 
@@ -150,7 +161,9 @@ InvoiceNumberSequence              lückenlose Nummerierung
 ViesAuditEntry                     USt-IdNr.-Prüf-Audit
 IntegrityCheckRun                  Unveränderlichkeits-Nachweis
 ```
-`LeadStage`-Reihenfolge: `STAGE_ORDER` in `models.py` treibt die Pipeline-UI.
+`LeadStage`-Reihenfolge: `STAGE_ORDER` (seit Schritt 4 in
+`app/domains/leads/models.py`, via `models.py`-Shim re-exportiert) treibt
+die Pipeline-UI.
 
 ## Cross-cutting
 
@@ -186,8 +199,14 @@ IntegrityCheckRun                  Unveränderlichkeits-Nachweis
 
 ## Bekannte Struktur-Schulden (neutral)
 
-1. `models.py` (610 Z.) bündelt alle 14 Tabellen + Enums + Labels +
-   Schemas — jeder Import zieht alle Domänen.
+1. ~~`models.py` (610 Z.) bündelt alle Tabellen + Enums + Labels +
+   Schemas~~ → **Schritt 4 gelandet**: nach
+   `app/domains/{leads,proposals,billing}/models.py` +
+   `app/core/{identity,ai_settings}.py` + `app/shared/labels.py`
+   gesplittet; `models.py` ist nur noch Re-Export-Shim +
+   Tabellen-Aggregations-Modul. Offen: der Shim lebt noch (Aufrufer
+   wandern Schritte 6–8; Shim-Sterbe-Gate erst im PR des letzten
+   Aufrufers).
 2. Dicke Route-Module (`leads.py` 539, `invoices.py` 441) mischen UI,
    Business-Logik und Orchestrierung → schwer testbar ohne HTTP.
 3. Service-Layer inkonsistent: sauber bei `proposals`/`pdf`/`invoicing`,

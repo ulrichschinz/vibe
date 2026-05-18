@@ -13,6 +13,8 @@ from models import (
     Lead,
     Note,
     PlanningMessage,
+)
+from app.shared.labels import (
     STAGE_LABELS,
     SOURCE_LABELS,
     BANT_LABELS,

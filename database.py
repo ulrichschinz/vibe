@@ -147,6 +147,12 @@ def install_lead_invoice_columns(target_engine):
 
 
 def create_db():
+    # Move-Vertrag (Schritt 4): the table definitions live in
+    # app/domains/*/models.py + app/core/{identity,ai_settings}.py. Importing
+    # the `models` aggregation shim registers every table on the shared
+    # SQLModel.metadata in one deterministic order — create_all depends on it.
+    import models  # noqa: F401
+
     SQLModel.metadata.create_all(engine)
     install_lead_invoice_columns(engine)
     install_invoice_triggers(engine)

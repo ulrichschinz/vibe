@@ -15,7 +15,6 @@ from sqlmodel import Session, select
 
 from database import get_session
 from models import (
-    INVOICE_STATUS_LABELS,
     Invoice,
     InvoiceKind,
     InvoiceLineItem,
@@ -27,6 +26,7 @@ from models import (
     ViesAuditEntry,
     ViesResponseStatus,
 )
+from app.shared.labels import INVOICE_STATUS_LABELS
 from services.auth import require_editor, require_login
 from services.invoicing.archive import archive_document
 from services.invoicing.document import render_document
