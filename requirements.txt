@@ -22,3 +22,8 @@ drafthorse>=2024.4
 pikepdf>=9.0
 # VIES (USt-IdNr.) Validierung
 zeep>=4.3
+# Schritt 9 — DB migrations. Two independently versioned trees (CRM +
+# Billing, separate version tables) replace the implicit create_all schema
+# evolution. Loose pin (repo style for non-core deps); 1.13+ targets the
+# SQLAlchemy 2.x that sqlmodel pulls.
+alembic>=1.13,<2

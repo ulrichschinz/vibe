@@ -1,4 +1,4 @@
-from sqlmodel import create_engine, SQLModel, Session
+from sqlmodel import create_engine, Session
 from sqlalchemy import text, event
 
 from app.core.config import get_settings
@@ -69,15 +69,17 @@ _INVOICE_FROZEN_COLS = [
 ]
 
 
-def install_invoice_triggers(target_engine):
-    """Install BEFORE-UPDATE triggers that block edits on finalized invoices.
+def invoice_trigger_statements():
+    """The BEFORE-UPDATE/INSERT/DELETE immutability trigger DDL (verbatim).
 
-    Belt-and-braces with the SQLAlchemy event listener in
-    ``services/invoicing/immutability.py``. The DB-level trigger guarantees
-    correctness even against SQL executed outside the ORM.
+    Schritt 9: extracted unchanged out of ``install_invoice_triggers`` so the
+    Alembic billing baseline and the legacy installer emit **byte-identical**
+    SQL from one source (move-not-rewrite — the strings are not rewritten,
+    only relocated into a list). All four use ``CREATE TRIGGER IF NOT
+    EXISTS`` and are therefore natively idempotent.
     """
     cond = " OR ".join(f"NEW.{c} IS NOT OLD.{c}" for c in _INVOICE_FROZEN_COLS)
-    statements = [
+    return [
         f"""
         CREATE TRIGGER IF NOT EXISTS invoice_immutable_after_finalize
         BEFORE UPDATE ON invoice
@@ -115,8 +117,19 @@ def install_invoice_triggers(target_engine):
         END;
         """,
     ]
+
+
+def install_invoice_triggers(target_engine):
+    """Install BEFORE-UPDATE triggers that block edits on finalized invoices.
+
+    Belt-and-braces with the SQLAlchemy event listener in
+    ``services/invoicing/immutability.py``. The DB-level trigger guarantees
+    correctness even against SQL executed outside the ORM. Behaviour
+    unchanged by the Schritt-9 extraction (same statements, same order, same
+    per-statement swallow).
+    """
     with target_engine.connect() as conn:
-        for stmt in statements:
+        for stmt in invoice_trigger_statements():
             try:
                 conn.execute(text(stmt))
                 conn.commit()
@@ -133,17 +146,31 @@ def _safe_add_column_on(target_engine, stmt: str):
             pass  # column already exists
 
 
+# Additive lead address + tax columns used by invoicing. Schritt 9:
+# extracted verbatim (column definition fragments only — the
+# ``ALTER TABLE lead ADD COLUMN`` prefix is reassembled identically below)
+# so the Alembic CRM baseline and the legacy installer share one source.
+LEAD_INVOICE_COLUMNS = [
+    "salutation TEXT",
+    "street TEXT",
+    "street2 TEXT",
+    "postal_code TEXT",
+    "city TEXT",
+    "country_code TEXT DEFAULT 'DE'",
+    "vat_id TEXT",
+    "is_business INTEGER DEFAULT 1",
+    "tax_country TEXT",
+]
+
+
 def install_lead_invoice_columns(target_engine):
-    """Additive migration: lead address + tax fields used by invoicing."""
-    _safe_add_column_on(target_engine, "ALTER TABLE lead ADD COLUMN salutation TEXT")
-    _safe_add_column_on(target_engine, "ALTER TABLE lead ADD COLUMN street TEXT")
-    _safe_add_column_on(target_engine, "ALTER TABLE lead ADD COLUMN street2 TEXT")
-    _safe_add_column_on(target_engine, "ALTER TABLE lead ADD COLUMN postal_code TEXT")
-    _safe_add_column_on(target_engine, "ALTER TABLE lead ADD COLUMN city TEXT")
-    _safe_add_column_on(target_engine, "ALTER TABLE lead ADD COLUMN country_code TEXT DEFAULT 'DE'")
-    _safe_add_column_on(target_engine, "ALTER TABLE lead ADD COLUMN vat_id TEXT")
-    _safe_add_column_on(target_engine, "ALTER TABLE lead ADD COLUMN is_business INTEGER DEFAULT 1")
-    _safe_add_column_on(target_engine, "ALTER TABLE lead ADD COLUMN tax_country TEXT")
+    """Additive migration: lead address + tax fields used by invoicing.
+
+    Behaviour unchanged by the Schritt-9 extraction (same nine
+    ``ALTER TABLE`` statements, same order, same per-statement swallow).
+    """
+    for col in LEAD_INVOICE_COLUMNS:
+        _safe_add_column_on(target_engine, f"ALTER TABLE lead ADD COLUMN {col}")
 
 
 def create_db():
@@ -157,9 +184,17 @@ def create_db():
     # scoped — no `services`/`routes`/`app` module imports it (ADR-009 §F).
     import models  # noqa: F401
 
-    SQLModel.metadata.create_all(engine)
-    install_lead_invoice_columns(engine)
-    install_invoice_triggers(engine)
+    # Schritt 9 (Alembic): schema is now established by two independently
+    # versioned Alembic trees (CRM + Billing, separate version tables) whose
+    # 0001 baseline is *defined to be* the previous create_all schema
+    # (delegates to `SQLModel.metadata.create_all` + the verbatim trigger /
+    # lead-column DDL above). No implicit `create_all` schema evolution
+    # anymore: future schema changes are new revisions. Bound to the live
+    # `engine` (preserves the e2e per-test-engine monkeypatch seam — the
+    # PR-#5 lesson). Rationale: docs/adr/010-alembic-split-versioning.md.
+    from app.core.db_migrate import run_migrations
+
+    run_migrations(engine)
 
 
 # Backwards-compat shims used elsewhere in the codebase.

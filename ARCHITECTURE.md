@@ -13,10 +13,10 @@
 
 | Metrik | Wert | Beleg |
 |---|---|---|
-| Python LOC gesamt | 11.442 | `find -name '*.py'` |
-| davon Produktivcode | 8.062 | ohne `tests/` |
+| Python LOC gesamt | 11.871 | `find -name '*.py'` |
+| davon Produktivcode | 8.491 | ohne `tests/` |
 | davon Tests | 3.380 | `tests/` |
-| Test/Prod-Verhältnis | ~42 % | Schritt-8 Interface-Split (routes/→`app/interfaces/`, RFC-7807-Mapper, Billing-Facade); Char→Unit-Lifecycle-Swap (test_api_errors→test_rfc7807_mapper) |
+| Test/Prod-Verhältnis | ~40 % | Schritt-9 Alembic (zwei getrennt versionierte Bäume CRM+Billing + `app/core/db_migrate.py`; +429 prod LOC, `tests/` 0-Diff) |
 | SQLModel-Tabellen | 13 | `table=True`-Klassen in `app/**/models.py` + `app/core/{identity,ai_settings}.py` (Schritt 4 korrigiert: vorher 14 durch eine mitgezählte Kommentarzeile in `models.py`, real 13 Entitäten) |
 | HTTP-Endpoints | 72 | `@router.(get\|post\|...)` in `app/interfaces/{web,api}/` (Schritt 8: aus `routes/` dorthin verschoben) |
 | Route-Module | 7 | `app/interfaces/{web,api}/*.py` ohne `__init__.py` (register) u. `mount.py` (MCP-ASGI-Mount) |
@@ -39,6 +39,9 @@ MCP-Schnittstelle für Agenten. Seit Schritt 8 läuft die Delivery-Schicht
 über `app/interfaces/{web,api,mcp}` (register-Auto-Discovery + zentraler
 RFC-7807-Mapper); Domänen-Logik in `app/domains/*`, Kern in `app/core/*`.
 `routes/` ist nur noch test-zugewandter Re-Export-Shim (leads, proposals).
+Seit Schritt 9 wird das Schema durch zwei getrennt versionierte Alembic-
+Bäume (CRM + Billing, eigene version_table je Baum) etabliert — keine
+impliziten `create_all`-Schema-Änderungen mehr.
 
 ## Verzeichnisbaum (mit Verantwortung & LOC)
 
@@ -46,8 +49,23 @@ RFC-7807-Mapper); Domänen-Logik in `app/domains/*`, Kern in `app/core/*`.
 vibe/
 ├── main.py                     132  App-Factory, attach_user-Middleware,
 │                                    Lifespan (MCP session_manager), Seeding
-├── database.py                 170  SQLite-Engine, Pragmas (WAL, FK,
-│                                    busy_timeout), BEGIN IMMEDIATE
+├── database.py                 ~185 SQLite-Engine, Pragmas (WAL, FK,
+│                                    busy_timeout), BEGIN IMMEDIATE;
+│                                    Schritt 9: `create_db()` ruft Alembic
+│                                    (`app.core.db_migrate.run_migrations`)
+│                                    statt implizitem `create_all`; Trigger-/
+│                                    Lead-Spalten-DDL als geteilte Helfer
+├── alembic.ini                  ~40 Schritt 9: CLI-Config der zwei Bäume
+│                                    (`-n crm` / `-n billing`); In-Prozess
+│                                    läuft programmatisch (nicht aus dieser)
+├── migrations/                 ~340 Schritt 9: zwei **getrennt versionierte**
+│   ├── crm/{env,script.mako}        Alembic-Bäume, je eigene version_table
+│   │   versions/0001_crm_baseline   (`alembic_version` /
+│   └── billing/{env,script.mako}    `alembic_version_billing`) → späterer
+│       versions/0001_billing_base   DB-Split ohne Daten-Migration. Baseline
+│                                    = altes create_all-Schema (delegiert,
+│                                    byte-gleich). Nicht in import-linter-
+│                                    /mypy-/ruff-Scope (nur Doc-Gate-LOC)
 ├── models.py                   118  Schritt 4: Tabellen-Aggregations-Modul
 │                                    (`create_all` hängt daran) + seit
 │                                    Schritt 8 NUR noch test-zugewandter
@@ -121,6 +139,11 @@ vibe/
 │   │                                mcp_server, billing-eigene Modelle)
 │   ├── core/errors.py           70  Schritt 8: zentraler RFC-7807 problem
 │   │                                +json-Mapper (REST-Surface only)
+│   ├── core/db_migrate.py       89  Schritt 9: Alembic-Runner (bindet an
+│   │                                Live-Engine via attributes-connection —
+│   │                                e2e-Monkeypatch-Naht erhalten) + CRM/
+│   │                                Billing-Tabellen-Partition (nur Strings,
+│   │                                kein Domain-Import → core↛domains grün)
 │   ├── interfaces/web/             Schritt 8: Jinja-Router verbatim aus
 │   │   {leads,proposals,           routes/ + register()-Auto-Discovery
 │   │    invoices,admin,ai,auth}    (Scaffold-Vertrag iteriert domains/*)
@@ -131,7 +154,8 @@ vibe/
 │   ├── contracts/                  Schritt 5: BillingOrder-DTO (reines
 │   │   billing_order.py        125  pydantic; CRM↔Billing-Vertrag, frozen)
 │   └── shared/labels.py         95  Schritt 4: alle *_LABELS (Daten)
-└── (noch kein Alembic — Schema via create_all; kommt Schritt 9)
+└── (Alembic gelandet — Schritt 9; Schema über zwei versionierte Bäume,
+     keine impliziten create_all-Schema-Änderungen mehr)
 ```
 
 ## Schichten — und wo die Schichtung bricht
@@ -152,6 +176,7 @@ vibe/
         │  (models.py = nur noch test-Shim + Aggregator)
         ▼
    SQLite (WAL, BEGIN IMMEDIATE — single-writer)
+   Schema: 2 Alembic-Bäume (CRM/Billing, getrennte version_table) — S9
 ```
 
 **Bruchstellen konkret:**
@@ -224,6 +249,22 @@ die Pipeline-UI.
   `session_manager.run()` gestartet (Mounts haben keinen eigenen Lifespan).
 - **DB:** `database.py` — `journal_mode=WAL`, `foreign_keys=ON`,
   `busy_timeout=30000`, `BEGIN IMMEDIATE` zur Finalize-Serialisierung.
+- **Schema/Migrationen (Schritt 9):** zwei getrennt versionierte Alembic-
+  Bäume — `migrations/crm` (version_table `alembic_version`) und
+  `migrations/billing` (version_table `alembic_version_billing`) — auf der
+  heute gemeinsamen SQLite-Datei. `database.create_db()` ruft
+  `app.core.db_migrate.run_migrations(engine)` (CRM dann Billing,
+  an die Live-Engine gebunden — e2e-Monkeypatch-Naht erhalten) statt
+  implizitem `create_all`. Die 0001-Baseline ist *definiert als* das alte
+  `create_all`-Schema (delegiert an `SQLModel.metadata.create_all` +
+  verbatim Trigger-/Lead-Spalten-DDL → byte-gleich, move-not-rewrite, ohne
+  lokalen Interpreter sicher). Getrennte Historien = späterer Billing-DB-
+  Split ohne Daten-Migration **und** Heimat der eigenen Billing-
+  Aufbewahrungsregel (GoBD↔DSGVO). `tests/conftest.py` nutzt weiter direkt
+  `create_all` (= identisch zur Baseline) → 132 Char-Tests + 90 %-
+  Invoicing-Suite 0-Diff. `migrations/` ist **kein** import-linter-
+  root_package und nicht im mypy/ruff-Scope (nur Doc-Gate-LOC). Rationale:
+  `docs/adr/010-alembic-split-versioning.md`.
 - **Config (zentral, Schritt 3):** `app/core/config.py` — pydantic-
   settings `Settings`; `get_settings()` ist die einzige Env-Quelle und
   ersetzt die vormals in 6 Modulen verstreuten Ad-hoc-Env-Reads
@@ -277,8 +318,11 @@ die Pipeline-UI.
    Rationale: `docs/adr/008` + `docs/adr/009-interface-split-rfc7807.md`.
 5. ~~Kein `pyproject.toml`/Linter/Type-Check/CI-Gate~~ → **Schritt 1
    gelandet** (`pyproject.toml`, `ruff`, `mypy`, `import-linter`,
-   `make verify`-Gate je PR). Offen bleibt: **keine Alembic-Migrationen**
-   (Schema via `create_all` beim Start) — Schritt 9.
+   `make verify`-Gate je PR). ~~Offen: keine Alembic-Migrationen~~ →
+   **Schritt 9 gelandet**: zwei getrennt versionierte Alembic-Bäume
+   (CRM/Billing, eigene version_table) ersetzen das implizite `create_all`;
+   Baseline = altes Schema (delegiert, byte-gleich); spätere Schema-
+   Änderungen sind Revisionen. Rationale `docs/adr/010`.
 6. AI-Anbindung an Anthropic gekoppelt, Prompts hartcodiert, Parsing
    fragil. **Schritt 6** hat das *isoliert* (alles in `app/core/ai.py`,
    eine Adapter-Stelle) aber bewusst **nicht behoben** — die Prompts und

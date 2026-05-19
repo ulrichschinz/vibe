@@ -43,8 +43,19 @@ Doc-Gate. Es ist der Akzeptanz-Gate jedes Migrationsschritts und läuft je
 PR in `.github/workflows/test.yml` (CI ruft `make PY=python verify`); der
 stdlib-Doc-Gate läuft zusätzlich always-on in `doc-metrics.yml`. Neue
 Domäne = ein Befehl: `make new-domain X` (Scaffold-Generator
-`scripts/new_domain.py`). Noch **nicht** vorhanden: Alembic-Migrationen
-(Schema via `create_all`) — kommt in **Schritt 9**.
+`scripts/new_domain.py`). **Schritt 9 (Alembic) ist gelandet:** das Schema
+wird durch **zwei getrennt versionierte Alembic-Bäume** etabliert —
+`migrations/crm` (`alembic_version`) + `migrations/billing`
+(`alembic_version_billing`) auf der heute gemeinsamen SQLite-Datei;
+`database.create_db()` ruft `app.core.db_migrate.run_migrations(engine)`
+(an die Live-Engine gebunden) statt implizitem `create_all`. Die
+0001-Baseline ist *definiert als* das alte `create_all`-Schema (delegiert →
+byte-gleich, move-not-rewrite). Getrennte Historien = späterer Billing-DB-
+Split ohne Daten-Migration + Heimat der eigenen Billing-Aufbewahrungsregel
+(GoBD↔DSGVO). `tests/conftest.py` nutzt weiter direkt `create_all`
+(= identisch zur Baseline) → 132 Char-Tests + 90 %-Suite 0-Diff. Spätere
+Schema-Änderungen sind Revisionen, **keine** impliziten `create_all`-
+Änderungen mehr. Rationale: `docs/adr/010-alembic-split-versioning.md`.
 
 ## Environment
 
@@ -208,7 +219,24 @@ The local `docker-compose.yml` uses Caddy as reverse proxy (dev/standalone). The
 > konstruieren weiter Modelle) + `shared ↛ domains` (enum-keyed Labels).
 > `services/mcp_server.py` + `services/ai|linkedin_import.py`-Shims
 > bleiben (frozen Seams, ADR-008/009 §B/§E). Rationale
-> `docs/adr/009-interface-split-rfc7807.md`. Jeder Migrationsschritt
+> `docs/adr/009-interface-split-rfc7807.md`. **Schritt 9 ist gelandet:**
+> Alembic — zwei **getrennt versionierte** Bäume (`migrations/crm` →
+> `alembic_version`, `migrations/billing` → `alembic_version_billing`) auf
+> der heute gemeinsamen SQLite-Datei; `database.create_db()` ruft
+> `app.core.db_migrate.run_migrations(engine)` (an die Live-Engine
+> gebunden — e2e-Monkeypatch-Naht erhalten) statt implizitem `create_all`.
+> 0001-Baseline = *altes Schema per Delegation* (`create_all` +
+> verbatim Trigger-/Lead-Spalten-DDL aus `database.py`, byte-gleich,
+> move-not-rewrite, ohne lokalen Interpreter sicher; `database.py` nur
+> refaktoriert — geteilte SQL-Helfer). Getrennte Historien = späterer
+> Billing-DB-Split ohne Daten-Migration + Heimat der eigenen Billing-
+> Aufbewahrungsregel (GoBD↔DSGVO). `migrations/` ist **kein** import-
+> linter-root_package und nicht im mypy/ruff-Scope (nur Doc-Gate-LOC) →
+> **keine** `pyproject.toml`-Regeländerung. `tests/conftest.py` nutzt
+> weiter direkt `create_all` (= identisch zur Baseline) → 132 Char-Tests +
+> 90 %-Invoicing-Suite 0-Diff; nur Prod-Start/e2e-Lifespan laufen jetzt
+> durch Alembic (Netto-Schema identisch). Rationale
+> `docs/adr/010-alembic-split-versioning.md`. Jeder Migrationsschritt
 > aktiviert/schärft die zu ihm gehörige Contract-Regel.
 
 ## Agent-Edit-Protokoll
