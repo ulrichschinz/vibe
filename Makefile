@@ -6,7 +6,7 @@ PY ?= .venv/bin/python
 # the venv. Override with `make LINT_IMPORTS=.venv/bin/lint-imports` if needed.
 LINT_IMPORTS ?= lint-imports
 
-.PHONY: help install dev-install test test-fast test-unit test-integration test-contract test-e2e test-kosit test-pdfa coverage integrity-check clean verify lint lint-all format-check fmt typecheck contracts doc-gate new-domain
+.PHONY: help install dev-install test test-fast test-unit test-integration test-contract test-e2e test-kosit test-pdfa coverage integrity-check clean verify lint lint-all format-check fmt typecheck contracts doc-gate new-domain outcome-probe
 
 help:
 	@echo "Vibe — make targets"
@@ -20,6 +20,7 @@ help:
 	@echo "  make contracts        import-linter (executable import boundaries)"
 	@echo "  make doc-gate         assert ARCHITECTURE.md Kennzahlen vs. code"
 	@echo "  make new-domain X     scaffold a new domain (app/domains/X + test)"
+	@echo "  make outcome-probe TASK=x  check task file set vs sealed prediction"
 	@echo "  make test             run full test suite + coverage"
 	@echo "  make test-fast        run unit + integration only (skip contract/e2e)"
 	@echo "  make test-unit        unit tests only"
@@ -108,6 +109,15 @@ contracts:
 
 doc-gate:
 	$(PY) scripts/check_architecture_metrics.py
+
+# Audit-Remediation T1: compare a task implementation's changed-file set
+# against the sealed prediction in docs/outcome-probe/<task>.expected.
+# Pure stdlib (like doc-gate) — locally runnable without app deps.
+#   make outcome-probe TASK=lead-field
+#   make outcome-probe TASK=--lint        (CI: every .expected well-formed)
+outcome-probe:
+	@test -n "$(TASK)" || { echo "usage: make outcome-probe TASK=<task|--lint>"; exit 2; }
+	$(PY) scripts/outcome_probe.py $(TASK)
 
 # One-command new domain (the anti-"random files" mechanism). Usage:
 #   make new-domain X            (web router by default)

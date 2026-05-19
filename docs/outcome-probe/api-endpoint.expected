@@ -1,0 +1,19 @@
+# SEALED 2026-05-19 (vor jedem Lauf). Aufgabe: REST GET
+# /api/leads/{lead_id}/notes. Notes sind eine Leads-Domänen-Entität;
+# Note-Listing/Serialisierung existiert seit Schritt 7 im Leads-Service
+# (mcp_list_notes/serialize_note) → der Endpoint REUSED den Service,
+# service.py wird NICHT geändert.
+
+app/interfaces/api/router.py
+app/domains/leads/schemas.py
+tests/e2e/test_api.py
+ARCHITECTURE.md
+
+# Annotationen:
+# - schemas.py IM Set: eine NoteRead-Response-Schema (analog LeadRead) —
+#   Note hat bisher kein Read-Schema (nur Lead*). Pure DTO, Leads-Domäne.
+# - service.py NICHT im Set: list/serialize-Notes existiert bereits
+#   (Schritt-7-Entdopplung) → Wiederverwendung statt Duplikat. Das IST der
+#   strukturelle Gewinn ("eine Logik, drei Clients") an einer Stelle, wo
+#   er erzwungen GREIFT.
+# - ARCHITECTURE.md IM Set: Kennzahl HTTP-Endpoints 72→73 + LOC → Doc-Gate.

@@ -1,0 +1,24 @@
+# SEALED 2026-05-19 (vor jedem Lauf). Aufgabe: optionales Feld
+# linkedin_url an Lead, exponiert über REST (create/read/patch) + Web-Form.
+# Abgeleitet aus Agent-Edit-Protokoll (models→schemas→service→router→test)
+# + Ist-Struktur main. Eine Zeile = ein repo-relativer Pfad. '#' = Kommentar.
+
+app/domains/leads/models.py
+app/domains/leads/schemas.py
+app/interfaces/web/leads.py
+app/interfaces/api/router.py
+templates/leads/form.html
+tests/e2e/test_api.py
+ARCHITECTURE.md
+
+# Annotationen (NICHT Teil des Sets — Befunde, die die Probe quantifiziert):
+# - service.py NICHT im Set: Lead-Konstruktion lebt in den Interface-
+#   Handlern (web/leads.py:281, api/router.py:89), NICHT in
+#   app/domains/leads/service.py → das ist die R1-Steuer (Backlog T2),
+#   sichtbar gemacht.
+# - migrations/crm/versions/0002_*.py NICHT im Set: das Protokoll sieht
+#   keinen Migrations-Schritt vor. Eine neue Spalte ist damit für eine
+#   bestehende Prod-DB unvollständig (Baseline delegiert nur an create_all
+#   der Partition). Das ist der R3-Befund (Backlog T4), NICHT ein Messfehler.
+# - ARCHITECTURE.md IST im Set: +prod/+test LOC → Doc-Gate erzwingt den
+#   Sync im selben Change (CLAUDE.md-Vertrag).

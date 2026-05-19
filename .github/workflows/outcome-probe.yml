@@ -1,0 +1,24 @@
+# Audit-Remediation T1 — Outcome-Probe integrity guard.
+#
+# Deliberately minimal and dependency-free (stdlib + git), same shape as
+# doc-metrics.yml. It does NOT run the five tasks (CI cannot summon a coding
+# agent — the N=3 runs are a process discipline; see
+# docs/outcome-probe/README.md). It enforces the part that IS enforceable:
+# every sealed prediction stays well-formed, and the harness itself runs.
+# Each manual/agent run is verified with `make outcome-probe TASK=<task>`.
+name: outcome-probe
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  sealed-predictions-wellformed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Every docs/outcome-probe/*.expected is well-formed
+        run: python3 scripts/outcome_probe.py --lint

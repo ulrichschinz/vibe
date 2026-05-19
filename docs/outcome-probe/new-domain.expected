@@ -1,0 +1,28 @@
+# SEALED 2026-05-19 (vor jedem Lauf). Aufgabe: make new-domain campaigns.
+# Scaffold-Output exakt (verifiziert via scripts/new_domain.py-Probe im
+# Audit). Die idempotenten Skelett-Seeds (app/__init__.py,
+# app/core/__init__.py, app/core/db.py, app/domains/__init__.py) existieren
+# auf main bereits → NICHT im Change-Set.
+
+app/domains/campaigns/__init__.py
+app/domains/campaigns/models.py
+app/domains/campaigns/schemas.py
+app/domains/campaigns/service.py
+app/domains/campaigns/repository.py
+app/domains/campaigns/router.py
+tests/test_campaigns.py
+ARCHITECTURE.md
+
+# Annotationen:
+# - Stärkster struktureller Gewinn: ein Befehl, deterministisches Set,
+#   import-linter-/ruff-format-konform by construction. Bei der Baseline
+#   (4aa4f9a) gibt es KEINEN Scaffold → eine neue Domäne ist
+#   handgebaut/unbestimmt (s. BASELINE.md). Das ist die größte Delta.
+# - ARCHITECTURE.md IM Set: +prod/+test LOC UND SQLModel-Tabellen 13→14
+#   (Scaffold emittiert class Campaigns(table=True)) → Doc-Gate.
+# - pyproject.toml NICHT im Set: der Scaffold patcht den
+#   independence-Contract NICHT → die neue Domäne ist in 0 Contracts,
+#   Cross-Domain-Import zu/von ihr ist unconstrained. Das ist der
+#   R6-Befund (Backlog T5), von der Probe quantifiziert, NICHT ein
+#   Messfehler — die "exakt diese Dateien"-These hält, aber das
+#   Enforcement skaliert nicht mit.
