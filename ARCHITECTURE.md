@@ -13,8 +13,8 @@
 
 | Metrik | Wert | Beleg |
 |---|---|---|
-| Python LOC gesamt | 11.438 | `find -name '*.py'` |
-| davon Produktivcode | 8.058 | ohne `tests/` |
+| Python LOC gesamt | 11.442 | `find -name '*.py'` |
+| davon Produktivcode | 8.062 | ohne `tests/` |
 | davon Tests | 3.380 | `tests/` |
 | Test/Prod-Verhältnis | ~42 % | Schritt-8 Interface-Split (routes/→`app/interfaces/`, RFC-7807-Mapper, Billing-Facade); Char→Unit-Lifecycle-Swap (test_api_errors→test_rfc7807_mapper) |
 | SQLModel-Tabellen | 13 | `table=True`-Klassen in `app/**/models.py` + `app/core/{identity,ai_settings}.py` (Schritt 4 korrigiert: vorher 14 durch eine mitgezählte Kommentarzeile in `models.py`, real 13 Entitäten) |
