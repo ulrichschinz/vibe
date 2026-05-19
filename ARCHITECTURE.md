@@ -13,9 +13,9 @@
 
 | Metrik | Wert | Beleg |
 |---|---|---|
-| Python LOC gesamt | 11.871 | `find -name '*.py'` |
+| Python LOC gesamt | 11.916 | `find -name '*.py'` |
 | davon Produktivcode | 8.491 | ohne `tests/` |
-| davon Tests | 3.380 | `tests/` |
+| davon Tests | 3.425 | `tests/` |
 | Test/Prod-Verhältnis | ~40 % | Schritt-9 Alembic (zwei getrennt versionierte Bäume CRM+Billing + `app/core/db_migrate.py`; +429 prod LOC, `tests/` 0-Diff) |
 | SQLModel-Tabellen | 13 | `table=True`-Klassen in `app/**/models.py` + `app/core/{identity,ai_settings}.py` (Schritt 4 korrigiert: vorher 14 durch eine mitgezählte Kommentarzeile in `models.py`, real 13 Entitäten) |
 | HTTP-Endpoints | 72 | `@router.(get\|post\|...)` in `app/interfaces/{web,api}/` (Schritt 8: aus `routes/` dorthin verschoben) |

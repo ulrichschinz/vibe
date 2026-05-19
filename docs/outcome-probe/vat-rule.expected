@@ -1,0 +1,18 @@
+# SEALED 2026-05-19 (vor jedem Lauf). Aufgabe: zusätzliche VAT-
+# Konstellation in _resolve_constellation/compute_vat + Unit-Test.
+# services/invoicing/ ist move-not-rewrite — eine ADDITIVE neue Regel
+# (neuer Zweig) ist kein Rewrite und zulässig.
+
+services/invoicing/vat.py
+tests/unit/test_vat_engine.py
+ARCHITECTURE.md
+
+# Annotationen:
+# - Engstes Set (3) ist der Compliance-Kern: das ist auch der Bereich, der
+#   sich strukturell am WENIGSTEN verbessert hat (vat.py war schon bei der
+#   Baseline ein eigenes Modul). Ehrlich: nicht jede Aufgabe profitiert
+#   gleich — s. BASELINE.md (kleinste Delta).
+# - .coveragerc erzwingt 90% auf services/invoicing/ → der neue Zweig
+#   MUSS vom Unit-Test gedeckt sein, sonst make verify rot (gut: das Gate
+#   greift hier real).
+# - ARCHITECTURE.md IM Set: Kennzahl Invoicing-Subsystem-LOC + total → Doc-Gate.

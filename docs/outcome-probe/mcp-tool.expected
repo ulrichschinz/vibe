@@ -1,0 +1,18 @@
+# SEALED 2026-05-19 (vor jedem Lauf). Aufgabe: read-only MCP-Tool
+# list_recent_notes(limit=10). Protokoll: MCP-Tools sind dünn und
+# delegieren an den Domain-Service (Schritt 7, ADR-008).
+
+app/domains/leads/service.py
+services/mcp_server.py
+tests/integration/test_mcp_recent_notes.py
+ARCHITECTURE.md
+
+# Annotationen:
+# - service.py IM Set: Query + Serialisierung gehören per Schritt-7-Regel
+#   in den Leads-Service; mcp_server.py nur dünner @mcp.tool-Wrapper
+#   (sonst bricht der import-linter-Contract services.mcp_server ↛
+#   app.domains.*.models — diese Kante IST erzwungen, gut).
+# - tests/characterization/test_mcp_tools.py NICHT im Set: das ist der
+#   frozen 0-Diff-Char-Test der 16 Bestands-Tools; neues Tool = neues
+#   Verhalten → eigener Integrationstest, Char-Netz unangetastet.
+# - ARCHITECTURE.md IM Set: Kennzahl MCP-Tools 16→17 + LOC → Doc-Gate.
