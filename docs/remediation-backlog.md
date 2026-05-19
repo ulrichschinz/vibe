@@ -96,6 +96,24 @@ nie umgebogen). Sonderfall `User(...)` hat keine Domäne → Zuhause klären
 (`app/core/identity`-Service oder Admin-Service). **Invariante:** 132
 Char-Tests + 90 %-Invoicing 0-Diff.
 
+> **Scope-Nachschärfung (2026-05-19, vor Umsetzung — Plan-Befund):** „nur
+> Konstruktion umleiten" reicht **nicht**, damit T2b grün aktiviert. Der
+> Gate verbietet jeden *direkten* Import von
+> `app.domains.{leads,proposals,billing}.models` aus `app.interfaces` —
+> dieselben 4 Dateien importieren die Modelle auch für Queries
+> (`select(Lead)`, `session.get(Invoice, …)`), Enums (`LeadStage`,
+> `InvoiceStatus`, `LeadType(...)`) und Jinja-Globals
+> (`env.globals["LeadStage"]`). T2a ist daher die **volle Read-/Enum-/
+> Template-Flächen-Verschiebung** der 4 Interface-Dateien hinter ihre
+> Services — exakt das Schritt-7-MCP-Entdopplungs-Muster auf Web/REST
+> angewandt (move-not-rewrite, byte-äquivalent, Enum-Re-Exports über das
+> Service-Modul). Die 12 Konstruktions-Sites sind die *Saat*, nicht der
+> Gesamtumfang. Zusätzlich (Spec „Zuhause klären", voller Scope):
+> `User`/`ApiKey`/`AiSettings`-Konstruktion → neue `app/core/
+> {identity,ai_settings}_service.py` (nicht gate-erzwungen — `core` ist
+> keine Domäne —, aber R1-Symmetrie; `core ↛ services/domains`: Hashing
+> bleibt im Handler). Entscheidung des Maintainers: voller Move + Gate.
+
 **T2b (Gate):** `[[tool.importlinter.contracts]]` forbidden,
 `source_modules=["app.interfaces"]`,
 `forbidden_modules=["app.domains.leads.models","app.domains.proposals.models","app.domains.billing.models"]`,

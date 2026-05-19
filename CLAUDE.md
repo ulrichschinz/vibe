@@ -214,9 +214,13 @@ The local `docker-compose.yml` uses Caddy as reverse proxy (dev/standalone). The
 > `domains/<x> ↛ domains/<y>` (independence). Prod-`models`-Shim-Tod
 > (kein `services|routes|app`-Modul importiert die Shim-Namen mehr;
 > `models.py` bleibt test-Shim + Aggregator; physischer Datei-Tod +
-> Test-Migration = deferred). Bewusst **nicht** aktiviert (Zustand gilt
-> noch nicht): web/REST-`interfaces ↛ domains/*/models` (CRUD-Handler
-> konstruieren weiter Modelle) + `shared ↛ domains` (enum-keyed Labels).
+> Test-Migration = deferred). In Schritt 8 bewusst **nicht** aktiviert
+> (Zustand galt noch nicht): web/REST-`interfaces ↛ domains/*/models`
+> (CRUD-Handler konstruierten weiter Modelle) + `shared ↛ domains`
+> (enum-keyed Labels). **Update: die `interfaces ↛ domains/*/models`-Zeile
+> ist seit Remediation-Track T2 aktiv** (ADR-011 — Read-/Konstruktions-
+> Fläche hinter die Domänen-`*.service`; `shared ↛ domains` bleibt
+> deferred).
 > `services/mcp_server.py` + `services/ai|linkedin_import.py`-Shims
 > bleiben (frozen Seams, ADR-008/009 §B/§E). Rationale
 > `docs/adr/009-interface-split-rfc7807.md`. **Schritt 9 ist gelandet:**

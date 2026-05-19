@@ -260,3 +260,31 @@ ignore_imports = [
     "app.shared.labels -> app.domains.proposals.models",
     "app.shared.labels -> app.domains.billing.models",
 ]
+
+# Web/REST-Modellsperre (Remediation-Track T2b — closes audit R1). The
+# Contract-Kantentabelle row `interfaces/* ↛ domains/*/models`, deliberately
+# NOT activated in Schritt 8 (ADR-009 §G: "churn owned by no step"). T2a
+# moved the full read/enum/construction surface of the six interface modules
+# (web/{leads,invoices,admin,ai,proposals} + api/router) behind the domain
+# `*.service` modules: every model name now resolves through
+# `app.domains.<d>.service` (re-export) or a dedicated service constructor
+# (`create_lead_web/_api`, `create_invoice_web`, `add_invoice_line_web`,
+# `create_draft_api`, `add_line_api`, `get_or_create_issuer_web`); the
+# non-domain `User`/`ApiKey`/`AiSettings` construction went to
+# `app.core.{identity,ai_settings}_service` (R1 symmetry — not gate-forced,
+# `core` is no domain). `allow_indirect_imports = "True"` is the **same
+# subtlety as the Schritt-7 MCP rule (ADR-008)**: it forbids only the
+# *direct* `interfaces -> domains/*/models` edge while permitting the
+# legitimate transitive `interfaces -> domains/<d>.service -> ...models`
+# chain the interface now reaches through. Rationale:
+# docs/adr/011-t2-web-rest-model-lock.md.
+[[tool.importlinter.contracts]]
+name = "web/REST interfaces must not directly import/construct domain models — Web/REST-Modellsperre (Remediation-Track T2b)"
+type = "forbidden"
+source_modules = ["app.interfaces"]
+forbidden_modules = [
+    "app.domains.leads.models",
+    "app.domains.proposals.models",
+    "app.domains.billing.models",
+]
+allow_indirect_imports = "True"
