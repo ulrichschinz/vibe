@@ -16,7 +16,7 @@ from typing import Optional
 from database import get_session
 from app.core.ai_settings import AiSettings
 from app.core.identity import User
-from app.domains.leads.models import (
+from app.domains.leads.service import (
     Lead,
     Note,
     PlanningMessage,
@@ -27,7 +27,7 @@ from app.domains.leads.models import (
     BantValue,
     ReadinessLevel,
 )
-from app.domains.proposals.models import Proposal
+from app.domains.proposals.service import Proposal
 from app.shared.labels import (
     STAGE_LABELS,
     SOURCE_LABELS,
@@ -278,7 +278,8 @@ def lead_create(
         current_user = getattr(request.state, "user", None)
         if current_user is not None:
             parsed_owner = current_user.id
-    lead = Lead(
+    lead = leads_service.create_lead_web(
+        session,
         name=name.strip() or None,
         company=company.strip() or None,
         email=email.strip() or None,
@@ -298,9 +299,6 @@ def lead_create(
         next_action=next_action.strip() or None,
         next_action_date=_parse_date(next_action_date),
     )
-    session.add(lead)
-    session.commit()
-    session.refresh(lead)
     return RedirectResponse(f"/leads/{lead.id}", status_code=303)
 
 
@@ -499,9 +497,7 @@ def note_create(
 ):
     if not body.strip():
         return RedirectResponse(f"/leads/{lead_id}", status_code=303)
-    note = Note(lead_id=lead_id, body=body.strip())
-    session.add(note)
-    session.commit()
+    leads_service.create_note_web(session, lead_id, body.strip())
     return RedirectResponse(f"/leads/{lead_id}#notizen", status_code=303)
 
 

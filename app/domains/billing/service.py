@@ -30,6 +30,8 @@ from app.domains.billing.models import (
     InvoiceKind,
     InvoiceLineItem,
     InvoiceStatus,
+    IssuerProfile,
+    ViesAuditEntry,  # noqa: F401  re-exported for app.interfaces (T2b indirect-import seam)
 )
 
 
@@ -168,3 +170,161 @@ def list_invoices(
     if status:
         q = q.where(Invoice.status == status)
     return [serialize_with_lines(session, inv) for inv in session.exec(q).all()]
+
+
+# ── Web/REST construction (T2a — one logic, three clients) ─────────────────
+#
+# Invoice/InvoiceLineItem/IssuerProfile construction that lived inline in the
+# web/REST handlers moves here verbatim (the MCP shape is ``create_draft``/
+# ``add_line`` above). Decimal/`_to_decimal` parsing, position queries,
+# net/vat math and the HTTP guards (404/409) stay in the handler (the seam) —
+# callers pass the final values; the body is byte-identical to the old inline
+# ctor + ``session`` calls. ``services/invoicing/`` is untouched
+# (move-not-rewrite): this is billing-domain draft construction, not the
+# finalize compliance core.
+
+
+def create_invoice_web(
+    session: Session,
+    *,
+    lead_id: Optional[int],
+    title: Optional[str],
+    intro_text: Optional[str],
+    customer_reference: Optional[str],
+    payment_terms_text: Optional[str],
+    leistungsdatum: Optional[date],
+    cust_legal_name: Optional[str],
+    cust_company: Optional[str],
+    cust_street: Optional[str],
+    cust_postal_code: Optional[str],
+    cust_city: Optional[str],
+    cust_country_code: Optional[str],
+    cust_vat_id: Optional[str],
+) -> Invoice:
+    inv = Invoice(
+        status=InvoiceStatus.draft,
+        kind=InvoiceKind.invoice,
+        lead_id=lead_id,
+        title=title,
+        intro_text=intro_text,
+        customer_reference=customer_reference,
+        payment_terms_text=payment_terms_text,
+        leistungsdatum=leistungsdatum,
+        cust_legal_name=cust_legal_name,
+        cust_company=cust_company,
+        cust_street=cust_street,
+        cust_postal_code=cust_postal_code,
+        cust_city=cust_city,
+        cust_country_code=cust_country_code,
+        cust_vat_id=cust_vat_id,
+    )
+    session.add(inv)
+    session.commit()
+    session.refresh(inv)
+    return inv
+
+
+def add_invoice_line_web(
+    session: Session,
+    *,
+    invoice_id: int,
+    position: int,
+    description: str,
+    quantity: Decimal,
+    unit: str,
+    unit_price_net: Decimal,
+    vat_rate: Decimal,
+    line_net: Decimal,
+    line_vat: Decimal,
+) -> None:
+    ln = InvoiceLineItem(
+        invoice_id=invoice_id,
+        position=position,
+        description=description,
+        quantity=quantity,
+        unit=unit,
+        unit_price_net=unit_price_net,
+        vat_rate=vat_rate,
+        vat_code="S",
+        line_net=line_net,
+        line_vat=line_vat,
+        line_gross=line_net + line_vat,
+    )
+    session.add(ln)
+    session.commit()
+
+
+def create_draft_api(session: Session, payload: dict) -> Invoice:
+    leistungsdatum = payload.get("leistungsdatum")
+    inv = Invoice(
+        status=InvoiceStatus.draft,
+        kind=InvoiceKind.invoice,
+        lead_id=payload.get("lead_id"),
+        title=payload.get("title"),
+        intro_text=payload.get("intro_text"),
+        customer_reference=payload.get("customer_reference"),
+        leistungsdatum=date.fromisoformat(leistungsdatum) if leistungsdatum else None,
+    )
+    # Allow direct customer block override.
+    cust = payload.get("customer") or {}
+    inv.cust_legal_name = cust.get("legal_name")
+    inv.cust_company = cust.get("company")
+    inv.cust_street = cust.get("street")
+    inv.cust_postal_code = cust.get("postal_code")
+    inv.cust_city = cust.get("city")
+    inv.cust_country_code = cust.get("country_code")
+    inv.cust_vat_id = cust.get("vat_id")
+    if "is_business" in cust:
+        inv.cust_is_business = bool(cust["is_business"])
+    session.add(inv)
+    session.commit()
+    session.refresh(inv)
+    return inv
+
+
+def add_line_api(
+    session: Session,
+    *,
+    invoice_id: int,
+    position: int,
+    description: str,
+    quantity: Decimal,
+    unit: str,
+    unit_price_net: Decimal,
+    vat_rate: Decimal,
+    line_net: Decimal,
+    line_vat: Decimal,
+) -> InvoiceLineItem:
+    ln = InvoiceLineItem(
+        invoice_id=invoice_id,
+        position=position,
+        description=description,
+        quantity=quantity,
+        unit=unit,
+        unit_price_net=unit_price_net,
+        vat_rate=vat_rate,
+        vat_code="S",
+        line_net=line_net,
+        line_vat=line_vat,
+        line_gross=line_net + line_vat,
+    )
+    session.add(ln)
+    session.commit()
+    session.refresh(ln)
+    return ln
+
+
+def get_or_create_issuer_web(
+    session: Session,
+    *,
+    legal_name: str,
+    street: str,
+    postal_code: str,
+    city: str,
+) -> IssuerProfile:
+    issuer = session.get(IssuerProfile, 1)
+    if issuer is None:
+        issuer = IssuerProfile(
+            id=1, legal_name=legal_name, street=street, postal_code=postal_code, city=city
+        )
+    return issuer

@@ -21,14 +21,15 @@ from sqlmodel import Session, select
 
 from database import get_session
 from app.core.identity import User, UserRole
-from app.domains.billing.models import (
+from app.domains.billing.service import (
     Invoice,
     InvoiceKind,
     InvoiceLineItem,
     InvoiceStatus,
     IssuerProfile,
 )
-from app.domains.leads.models import Lead
+from app.domains.billing import service as billing_service
+from app.domains.leads.service import Lead
 from app.domains.leads.billing_export import build_billing_customer
 from app.shared.labels import INVOICE_STATUS_LABELS
 from services.auth import require_editor, require_login
@@ -130,9 +131,8 @@ def invoice_create(
     session: Session = Depends(get_session),
     _=Depends(require_editor),
 ):
-    inv = Invoice(
-        status=InvoiceStatus.draft,
-        kind=InvoiceKind.invoice,
+    inv = billing_service.create_invoice_web(
+        session,
         lead_id=lead_id or None,
         title=title or None,
         intro_text=intro_text or None,
@@ -147,9 +147,6 @@ def invoice_create(
         cust_country_code=cust_country_code or None,
         cust_vat_id=cust_vat_id or None,
     )
-    session.add(inv)
-    session.commit()
-    session.refresh(inv)
     return RedirectResponse(f"/invoices/{inv.id}/edit", status_code=303)
 
 
@@ -292,7 +289,8 @@ def invoice_add_line(
     rate = _to_decimal(vat_rate)
     line_net = (qty * price).quantize(Decimal("0.01"))
     line_vat = (line_net * rate / Decimal(100)).quantize(Decimal("0.01"))
-    ln = InvoiceLineItem(
+    billing_service.add_invoice_line_web(
+        session,
         invoice_id=invoice.id,
         position=next_pos,
         description=description,
@@ -300,13 +298,9 @@ def invoice_add_line(
         unit=unit,
         unit_price_net=price,
         vat_rate=rate,
-        vat_code="S",
         line_net=line_net,
         line_vat=line_vat,
-        line_gross=line_net + line_vat,
     )
-    session.add(ln)
-    session.commit()
     return RedirectResponse(f"/invoices/{invoice_id}/edit", status_code=303)
 
 

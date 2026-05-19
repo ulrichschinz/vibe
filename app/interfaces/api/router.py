@@ -17,20 +17,20 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 import hashlib
-import json
 import uuid
 
 from app.core.config import get_settings
 from app.core.identity import ApiKey
 from app.domains.leads.billing_export import build_billing_customer
-from app.domains.leads.models import Lead
+from app.domains.leads.service import Lead
+from app.domains.leads import service as leads_service
 from app.domains.leads.schemas import LeadCreate, LeadRead, LeadPatch
-from app.domains.billing.models import (
+from app.domains.billing.service import (
     Invoice,
     InvoiceLineItem,
     InvoiceStatus,
-    InvoiceKind,
 )
+from app.domains.billing import service as billing_service
 from database import get_session
 from services.invoicing.archive import archive_document
 from services.invoicing.document import render_document
@@ -86,30 +86,7 @@ def api_create_lead(
 ):
     if not payload.name and not payload.company:
         raise HTTPException(status_code=422, detail="name oder company muss angegeben sein.")
-    lead = Lead(
-        name=payload.name,
-        company=payload.company,
-        email=payload.email,
-        phone=payload.phone,
-        source=payload.source,
-        lead_type=payload.lead_type,
-        owner_id=payload.owner_id,
-        notes=payload.notes,
-        tags=json.dumps(payload.tags) if payload.tags else None,
-        agent_metadata=json.dumps(payload.agent_metadata) if payload.agent_metadata else None,
-        snooze_until=payload.snooze_until,
-        bant_budget=payload.bant_budget.value if payload.bant_budget else None,
-        bant_authority=payload.bant_authority.value if payload.bant_authority else None,
-        bant_need=payload.bant_need.value if payload.bant_need else None,
-        bant_timing=payload.bant_timing.value if payload.bant_timing else None,
-        ai_readiness=payload.ai_readiness.value if payload.ai_readiness else None,
-        pain_points=payload.pain_points,
-        next_action=payload.next_action,
-        next_action_date=payload.next_action_date,
-    )
-    session.add(lead)
-    session.commit()
-    session.refresh(lead)
+    lead = leads_service.create_lead_api(session, payload)
     return lead
 
 
@@ -234,30 +211,7 @@ def api_create_draft(
     _=Depends(verify_api_key),
 ):
     """Create a draft invoice. Required: leistungsdatum or lead_id (with leistungsdatum optional later)."""
-    leistungsdatum = payload.get("leistungsdatum")
-    inv = Invoice(
-        status=InvoiceStatus.draft,
-        kind=InvoiceKind.invoice,
-        lead_id=payload.get("lead_id"),
-        title=payload.get("title"),
-        intro_text=payload.get("intro_text"),
-        customer_reference=payload.get("customer_reference"),
-        leistungsdatum=date.fromisoformat(leistungsdatum) if leistungsdatum else None,
-    )
-    # Allow direct customer block override.
-    cust = payload.get("customer") or {}
-    inv.cust_legal_name = cust.get("legal_name")
-    inv.cust_company = cust.get("company")
-    inv.cust_street = cust.get("street")
-    inv.cust_postal_code = cust.get("postal_code")
-    inv.cust_city = cust.get("city")
-    inv.cust_country_code = cust.get("country_code")
-    inv.cust_vat_id = cust.get("vat_id")
-    if "is_business" in cust:
-        inv.cust_is_business = bool(cust["is_business"])
-    session.add(inv)
-    session.commit()
-    session.refresh(inv)
+    inv = billing_service.create_draft_api(session, payload)
     return _invoice_to_dict(inv, [])
 
 
@@ -279,7 +233,8 @@ def api_add_line(
     rate = Decimal(str(payload.get("vat_rate", "19")))
     line_net = (qty * price).quantize(Decimal("0.01"))
     line_vat = (line_net * rate / Decimal(100)).quantize(Decimal("0.01"))
-    ln = InvoiceLineItem(
+    ln = billing_service.add_line_api(
+        session,
         invoice_id=inv.id,
         position=(max((l.position for l in existing), default=0)) + 1,
         description=payload["description"],
@@ -287,14 +242,9 @@ def api_add_line(
         unit=payload.get("unit", "Std"),
         unit_price_net=price,
         vat_rate=rate,
-        vat_code="S",
         line_net=line_net,
         line_vat=line_vat,
-        line_gross=line_net + line_vat,
     )
-    session.add(ln)
-    session.commit()
-    session.refresh(ln)
     return {
         "position": ln.position,
         "description": ln.description,

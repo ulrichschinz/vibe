@@ -13,10 +13,10 @@
 
 | Metrik | Wert | Beleg |
 |---|---|---|
-| Python LOC gesamt | 11.916 | `find -name '*.py'` |
-| davon Produktivcode | 8.491 | ohne `tests/` |
+| Python LOC gesamt | 12.194 | `find -name '*.py'` |
+| davon Produktivcode | 8.769 | ohne `tests/` |
 | davon Tests | 3.425 | `tests/` |
-| Test/Prod-Verhältnis | ~40 % | Schritt-9 Alembic (zwei getrennt versionierte Bäume CRM+Billing + `app/core/db_migrate.py`; +429 prod LOC, `tests/` 0-Diff) |
+| Test/Prod-Verhältnis | ~40 % | Remediation-Track **T2** (Web/REST-Modellsperre): Read-/Konstruktions-Fläche der 6 Interface-Module hinter die Domänen-`*.service` + neue `app/core/{identity,ai_settings}_service.py`; +278 prod LOC, `tests/` 0-Diff (ADR-011) |
 | SQLModel-Tabellen | 13 | `table=True`-Klassen in `app/**/models.py` + `app/core/{identity,ai_settings}.py` (Schritt 4 korrigiert: vorher 14 durch eine mitgezählte Kommentarzeile in `models.py`, real 13 Entitäten) |
 | HTTP-Endpoints | 72 | `@router.(get\|post\|...)` in `app/interfaces/{web,api}/` (Schritt 8: aus `routes/` dorthin verschoben) |
 | Route-Module | 7 | `app/interfaces/{web,api}/*.py` ohne `__init__.py` (register) u. `mount.py` (MCP-ASGI-Mount) |
@@ -115,6 +115,10 @@ vibe/
 │   ├── core/config.py          ...  Schritt 3: pydantic-settings (Env-Quelle)
 │   ├── core/identity.py         51  Schritt 4: User/UserRole/ApiKey
 │   ├── core/ai_settings.py      32  Schritt 4: AiProvider/AiSettings
+│   ├── core/identity_service.py 54  T2: create_user/create_api_key
+│   │                                (Hashing bleibt im Handler)
+│   ├── core/ai_settings_service 29  T2: get_(or_create|_or_default)_ai_settings
+│   │   .py
 │   ├── core/ai.py              305  Schritt 6: Anthropic-Adapter + Prompt-
 │   │                                Registry + ===MARKER===/<json>-Parser
 │   │                                (verbatim aus services/ai+linkedin)
@@ -124,7 +128,8 @@ vibe/
 │   ├── domains/leads/              Schritt 5: BillingOrder-Naht (CRM-
 │   │   billing_export.py        54  Export: Lead → BillingCustomer)
 │   ├── domains/leads/              Schritt 6: Dashboard/LinkedIn/Planning;
-│   │   service.py               476  Schritt 7: + Lead/Note-MCP-Ops
+│   │   service.py               571  Schritt 7: + Lead/Note-MCP-Ops; T2:
+│   │                                + create_lead_web/_api/create_note_web
 │   │                                (verbatim aus mcp_server, dict-Serializer)
 │   ├── domains/proposals/          Schritt 4: Proposal + ProposalStatus +
 │   │   models.py                97  DEFAULT_SERVICES
@@ -135,8 +140,9 @@ vibe/
 │   │   models.py               250  Schema (Invoice/LineItem/Sequence/Vies/
 │   │                                Integrity + IssuerProfile), byte-gleich
 │   ├── domains/billing/            Schritt 8: Billing-MCP-Facade (draft/
-│   │   service.py              170  line/get/list/serialize — verbatim aus
-│   │                                mcp_server, billing-eigene Modelle)
+│   │   service.py              330  line/get/list/serialize — verbatim aus
+│   │                                mcp_server, billing-eigene Modelle; T2:
+│   │                                + create_invoice_web/_draft_api/add_line*
 │   ├── core/errors.py           70  Schritt 8: zentraler RFC-7807 problem
 │   │                                +json-Mapper (REST-Surface only)
 │   ├── core/db_migrate.py       89  Schritt 9: Alembic-Runner (bindet an
@@ -376,11 +382,16 @@ Stufe B). Schritt 7 aktivierte die **`interfaces/mcp`-Zeile**, **Schritt 8**
 erweitert sie um `app.domains.billing.models` (Billing-Facade) und
 aktiviert die **`core ↛ domains/interfaces/contracts`**- und die
 **`domains/<x> ↛ domains/<y>`**-(`independence`)-Zeile der Kantentabelle.
-Bewusst **nicht** aktiviert (Zustand gilt noch nicht — werkgetreu): die
-web/REST-`interfaces ↛ domains/*/models`-Zeile (verschobene CRUD-Handler
-konstruieren weiter Modelle — move-not-rewrite) und `shared ↛ domains`
-(enum-keyed Labels) — Folge-Refactor, „Churn owned by no step". Rationale
-`docs/adr/008` + `docs/adr/009-interface-split-rfc7807.md`.
+**Remediation-Track T2 (ADR-011) hat die web/REST-`interfaces ↛
+domains/*/models`-Zeile aktiviert** (Audit-Befund R1): die Read-/Enum-/
+Konstruktions-Fläche aller 6 Interface-Module wandert hinter die
+Domänen-`*.service` (Indirektion = ADR-008-Subtilität,
+`allow_indirect_imports="True"`); Konstruktion in dedizierte
+Service-Funktionen + neue `app/core/{identity,ai_settings}_service.py`.
+Bewusst **weiterhin nicht** aktiviert: `shared ↛ domains` (enum-keyed
+Labels, ADR-009 §G — Enum-Relokation, eigenem Schritt nicht zugeordnet).
+Rationale `docs/adr/008` + `docs/adr/009-interface-split-rfc7807.md` +
+`docs/adr/011-t2-web-rest-model-lock.md`.
 
 ## Code-Navigation für Agenten
 

@@ -31,6 +31,7 @@ from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from app.domains.leads.models import (
+    STAGE_ORDER,  # noqa: F401  re-exported for app.interfaces (T2b indirect-import seam)
     BantValue,
     Lead,
     LeadSource,
@@ -40,6 +41,7 @@ from app.domains.leads.models import (
     PlanningMessage,
     ReadinessLevel,
 )
+from app.domains.leads.schemas import LeadCreate
 from app.shared.labels import (
     BANT_LABELS,
     READINESS_LABELS,
@@ -474,3 +476,96 @@ def mcp_list_notes(session: Session, lead_id: int) -> list[dict]:
         select(Note).where(Note.lead_id == lead_id).order_by(Note.created_at.desc())  # type: ignore[attr-defined]
     ).all()
     return [serialize_note(n) for n in notes]
+
+
+# ── Web/REST construction (T2a — one logic, three clients) ─────────────────
+#
+# The Lead/Note construction that lived inline in the web/REST handlers moves
+# here verbatim so the model class is built in exactly one place per client
+# shape (the MCP shape is ``mcp_create_lead``/``mcp_add_note`` above). Form
+# parsing / HTTP guards stay in the handler (the seam): callers pass the
+# final, already-parsed field values; the body is byte-identical to the old
+# inline ``Lead(...)``/``Note(...)`` + ``session`` calls.
+
+
+def create_lead_web(
+    session: Session,
+    *,
+    name: Optional[str],
+    company: Optional[str],
+    email: Optional[str],
+    phone: Optional[str],
+    salutation: Optional[str],
+    source: LeadSource,
+    lead_type: LeadType,
+    owner_id: Optional[int],
+    notes: Optional[str],
+    snooze_until: Optional[date],
+    bant_budget: Optional[str],
+    bant_authority: Optional[str],
+    bant_need: Optional[str],
+    bant_timing: Optional[str],
+    ai_readiness: Optional[str],
+    pain_points: Optional[str],
+    next_action: Optional[str],
+    next_action_date: Optional[date],
+) -> Lead:
+    lead = Lead(
+        name=name,
+        company=company,
+        email=email,
+        phone=phone,
+        salutation=salutation,
+        source=source,
+        lead_type=lead_type,
+        owner_id=owner_id,
+        notes=notes,
+        snooze_until=snooze_until,
+        bant_budget=bant_budget,
+        bant_authority=bant_authority,
+        bant_need=bant_need,
+        bant_timing=bant_timing,
+        ai_readiness=ai_readiness,
+        pain_points=pain_points,
+        next_action=next_action,
+        next_action_date=next_action_date,
+    )
+    session.add(lead)
+    session.commit()
+    session.refresh(lead)
+    return lead
+
+
+def create_note_web(session: Session, lead_id: int, body: str) -> Note:
+    note = Note(lead_id=lead_id, body=body)
+    session.add(note)
+    session.commit()
+    return note
+
+
+def create_lead_api(session: Session, payload: LeadCreate) -> Lead:
+    lead = Lead(
+        name=payload.name,
+        company=payload.company,
+        email=payload.email,
+        phone=payload.phone,
+        source=payload.source,
+        lead_type=payload.lead_type,
+        owner_id=payload.owner_id,
+        notes=payload.notes,
+        tags=json.dumps(payload.tags) if payload.tags else None,
+        agent_metadata=json.dumps(payload.agent_metadata) if payload.agent_metadata else None,
+        snooze_until=payload.snooze_until,
+        bant_budget=payload.bant_budget.value if payload.bant_budget else None,
+        bant_authority=payload.bant_authority.value if payload.bant_authority else None,
+        bant_need=payload.bant_need.value if payload.bant_need else None,
+        bant_timing=payload.bant_timing.value if payload.bant_timing else None,
+        ai_readiness=payload.ai_readiness.value if payload.ai_readiness else None,
+        pain_points=payload.pain_points,
+        next_action=payload.next_action,
+        next_action_date=payload.next_action_date,
+    )
+    session.add(lead)
+    session.commit()
+    session.refresh(lead)
+    return lead

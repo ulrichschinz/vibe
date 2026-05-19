@@ -17,7 +17,7 @@ from datetime import datetime
 
 from database import get_session
 from app.core.ai_settings import AiSettings
-from app.domains.leads.models import Lead, Note
+from app.domains.leads.service import Lead, Note
 from app.shared.labels import (
     STAGE_LABELS,
     SOURCE_LABELS,

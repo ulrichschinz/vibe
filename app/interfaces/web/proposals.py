@@ -16,8 +16,8 @@ from datetime import datetime, timedelta
 
 from database import get_session
 from app.core.ai_settings import AiSettings
-from app.domains.leads.models import Lead
-from app.domains.proposals.models import Proposal, ProposalStatus, DEFAULT_SERVICES
+from app.domains.leads.service import Lead
+from app.domains.proposals.service import Proposal, ProposalStatus, DEFAULT_SERVICES
 from app.shared.labels import PROPOSAL_STATUS_LABELS
 from app.domains.leads import service as leads_service
 from app.domains.proposals import service as proposals_service

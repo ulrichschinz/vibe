@@ -13,8 +13,10 @@ from sqlmodel import Session, select
 from app.core.config import get_settings
 from database import get_session
 from app.core.identity import User, UserRole, ApiKey
-from app.core.ai_settings import AiSettings, AiProvider
-from app.domains.billing.models import IssuerProfile, ViesAuditEntry
+from app.core.ai_settings import AiProvider
+from app.core import identity_service, ai_settings_service
+from app.domains.billing.service import IssuerProfile, ViesAuditEntry
+from app.domains.billing import service as billing_service
 from app.shared.labels import USER_ROLE_LABELS, AI_PROVIDER_LABELS
 from services.auth import require_admin, hash_password, hash_api_key
 
@@ -69,14 +71,13 @@ def user_create(
             },
             status_code=400,
         )
-    user = User(
+    identity_service.create_user(
+        session,
         name=name,
         email=email,
         hashed_password=hash_password(password),
         role=UserRole(role),
     )
-    session.add(user)
-    session.commit()
     return RedirectResponse("/admin/users", status_code=303)
 
 
@@ -172,13 +173,12 @@ def api_key_create(
     admin=Depends(require_admin),
 ):
     raw_key = secrets.token_urlsafe(32)
-    key = ApiKey(
+    identity_service.create_api_key(
+        session,
         label=label,
         key_hash=hash_api_key(raw_key),
         created_by_id=admin.id,
     )
-    session.add(key)
-    session.commit()
     keys = session.exec(select(ApiKey).order_by(ApiKey.created_at.desc())).all()
     return templates.TemplateResponse(
         "admin/api_keys.html",
@@ -214,7 +214,7 @@ def ai_settings_page(
     session: Session = Depends(get_session),
     _=Depends(require_admin),
 ):
-    settings = session.get(AiSettings, 1) or AiSettings()
+    settings = ai_settings_service.get_ai_settings_or_default(session)
     return templates.TemplateResponse(
         "admin/ai_settings.html",
         {
@@ -235,9 +235,7 @@ def ai_settings_save(
     session: Session = Depends(get_session),
     _=Depends(require_admin),
 ):
-    settings = session.get(AiSettings, 1)
-    if not settings:
-        settings = AiSettings(id=1)
+    settings = ai_settings_service.get_or_create_ai_settings(session)
     settings.provider = AiProvider(provider)
     settings.model = model.strip() or "claude-sonnet-4-6"
     settings.is_active = is_active == "on"
@@ -295,11 +293,13 @@ def issuer_save(
     session: Session = Depends(get_session),
     _=Depends(require_admin),
 ):
-    issuer = session.get(IssuerProfile, 1)
-    if issuer is None:
-        issuer = IssuerProfile(
-            id=1, legal_name=legal_name, street=street, postal_code=postal_code, city=city
-        )
+    issuer = billing_service.get_or_create_issuer_web(
+        session,
+        legal_name=legal_name,
+        street=street,
+        postal_code=postal_code,
+        city=city,
+    )
     issuer.legal_name = legal_name
     issuer.street = street
     issuer.postal_code = postal_code
