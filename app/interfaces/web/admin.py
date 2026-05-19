@@ -1,3 +1,8 @@
+"""interfaces.web.admin — Jinja UI: user/api-key/issuer/VIES admin
+(Schritt 8, moved verbatim from `routes/admin.py`; model imports point at
+`app.core.*`/`app.domains.*` directly).
+"""
+
 import secrets
 from datetime import datetime
 from fastapi import APIRouter, Depends, Request, Form, HTTPException
@@ -7,11 +12,9 @@ from sqlmodel import Session, select
 
 from app.core.config import get_settings
 from database import get_session
-from models import (
-    User, UserRole, ApiKey,
-    AiSettings, AiProvider,
-    IssuerProfile, ViesAuditEntry,
-)
+from app.core.identity import User, UserRole, ApiKey
+from app.core.ai_settings import AiSettings, AiProvider
+from app.domains.billing.models import IssuerProfile, ViesAuditEntry
 from app.shared.labels import USER_ROLE_LABELS, AI_PROVIDER_LABELS
 from services.auth import require_admin, hash_password, hash_api_key
 
@@ -25,6 +28,7 @@ templates.env.globals["AiProvider"] = AiProvider
 
 # ── Users ──────────────────────────────────────────────────────────────────
 
+
 @router.get("/users", response_class=HTMLResponse)
 def users_list(request: Request, session: Session = Depends(get_session), _=Depends(require_admin)):
     users = session.exec(select(User).order_by(User.created_at)).all()
@@ -33,9 +37,15 @@ def users_list(request: Request, session: Session = Depends(get_session), _=Depe
 
 @router.get("/users/new", response_class=HTMLResponse)
 def user_new(request: Request, _=Depends(require_admin)):
-    return templates.TemplateResponse("admin/user_form.html", {
-        "request": request, "user": None, "action": "/admin/users", "error": None,
-    })
+    return templates.TemplateResponse(
+        "admin/user_form.html",
+        {
+            "request": request,
+            "user": None,
+            "action": "/admin/users",
+            "error": None,
+        },
+    )
 
 
 @router.post("/users")
@@ -49,10 +59,16 @@ def user_create(
     _=Depends(require_admin),
 ):
     if session.exec(select(User).where(User.email == email)).first():
-        return templates.TemplateResponse("admin/user_form.html", {
-            "request": request, "user": None, "action": "/admin/users",
-            "error": "E-Mail bereits vergeben.",
-        }, status_code=400)
+        return templates.TemplateResponse(
+            "admin/user_form.html",
+            {
+                "request": request,
+                "user": None,
+                "action": "/admin/users",
+                "error": "E-Mail bereits vergeben.",
+            },
+            status_code=400,
+        )
     user = User(
         name=name,
         email=email,
@@ -74,10 +90,15 @@ def user_edit(
     user = session.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404)
-    return templates.TemplateResponse("admin/user_form.html", {
-        "request": request, "user": user,
-        "action": f"/admin/users/{user_id}/update", "error": None,
-    })
+    return templates.TemplateResponse(
+        "admin/user_form.html",
+        {
+            "request": request,
+            "user": user,
+            "action": f"/admin/users/{user_id}/update",
+            "error": None,
+        },
+    )
 
 
 @router.post("/users/{user_id}/update")
@@ -124,6 +145,7 @@ def user_delete(
 
 # ── API Keys ───────────────────────────────────────────────────────────────
 
+
 @router.get("/api-keys", response_class=HTMLResponse)
 def api_keys_list(
     request: Request,
@@ -131,10 +153,15 @@ def api_keys_list(
     _=Depends(require_admin),
 ):
     keys = session.exec(select(ApiKey).order_by(ApiKey.created_at.desc())).all()
-    return templates.TemplateResponse("admin/api_keys.html", {
-        "request": request, "keys": keys, "new_key": None,
-        "app_host": get_settings().app_host,
-    })
+    return templates.TemplateResponse(
+        "admin/api_keys.html",
+        {
+            "request": request,
+            "keys": keys,
+            "new_key": None,
+            "app_host": get_settings().app_host,
+        },
+    )
 
 
 @router.post("/api-keys", response_class=HTMLResponse)
@@ -153,10 +180,15 @@ def api_key_create(
     session.add(key)
     session.commit()
     keys = session.exec(select(ApiKey).order_by(ApiKey.created_at.desc())).all()
-    return templates.TemplateResponse("admin/api_keys.html", {
-        "request": request, "keys": keys, "new_key": raw_key,
-        "app_host": get_settings().app_host,
-    })
+    return templates.TemplateResponse(
+        "admin/api_keys.html",
+        {
+            "request": request,
+            "keys": keys,
+            "new_key": raw_key,
+            "app_host": get_settings().app_host,
+        },
+    )
 
 
 @router.post("/api-keys/{key_id}/revoke")
@@ -175,6 +207,7 @@ def api_key_revoke(
 
 # ── AI Settings ────────────────────────────────────────────────────────────
 
+
 @router.get("/ai", response_class=HTMLResponse)
 def ai_settings_page(
     request: Request,
@@ -182,9 +215,14 @@ def ai_settings_page(
     _=Depends(require_admin),
 ):
     settings = session.get(AiSettings, 1) or AiSettings()
-    return templates.TemplateResponse("admin/ai_settings.html", {
-        "request": request, "settings": settings, "saved": False,
-    })
+    return templates.TemplateResponse(
+        "admin/ai_settings.html",
+        {
+            "request": request,
+            "settings": settings,
+            "saved": False,
+        },
+    )
 
 
 @router.post("/ai", response_class=HTMLResponse)
@@ -208,23 +246,33 @@ def ai_settings_save(
     session.add(settings)
     session.commit()
     session.refresh(settings)
-    return templates.TemplateResponse("admin/ai_settings.html", {
-        "request": request, "settings": settings, "saved": True,
-    })
+    return templates.TemplateResponse(
+        "admin/ai_settings.html",
+        {
+            "request": request,
+            "settings": settings,
+            "saved": True,
+        },
+    )
 
 
 # ── Issuer (Rechnungs-Aussteller) ─────────────────────────────────────────
 
 
 @router.get("/issuer", response_class=HTMLResponse)
-def issuer_form(request: Request, session: Session = Depends(get_session), _=Depends(require_admin)):
+def issuer_form(
+    request: Request, session: Session = Depends(get_session), _=Depends(require_admin)
+):
     issuer = session.get(IssuerProfile, 1)
-    return templates.TemplateResponse("admin/issuer.html", {
-        "request": request,
-        "issuer": issuer,
-        "saved": request.query_params.get("saved") == "1",
-        "msg": request.query_params.get("msg"),
-    })
+    return templates.TemplateResponse(
+        "admin/issuer.html",
+        {
+            "request": request,
+            "issuer": issuer,
+            "saved": request.query_params.get("saved") == "1",
+            "msg": request.query_params.get("msg"),
+        },
+    )
 
 
 @router.post("/issuer", response_class=RedirectResponse)
@@ -249,7 +297,9 @@ def issuer_save(
 ):
     issuer = session.get(IssuerProfile, 1)
     if issuer is None:
-        issuer = IssuerProfile(id=1, legal_name=legal_name, street=street, postal_code=postal_code, city=city)
+        issuer = IssuerProfile(
+            id=1, legal_name=legal_name, street=street, postal_code=postal_code, city=city
+        )
     issuer.legal_name = legal_name
     issuer.street = street
     issuer.postal_code = postal_code
@@ -257,7 +307,7 @@ def issuer_save(
     issuer.country_code = country_code or "DE"
     issuer.steuernummer = steuernummer.strip() or None
     issuer.ust_id = ust_id.strip() or None
-    issuer.is_kleinunternehmer = (is_kleinunternehmer == "on")
+    issuer.is_kleinunternehmer = is_kleinunternehmer == "on"
     issuer.bank_holder = bank_holder
     issuer.bank_iban = bank_iban
     issuer.bank_bic = bank_bic.strip() or None
@@ -272,9 +322,16 @@ def issuer_save(
 
 
 @router.get("/vies-overrides", response_class=HTMLResponse)
-def vies_overrides(request: Request, session: Session = Depends(get_session), _=Depends(require_admin)):
-    audits = session.exec(select(ViesAuditEntry).order_by(ViesAuditEntry.queried_at.desc()).limit(100)).all()
-    return templates.TemplateResponse("admin/vies_overrides.html", {
-        "request": request,
-        "audits": audits,
-    })
+def vies_overrides(
+    request: Request, session: Session = Depends(get_session), _=Depends(require_admin)
+):
+    audits = session.exec(
+        select(ViesAuditEntry).order_by(ViesAuditEntry.queried_at.desc()).limit(100)
+    ).all()
+    return templates.TemplateResponse(
+        "admin/vies_overrides.html",
+        {
+            "request": request,
+            "audits": audits,
+        },
+    )

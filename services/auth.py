@@ -4,7 +4,7 @@ from fastapi import Depends, HTTPException, Request
 from sqlmodel import Session
 
 from database import get_session
-from models import User, UserRole
+from app.core.identity import User, UserRole
 
 
 def hash_password(plain: str) -> str:

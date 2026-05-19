@@ -3,7 +3,7 @@ from datetime import datetime
 
 
 def next_proposal_number(session: Session) -> str:
-    from models import Proposal
+    from app.domains.proposals.models import Proposal
     year = datetime.utcnow().year
     prefix = f"AR-{year}-"
     count = session.exec(

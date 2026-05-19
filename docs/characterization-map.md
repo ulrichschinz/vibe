@@ -42,13 +42,7 @@
 | `test_mcp_tools.py::test_create_proposal_shape_and_row` | `services/mcp_server.py` `create_proposal` | **7** |
 | `test_mcp_tools.py::test_mark_proposal_sent_shape_and_row` | `services/mcp_server.py` `mark_proposal_sent` | **7** |
 | `test_mcp_tools.py::test_finalize_chain_draft_to_finalized` | `services/mcp_server.py` Finalize-Kette | **7** (Finalize → BillingOrder-Vertrag) |
-| `test_api_errors.py::test_missing_api_key_is_401_detail` | `routes/api.py` Auth-Fehler-Shape | **8** → zentraler RFC-7807-Mapper |
-| `test_api_errors.py::test_invalid_api_key_is_401_detail` | `routes/api.py` Auth-Fehler-Shape | **8** |
-| `test_api_errors.py::test_create_lead_without_name_or_company_is_422_detail` | `routes/api.py` Inline-422-Coercion | **8** |
-| `test_api_errors.py::test_add_line_to_unknown_invoice_is_404_detail` | `routes/api.py` Inline-404-Coercion | **8** |
-| `test_api_errors.py::test_get_unknown_invoice_is_404` | `routes/api.py` Inline-404 | **8** |
-| `test_api_errors.py::test_finalize_without_lines_is_422_detail_string` | `routes/api.py` `InvoiceValidationError`→422 | **8** (+ Finalize-Naht **5**) |
-| `test_api_errors.py::test_double_finalize_is_422_and_lines_on_finalized_is_409` | `routes/api.py` Doppel-Finalize→**422** (InvoiceValidationError vor FinalizeError gefangen) / Draft-Guard→409 | **8** (+ Finalize-Naht **5**) |
+| ~~`test_api_errors.py` (alle 7)~~ → **Schritt 8 RETIRED** (Lifecycle-Delete, ADR-009 §C). Pinnten bewusst den *alten* FastAPI-Default-`{"detail"}`-Body, damit der RFC-7807-Wechsel ein **sichtbarer, gewollter** Diff ist. Ersetzt im **selben PR** durch den äquivalenten Unit-Test `tests/unit/test_rfc7807_mapper.py` (Mapper-Unit + App-Level: problem+json-Shape, Statuscodes, **422-vor-409** erhalten, REST→problem+json / Web→Default unverändert). | `routes/api.py` Inline-RFC-7807-Coercion → `app/interfaces/api` + `app/core/errors` zentraler Mapper | **8** (+ Finalize-Naht **5**) |
 
 ## Abdeckungs-Check gegen den Vertrag
 
@@ -60,5 +54,8 @@ Jeder im Vertrag gelistete Handler/Tool hat ≥1 Test (Status + Seiteneffekt):
   Update/mark-sent ✓.
 - `services/mcp_server.py`: `create_lead`/`update_lead` ✓, Proposal-Tools ✓,
   Finalize-Kette ✓.
-- `routes/api.py`: Inline-RFC-7807-Endpoints (leads, invoice-lines,
-  finalize, get) ✓ + Auth-Shape ✓.
+- `routes/api.py` → `app/interfaces/api` + `app/core/errors`: in Schritt 8
+  vom Characterization-Netz auf den äquivalenten Unit-Test
+  `tests/unit/test_rfc7807_mapper.py` umgestellt (Lifecycle-Delete im
+  selben PR — der einzige sanktionierte `tests/`-Diff in Schritt 8;
+  ADR-009 §C). Die übrigen 132 Characterization-Tests bleiben 0-Diff.

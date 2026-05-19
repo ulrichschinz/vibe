@@ -13,14 +13,14 @@
 
 | Metrik | Wert | Beleg |
 |---|---|---|
-| Python LOC gesamt | 10.835 | `find -name '*.py'` |
-| davon Produktivcode | 7.505 | ohne `tests/` |
-| davon Tests | 3.330 | `tests/` |
-| Test/Prod-Verhältnis | ~44 % | Schritt-7 MCP-Entdopplung (mcp_server→`app/`-Service), Tests unverändert |
+| Python LOC gesamt | 11.442 | `find -name '*.py'` |
+| davon Produktivcode | 8.062 | ohne `tests/` |
+| davon Tests | 3.380 | `tests/` |
+| Test/Prod-Verhältnis | ~42 % | Schritt-8 Interface-Split (routes/→`app/interfaces/`, RFC-7807-Mapper, Billing-Facade); Char→Unit-Lifecycle-Swap (test_api_errors→test_rfc7807_mapper) |
 | SQLModel-Tabellen | 13 | `table=True`-Klassen in `app/**/models.py` + `app/core/{identity,ai_settings}.py` (Schritt 4 korrigiert: vorher 14 durch eine mitgezählte Kommentarzeile in `models.py`, real 13 Entitäten) |
-| HTTP-Endpoints | 72 | `@router.(get\|post\|...)` in `routes/` |
-| Route-Module | 7 | `routes/*.py` ohne `__init__.py` u. `mcp.py`-Mount |
-| MCP-Tools | 16 | `@mcp.tool` in `services/mcp_server.py` |
+| HTTP-Endpoints | 72 | `@router.(get\|post\|...)` in `app/interfaces/{web,api}/` (Schritt 8: aus `routes/` dorthin verschoben) |
+| Route-Module | 7 | `app/interfaces/{web,api}/*.py` ohne `__init__.py` (register) u. `mount.py` (MCP-ASGI-Mount) |
+| MCP-Tools | 16 | `@mcp.tool` in `services/mcp_server.py` (physisch dort — frozen `m.engine`-Seam, ADR-009 §B) |
 | HTML-Templates | 20 | `templates/**/*.html` |
 | Invoicing-Subsystem | 2.158 LOC | `find services/invoicing -name '*.py' \| xargs wc -l` |
 | `os.getenv`-Fundstellen | 0 Dateien | Schritt 3: zentral in `app/core/config.py` (s. „Cross-cutting") |
@@ -35,8 +35,10 @@
 
 Single-process FastAPI-App, **synchron** (keine async-DB), SQLite via
 SQLModel, Jinja2-UI + WeasyPrint-PDF, Claude-Anbindung, plus REST- und
-MCP-Schnittstelle für Agenten. Technisch (nicht domänen-) geschichtet:
-`routes/` → `services/` → `models.py` → SQLite.
+MCP-Schnittstelle für Agenten. Seit Schritt 8 läuft die Delivery-Schicht
+über `app/interfaces/{web,api,mcp}` (register-Auto-Discovery + zentraler
+RFC-7807-Mapper); Domänen-Logik in `app/domains/*`, Kern in `app/core/*`.
+`routes/` ist nur noch test-zugewandter Re-Export-Shim (leads, proposals).
 
 ## Verzeichnisbaum (mit Verantwortung & LOC)
 
@@ -46,27 +48,15 @@ vibe/
 │                                    Lifespan (MCP session_manager), Seeding
 ├── database.py                 170  SQLite-Engine, Pragmas (WAL, FK,
 │                                    busy_timeout), BEGIN IMMEDIATE
-├── models.py                   108  Schritt 4: nur noch Re-Export-Shim +
-│                                    einziges Tabellen-Aggregations-Modul
-│                                    (`__all__`, deterministische Reihenfolge);
-│                                    KEINE Definition mehr — Tabellen/Enums/
-│                                    Schemas liegen in `app/` (s. u.)
-├── routes/                    1761  Web-UI + REST + MCP-Mount (Schritt 6:
-│   │                                Lead/Proposal/AI-Logik → app/, Routes
-│   │                                rufen jetzt den Service)
-│   ├── leads.py                481  Lead-CRUD, Notes; Dashboard/LinkedIn-
-│   │                                Import rufen leads/service (Schritt 6)
-│   ├── invoices.py             441  Invoice-CRUD, finalize, Archiv, VAT-
-│   │                                Override — mischt UI+Orchestrierung
-│   ├── api.py                  362  12 JSON-Endpoints für Agenten,
-│   │                                X-API-Key, validate_api_key()
-│   ├── ai.py                   193  Planning-Chat-Endpoints — Prompt-/
-│   │                                History-Logik → leads/service (Schritt 6)
-│   ├── admin.py                279  User/API-Key/Issuer/VIES-Verwaltung
-│   ├── proposals.py            187  Proposal-CRUD; from_plan ruft
-│   │                                proposals/service (Schritt 6)
-│   ├── mcp.py                   45  ASGI-Mount /mcp + X-API-Key-Middleware
-│   └── auth.py                  45  Login/Logout (Session)
+├── models.py                   118  Schritt 4: Tabellen-Aggregations-Modul
+│                                    (`create_all` hängt daran) + seit
+│                                    Schritt 8 NUR noch test-zugewandter
+│                                    Re-Export-Shim (kein Prod-Namens-
+│                                    Konsument mehr — ADR-009 §F)
+├── routes/                      ~30  Schritt 8: nur noch test-zugewandte
+│   ├── __init__.py               0   Re-Export-Shims (frozen Char-/
+│   ├── leads.py                 ~13  Integration-Tests importieren
+│   └── proposals.py             ~13  `from routes import {leads,proposals}`)
 ├── services/                  2803  Business-Logik (inkonsistent genutzt)
 │   ├── mcp_server.py           436  FastMCP + 16 Tools — Schritt 7: dünn,
 │   │                                delegiert an app/domains/*/service
@@ -126,11 +116,21 @@ vibe/
 │   ├── domains/billing/            Schritt 4: eigenes Billing-Tabellen-
 │   │   models.py               250  Schema (Invoice/LineItem/Sequence/Vies/
 │   │                                Integrity + IssuerProfile), byte-gleich
+│   ├── domains/billing/            Schritt 8: Billing-MCP-Facade (draft/
+│   │   service.py              170  line/get/list/serialize — verbatim aus
+│   │                                mcp_server, billing-eigene Modelle)
+│   ├── core/errors.py           70  Schritt 8: zentraler RFC-7807 problem
+│   │                                +json-Mapper (REST-Surface only)
+│   ├── interfaces/web/             Schritt 8: Jinja-Router verbatim aus
+│   │   {leads,proposals,           routes/ + register()-Auto-Discovery
+│   │    invoices,admin,ai,auth}    (Scaffold-Vertrag iteriert domains/*)
+│   ├── interfaces/api/             Schritt 8: REST-Router + zentraler
+│   │   {router,__init__}.py        RFC-7807-Mapper (statt Inline-Coercion)
+│   ├── interfaces/mcp/             Schritt 8: /mcp-Mount + register()
+│   │   {mount,__init__}.py         (FastMCP bleibt in services/mcp_server)
 │   ├── contracts/                  Schritt 5: BillingOrder-DTO (reines
 │   │   billing_order.py        125  pydantic; CRM↔Billing-Vertrag, frozen)
 │   └── shared/labels.py         95  Schritt 4: alle *_LABELS (Daten)
-│                                    interfaces/* docstring-only bis Schr. 7–8;
-│                                    Prod-App noch top-level main.py (Schr. 7–8)
 └── (noch kein Alembic — Schema via create_all; kommt Schritt 9)
 ```
 
@@ -140,17 +140,16 @@ vibe/
    Browser (Jinja)      Agent (REST /api)      Agent (MCP /mcp)
         │                     │                      │
         ▼                     ▼                      ▼
-   routes/leads,        routes/api.py          services/mcp_server.py
-   invoices, ...        (X-API-Key)            (X-API-Key, 16 Tools)
+   app/interfaces/web   app/interfaces/api     app/interfaces/mcp/mount
+   (register-AutoDisc)  (router + zentraler    → services/mcp_server
+        │               RFC-7807-Mapper)        (16 Tools, dünn, S7)
         │                     │                      │
-        │   ╲ Logik bricht    │  ╲ Fehler-Mapping    │  Schritt 7: dünn,
-        │    ╲ in Route       │   ╲ inline           │  ruft den Service
-        ▼     ▼               ▼                       ▼  (kein Duplikat mehr)
-        services/  / app/domains/*/service.py  ◄───────────╯
-        │      proposals.py / pdf.py / invoicing/  = sauber
+        ▼                     ▼                      ▼
+        app/domains/*/service.py + services/{proposals,pdf,invoicing}
+        │   (eine Logik, drei Clients — Schritt 6/7/8)
         ▼
-   models.py  (alle Domänen in EINER Datei)
-        │
+   app/domains/*/models  +  app/core/{identity,ai_settings}
+        │  (models.py = nur noch test-Shim + Aggregator)
         ▼
    SQLite (WAL, BEGIN IMMEDIATE — single-writer)
 ```
@@ -169,15 +168,22 @@ vibe/
 - `routes/ai.py` — Planning-Chat-Endpoints; Prompt-Builder + PlanningMessage-
   Historie sind **Schritt 6** nach `app/domains/leads/service.py` (Planning
   gehört zum Lead) gewandert, der Router hält nur HTTP + den AI-Transport.
-- `routes/api.py` — RFC-7807-Fehler-Coercion inline pro Endpoint (Schritt 8).
+- ~~`routes/api.py` — RFC-7807-Fehler-Coercion inline pro Endpoint~~ →
+  **Schritt 8 gelandet**: zentraler `application/problem+json`-Mapper in
+  `app/core/errors.py`, in `app/interfaces/api` registriert; die
+  Inline-`try/except`→`HTTPException`-Coercion entfällt. Statuscodes +
+  **422-vor-409** (`InvoiceValidationError ⊂ FinalizeError`) erhalten;
+  Body-Format ist der einzige sanktionierte, charakterisierte Diff
+  (`test_api_errors`→`test_rfc7807_mapper`-Lifecycle-Swap, ADR-009 §C).
 - ~~`services/mcp_server.py` — `create_lead`/`update_lead` instanziieren
-  `Lead(...)` selbst (Duplikat)~~ → **Schritt 7 gelandet**: die Lead/Note/
-  Proposal-Tools sind dünn und delegieren an
-  `app/domains/{leads,proposals}/service.py` (verbatim verschoben); das Tool
-  besitzt nur noch den `Session(engine)`-Lifecycle (caller-owned Session des
-  Service-Vertrags). Invoice-Tools unverändert: Finalize/Storno laufen seit
-  Schritt 5 über den `BillingOrder`-Vertrag; die Billing-MCP-Facade +
-  web/api-Interface-Kanten + Shim-Tod sind Schritt 8.
+  `Lead(...)` selbst (Duplikat)~~ → **Schritt 7 gelandet** (Lead/Note/
+  Proposal-Tools dünn → `app/domains/{leads,proposals}/service.py`);
+  **Schritt 8 gelandet**: die Invoice-Draft/Line/Get/List-Tools delegieren
+  jetzt an die `app/domains/billing/service.py`-Facade (kein
+  `Invoice(...)`-Konstruktor mehr im MCP-Layer); Finalize/Storno weiter
+  über den `BillingOrder`-Vertrag (Resolver im Interface verdrahtet —
+  S5-Muster). `services/mcp_server.py` bleibt physisch (frozen
+  `m.engine`-Seam, ADR-009 §B).
 
 ## Datenmodell
 
@@ -261,11 +267,14 @@ die Pipeline-UI.
    Serialisierung byte-für-byte dorthin verschoben); eine `import-linter`-
    Regel (`services.mcp_server ↛ app.domains.{leads,proposals}.models`,
    `allow_indirect_imports`) verhindert die Rückkehr des Duplikats. REST +
-   MCP + Web teilen damit eine Logik. Offen: die billing-internen
-   Invoice-Draft/Line-Tools konstruieren noch `Invoice(...)` (kein
-   CRM-Duplikat; Finalize läuft seit Schritt 5 über den Vertrag) — Billing-
-   MCP-Facade + web/api-Interface-Kanten + `models`-Shim-Tod = Schritt 8.
-   Rationale: `docs/adr/008-mcp-dedup-interface-edge.md`.
+   MCP + Web teilen damit eine Logik. **Schritt 8 gelandet**: die
+   billing-internen Invoice-Draft/Line/Get/List-Tools delegieren an die
+   `app/domains/billing/service.py`-Facade (kein `Invoice(...)`-Konstruktor
+   im MCP-Layer mehr); die S7-`import-linter`-Regel ist um
+   `app.domains.billing.models` erweitert. Router-Split routes/→
+   `app/interfaces/{web,api,mcp}` + zentraler RFC-7807-Mapper +
+   Prod-`models`-Shim-Tod (test-zugewandter Shim bleibt) sind gelandet.
+   Rationale: `docs/adr/008` + `docs/adr/009-interface-split-rfc7807.md`.
 5. ~~Kein `pyproject.toml`/Linter/Type-Check/CI-Gate~~ → **Schritt 1
    gelandet** (`pyproject.toml`, `ruff`, `mypy`, `import-linter`,
    `make verify`-Gate je PR). Offen bleibt: **keine Alembic-Migrationen**
@@ -316,15 +325,18 @@ Erzwungen durch die geschärfte `import-linter`-Regel
 „`services.invoicing` ↛ `routes`/`app.domains.leads`/
 `app.domains.proposals`" (`pyproject.toml`; der `models`-Shim ist über
 die transitive `forbidden`-Erkennung mit abgedeckt — Rationale
-`docs/adr/007-billing-order-contract.md`). Geteiltes `get_session`/`engine`
-(`database.py`) bleibt bis zum Interface-Split (Schritt 8). Schritt 7
-aktivierte die **`interfaces/mcp`-Zeile** der Kantentabelle für den
-Lead/Proposal-Duplikat (`services.mcp_server ↛
-app.domains.{leads,proposals}.models`, `allow_indirect_imports` — DIREKTE
-Modell-Importe verboten, der intra-domain `service → models`-Pfad bleibt
-erlaubt; Rationale `docs/adr/008-mcp-dedup-interface-edge.md`); die
-web/api-Interface-Zeilen + die Billing-MCP-Facade + der `models`-Shim-Tod
-folgen in Schritt 8.
+`docs/adr/007-billing-order-contract.md`; in Schritt 8 um `app.interfaces`
+als verbotenes Ziel ergänzt). Geteiltes `get_session`/`engine`
+(`database.py`) bleibt bewusst geteilt (Single-Process; DB-Split erst
+Stufe B). Schritt 7 aktivierte die **`interfaces/mcp`-Zeile**, **Schritt 8**
+erweitert sie um `app.domains.billing.models` (Billing-Facade) und
+aktiviert die **`core ↛ domains/interfaces/contracts`**- und die
+**`domains/<x> ↛ domains/<y>`**-(`independence`)-Zeile der Kantentabelle.
+Bewusst **nicht** aktiviert (Zustand gilt noch nicht — werkgetreu): die
+web/REST-`interfaces ↛ domains/*/models`-Zeile (verschobene CRUD-Handler
+konstruieren weiter Modelle — move-not-rewrite) und `shared ↛ domains`
+(enum-keyed Labels) — Folge-Refactor, „Churn owned by no step". Rationale
+`docs/adr/008` + `docs/adr/009-interface-split-rfc7807.md`.
 
 ## Code-Navigation für Agenten
 

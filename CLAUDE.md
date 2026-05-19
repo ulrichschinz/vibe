@@ -64,22 +64,24 @@ Single-process FastAPI app. No async DB usage — all routes use synchronous SQL
 ```
 main.py          — app factory, middleware (attach_user), lifespan, bootstrap_admin()
 database.py      — SQLite engine + get_session() dependency
-models.py        — Schritt 4: re-export shim + single table-metadata
-                   aggregation module (`__all__`, deterministic order). The
-                   13 tables/enums/schemas now live in
+models.py        — Schritt 4 aggregation module + (Schritt 8) test-facing
+                   re-export shim only. `create_db()` imports it (registry
+                   bootstrap); NO `services|routes|app` module imports its
+                   names anymore — they point at `app.*` directly. 13
+                   tables/enums/schemas live in
                    `app/domains/{leads,proposals,billing}/models.py`(+`schemas.py`)
-                   and `app/core/{identity,ai_settings}.py`; label dicts in
-                   `app/shared/labels.py`. Callers still `from models import …`
-                   via the shim (caller migration is Schritte 6–8)
-routes/
-  leads.py       — web UI: dashboard, lead CRUD, stage transitions, notes
-  invoices.py    — web UI: invoice CRUD, finalize, archive, VAT override
-  proposals.py   — web UI: proposal CRUD, PDF download, mark-sent
-  api.py         — REST API for agent integration (/api/leads), API key auth
-  auth.py        — login / logout (session-based)
-  admin.py       — user / API-key / issuer / VIES management
-  ai.py          — AI planning tab (chat, summary, prompt export)
-  mcp.py         — ASGI mount for /mcp; X-API-Key auth middleware around FastMCP app
+                   and `app/core/{identity,ai_settings}.py`; labels in
+                   `app/shared/labels.py`
+routes/          — Schritt 8: thin test-facing re-export shims only
+  leads.py       — re-exports `app.interfaces.web.leads.router`
+  proposals.py   — re-exports `app.interfaces.web.proposals.router`
+app/interfaces/  — Schritt 8 delivery layer (register()-auto-discovery):
+  web/{leads,proposals,invoices,admin,ai,auth}.py — Jinja UI (verbatim)
+  api/router.py  — REST API for agents (/api/*), X-API-Key auth
+  api/__init__.py — register() + central RFC-7807 problem+json mapper
+  mcp/mount.py   — ASGI /mcp mount + X-API-Key wrapper
+  mcp/__init__.py — register() + FastMCP session-manager ctx
+app/core/errors.py — central RFC-7807 problem+json mapper (REST surface)
 services/
   pdf.py         — renders proposals to HTML then PDF via WeasyPrint
   numbering.py   — generates AR-YYYY-NNN proposal numbers
@@ -182,15 +184,32 @@ The local `docker-compose.yml` uses Caddy as reverse proxy (dev/standalone). The
 > (verbietet *direkte* Modell-Importe, lässt den intra-domain
 > `service → models`-Pfad zu — invers zur Schritt-5-Billing-Regel;
 > Rationale `docs/adr/008-mcp-dedup-interface-edge.md`); die
-> Schritt-5-Billing-Regel wurde nur umbenannt. REST + MCP + Web teilen
-> jetzt eine Logik. **Nicht** in Schritt 7: die billing-internen
-> Invoice-Draft/Line-Tools konstruieren weiter `Invoice(...)` (kein
-> CRM-Duplikat; Finalize/Storno via `BillingOrder`-Vertrag seit
-> Schritt 5) — Billing-MCP-Facade + die web/api-Interface-Zeilen + der
-> `models.py`-Shim-Tod sind **Schritt 8** (die übrigen Nicht-Billing-
-> Aufrufer importieren bis dahin via Shim). 140 Char-Tests 0-Diff, kein
-> Char-Lifecycle-Delete. Jeder Migrationsschritt aktiviert/schärft die
-> zu ihm gehörige Contract-Regel; Endzustand = ganze Tabelle grün.
+> Schritt-5-Billing-Regel wurde nur umbenannt. **Schritt 8 ist
+> gelandet:** der Interface-Split — die Web-/REST-Router liegen verbatim
+> (move-not-rewrite) in `app/interfaces/{web,api}` (Bodies unverändert,
+> nur Modell-Importe → `app.*`), `app/interfaces/*` haben `register()`
+> mit Domains-Auto-Discovery (Scaffold-Vertrag), `main.py` ist verschlankt;
+> `routes/{leads,proposals}.py` sind nur noch test-zugewandte
+> Re-Export-Shims (übrige `routes/*` gelöscht). Zentraler RFC-7807
+> `application/problem+json`-Mapper (`app/core/errors.py`, in
+> `app/interfaces/api` registriert) statt Inline-Coercion — Statuscodes +
+> **422-vor-409** erhalten, Body-Format ist der einzige sanktionierte,
+> charakterisierte Diff (`test_api_errors`→`tests/unit/
+> test_rfc7807_mapper.py`-Lifecycle-Swap im selben PR; übrige 132
+> Char-Tests 0-Diff). Billing-MCP-Facade (`app/domains/billing/
+> service.py`) — die Invoice-Draft/Line/Get/List-Tools konstruieren kein
+> `Invoice(...)` mehr; S7-Regel um `app.domains.billing.models`
+> erweitert; neu aktiv: `core ↛ domains/interfaces/contracts` +
+> `domains/<x> ↛ domains/<y>` (independence). Prod-`models`-Shim-Tod
+> (kein `services|routes|app`-Modul importiert die Shim-Namen mehr;
+> `models.py` bleibt test-Shim + Aggregator; physischer Datei-Tod +
+> Test-Migration = deferred). Bewusst **nicht** aktiviert (Zustand gilt
+> noch nicht): web/REST-`interfaces ↛ domains/*/models` (CRUD-Handler
+> konstruieren weiter Modelle) + `shared ↛ domains` (enum-keyed Labels).
+> `services/mcp_server.py` + `services/ai|linkedin_import.py`-Shims
+> bleiben (frozen Seams, ADR-008/009 §B/§E). Rationale
+> `docs/adr/009-interface-split-rfc7807.md`. Jeder Migrationsschritt
+> aktiviert/schärft die zu ihm gehörige Contract-Regel.
 
 ## Agent-Edit-Protokoll
 

@@ -1,3 +1,15 @@
+"""interfaces.api — REST router for agents (Schritt 8).
+
+Moved verbatim from `routes/api.py` (move-not-rewrite). The only changes
+vs. the Schritt-7 source: model imports point at `app.domains.*`/
+`app.core.*` directly (top-level `models`-Shim-Naht gekappt), and the
+per-endpoint inline `try/except (InvoiceValidationError|FinalizeError) →
+HTTPException` coercion is **removed** — those propagate to the central
+RFC-7807 mapper registered in `app.interfaces.api` (ADR-009 §C). Status
+codes and the 422-before-409 catch order are preserved (FastAPI dispatches
+the `InvoiceValidationError` handler before its `FinalizeError` base).
+"""
+
 from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy import or_
 from sqlmodel import Session, select
@@ -9,17 +21,25 @@ import json
 import uuid
 
 from app.core.config import get_settings
+from app.core.identity import ApiKey
 from app.domains.leads.billing_export import build_billing_customer
-from database import get_session
-from models import (
-    Lead, LeadCreate, LeadRead, LeadPatch, LeadSource, ApiKey,
-    Invoice, InvoiceLineItem, InvoiceStatus, InvoiceKind,
+from app.domains.leads.models import Lead
+from app.domains.leads.schemas import LeadCreate, LeadRead, LeadPatch
+from app.domains.billing.models import (
+    Invoice,
+    InvoiceLineItem,
+    InvoiceStatus,
+    InvoiceKind,
 )
+from database import get_session
 from services.invoicing.archive import archive_document
 from services.invoicing.document import render_document
 from services.invoicing.finalize import (
-    FinalizeError, FinalizeOptions, InvoiceValidationError,
-    create_storno, finalize_invoice, mark_paid, mark_sent,
+    FinalizeOptions,
+    create_storno,
+    finalize_invoice,
+    mark_paid,
+    mark_sent,
 )
 
 router = APIRouter(prefix="/api", tags=["agent-api"])
@@ -198,9 +218,13 @@ def _invoice_to_dict(inv: Invoice, lines: list[InvoiceLineItem]) -> dict:
 
 
 def _load_lines(inv_id: int, session: Session) -> list[InvoiceLineItem]:
-    return list(session.exec(
-        select(InvoiceLineItem).where(InvoiceLineItem.invoice_id == inv_id).order_by(InvoiceLineItem.position)
-    ).all())
+    return list(
+        session.exec(
+            select(InvoiceLineItem)
+            .where(InvoiceLineItem.invoice_id == inv_id)
+            .order_by(InvoiceLineItem.position)
+        ).all()
+    )
 
 
 @router.post("/invoices/draft", status_code=201)
@@ -292,16 +316,14 @@ def api_finalize(
         # Schritt 5: CRM builds the BillingOrder customer snapshot.
         customer_resolver=lambda lead_id: build_billing_customer(session, lead_id),
     )
-    try:
-        inv = finalize_invoice(
-            session, invoice_id,
-            idempotency_key=idempotency_key or str(uuid.uuid4()),
-            options=options,
-        )
-    except InvoiceValidationError as exc:
-        raise HTTPException(422, str(exc))
-    except FinalizeError as exc:
-        raise HTTPException(409, str(exc))
+    # Schritt 8: InvoiceValidationError (⊂ FinalizeError) → 422,
+    # FinalizeError → 409, centrally in the RFC-7807 mapper (order preserved).
+    inv = finalize_invoice(
+        session,
+        invoice_id,
+        idempotency_key=idempotency_key or str(uuid.uuid4()),
+        options=options,
+    )
     return _invoice_to_dict(inv, _load_lines(inv.id, session))
 
 
@@ -313,37 +335,35 @@ def api_storno(
     _=Depends(verify_api_key),
 ):
     options = FinalizeOptions(renderer=render_document, archiver=archive_document)
-    try:
-        storno = create_storno(
-            session, invoice_id,
-            reason=(payload or {}).get("reason"),
-            options=options,
-        )
-    except FinalizeError as exc:
-        raise HTTPException(409, str(exc))
+    storno = create_storno(
+        session,
+        invoice_id,
+        reason=(payload or {}).get("reason"),
+        options=options,
+    )
     return _invoice_to_dict(storno, _load_lines(storno.id, session))
 
 
 @router.post("/invoices/{invoice_id}/mark-sent")
-def api_mark_sent(invoice_id: int, session: Session = Depends(get_session), _=Depends(verify_api_key)):
-    try:
-        inv = mark_sent(session, invoice_id)
-    except FinalizeError as exc:
-        raise HTTPException(409, str(exc))
+def api_mark_sent(
+    invoice_id: int, session: Session = Depends(get_session), _=Depends(verify_api_key)
+):
+    inv = mark_sent(session, invoice_id)
     return _invoice_to_dict(inv, _load_lines(inv.id, session))
 
 
 @router.post("/invoices/{invoice_id}/mark-paid")
-def api_mark_paid(invoice_id: int, session: Session = Depends(get_session), _=Depends(verify_api_key)):
-    try:
-        inv = mark_paid(session, invoice_id)
-    except FinalizeError as exc:
-        raise HTTPException(409, str(exc))
+def api_mark_paid(
+    invoice_id: int, session: Session = Depends(get_session), _=Depends(verify_api_key)
+):
+    inv = mark_paid(session, invoice_id)
     return _invoice_to_dict(inv, _load_lines(inv.id, session))
 
 
 @router.get("/invoices/{invoice_id}")
-def api_get_invoice(invoice_id: int, session: Session = Depends(get_session), _=Depends(verify_api_key)):
+def api_get_invoice(
+    invoice_id: int, session: Session = Depends(get_session), _=Depends(verify_api_key)
+):
     inv = session.get(Invoice, invoice_id)
     if inv is None:
         raise HTTPException(404)

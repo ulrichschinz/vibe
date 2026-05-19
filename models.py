@@ -16,18 +16,30 @@ label dicts have moved to their final homes:
                                INVOICE_STATUS_ORDER
   app.shared.labels            *_LABELS dicts
 
-This module is the **single aggregation module** of the Move-Vertrag:
+This module stays the **single aggregation module** of the Move-Vertrag:
 importing it imports every model module in one deterministic order, so the
 full set of tables is registered on the shared `SQLModel.metadata` exactly
-once (no `Table already defined`). `database.create_db()` depends on this
-(it `import models` before `create_all`); `tests/conftest.py` likewise.
+once (no `Table already defined`). `database.create_db()` keeps this
+registry-bootstrap `import models` before `create_all` — that (plus the
+test suite) is the only `models` reach left. `database` is a top-level
+module, **not** an import-linter root_package, so the bootstrap is
+invisible to the contracts.
 
-It re-exports **explicitly** (no `import *`) with an `__all__` so table
-registration and IDE/AST resolution stay unambiguous. The shim stays until
-the last caller is migrated (Schritte 6–8); the import-linter
-"nothing imports top-level `models`" shim-death rule is activated in *that*
-PR (the last caller's), not here — per the Move-Vertrag, deleting it
-earlier would mean two churn events.
+Schritt 8 (ADR-009 §F) repointed every production **name-re-export**
+consumer (`main.py`, `services/*`, the moved `app.interfaces.*` handlers)
+onto `app.*` directly — **no `services`/`routes`/`app` module imports this
+shim's names anymore**. It survives as the **test-facing** re-export so the
+frozen Schritt-0.5 characterization / integration / unit suite keeps
+``from models import …`` working unchanged (0-tests-diff).
+
+It re-exports **explicitly** (no `import *`) with an `__all__` so IDE/AST
+resolution stays unambiguous. The shim-death is enforced prod-scoped: the
+Schritt-8 interface/domain/core import-linter edge set forbids any path to
+`domains/*/models` from `interfaces`/`core`/cross-domain, and the bare-
+`models`-module rule is grep-verified by construction (a single `.py`
+module is not a valid grimp `root_package` — the documented Schritt-5
+limitation). Physical file deletion + the test-import migration is a
+deferred follow-up step (Churn owned by no step — Schritt-1 precedent).
 """
 
 from __future__ import annotations
