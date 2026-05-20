@@ -17,7 +17,7 @@ from database import get_session
 from app.core.ai_settings import AiSettings
 from app.core.identity import User, UserRole
 from routes import proposals as proposals_route
-from services import ai
+from app.core import ai
 from services.auth import require_editor, require_login
 from tests.fixtures.factories import make_lead_de_b2b, make_planning_messages
 

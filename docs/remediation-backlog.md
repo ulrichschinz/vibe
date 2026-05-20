@@ -210,12 +210,32 @@ der Discovery und der Gate verlangt Bereinigung oder Inventar-Anpassung
 
 ### T7 — Shim-Sterbe-Gates — **P2** — schließt R2 strukturell
 
-Je ein PR mit aktivierendem import-linter-Gate für: `models.py` (nichts
-importiert mehr Top-Level-`models` → löschen — das vom Plan selbst
-spezifizierte, nie aktivierte „Shim-Sterbe-Gate"), `services.ai` /
-`services.linkedin_import` (Char-Test-Lifecycle-Swap → löschen),
-`services.mcp_server` → `app/interfaces/mcp` relozieren. Niedrigste
-Dringlichkeit bei aktueller Größe; Wert skaliert mit LOC.
+Je ein PR pro Shim. Tracking-Stand (R2 strukturell, kumulativ):
+
+- **T7-A** — `models.py` ✅ umgesetzt 2026-05-20 (ADR-014, PR #31).
+  Aggregations-Rolle in top-level `db_tables.register_tables()` umgezogen;
+  17 Test-Dateien `from models import …` → direkte
+  `app.{core,domains,shared}.*`-Importer. Shim-Inventar 5 → 4.
+- **T7-B** — `services/ai.py` ✅ umgesetzt 2026-05-20 (ADR-015).
+  Char-Test-Lifecycle-Swap mechanisch (3 Test-Dateien `from services
+  import ai` → `from app.core import ai`; Sonderfall
+  `generate_proposal_drafts` per Zusatz-Import gelöst); Produktiv-Seam
+  `app/domains/proposals/service.py` retargeted (lazy
+  `from app.core import ai as _seam`). monkeypatch-Naht
+  `setattr(ai, "chat_with_context", …)` unverändert — same module object.
+  Shim-Inventar 4 → 3.
+- **T7-C** — `services/linkedin_import.py` (P2, ausstehend). Analog T7-B,
+  vermutlich kleiner (Shim hat nur 4 re-exportierte Symbole; aktueller
+  Importer-Scan beim PR vorab). Eigener ADR, eigener PR.
+- **T7-D** — `services/mcp_server.py` → `app/interfaces/mcp/server.py`
+  (P2, ausstehend). Move-not-rewrite des FastMCP-Servers + Mount-Pfad-
+  Anpassung; ADR-009 §B benennt den `m.engine`-Seam als frozen — der Move
+  ist der Lifecycle-Endpunkt. Eigener ADR, eigener PR.
+
+Daneben (kein eigenes T7-Item): die zwei `routes/{leads,proposals}.py`-
+Re-Export-Shims (`app.interfaces.web.*.router`) sterben mit der nächsten
+Char-Test-Reorganisation (`from routes import leads as leads_route` ablegen).
+Inventar-Zähler-Ziel: 0.
 
 ---
 

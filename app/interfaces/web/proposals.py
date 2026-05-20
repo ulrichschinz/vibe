@@ -2,8 +2,8 @@
 
 Move-not-rewrite from `routes/proposals.py`; only model imports point at
 `app.domains.*`/`app.core.*` directly. The AI-draft/merge path still goes
-through `app.domains.proposals.service` (Schritt-6 lazy `services.ai` seam
-unchanged — frozen char-test seam).
+through `app.domains.proposals.service` (lazy `app.core.ai` seam — frozen
+char-test seam since T7-B/ADR-015; `services/ai.py` shim retired).
 """
 
 from copy import deepcopy

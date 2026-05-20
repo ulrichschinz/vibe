@@ -12,14 +12,14 @@ are the verbatim originals. Contract-conformant imports: own domain
 (``app.domains.proposals.models``) + ``app.core.*`` only — never another
 ``app.domains.*``.
 
-Transitional seam: ``generate_proposal_drafts`` resolves ``chat_with_context``
-and ``PROPOSAL_DRAFTS_SYSTEM`` through the legacy ``services.ai`` module
-(re-export shim over ``app.core.ai``) so the frozen Schritt-0.5
-characterization tests and the ``test_ai_proposal_drafts`` unit test — which
-``monkeypatch.setattr(services.ai, "chat_with_context", …)`` and assert
-``ai.PROPOSAL_DRAFTS_SYSTEM`` — keep intercepting through the same module
-object until they retire (Schritt 7 lifecycle). Same family as the
-``models.py`` shim; not a domain→domain edge.
+Module-as-seam adapter: ``generate_proposal_drafts`` resolves
+``chat_with_context`` and ``PROPOSAL_DRAFTS_SYSTEM`` through the
+``app.core.ai`` module object (lazy ``from app.core import ai as _seam``)
+so the unit + characterization tests that
+``monkeypatch.setattr(ai, "chat_with_context", …)`` keep intercepting on
+the same module object — the seam is the module, not its old path.
+T7-B (ADR-015) retired the ``services/ai.py`` re-export shim; this is
+the direct successor seam (no shim hop, no domain→domain edge).
 """
 
 from __future__ import annotations
@@ -55,11 +55,11 @@ def generate_proposal_drafts(lead: Any, planning_messages: Any, settings: Any) -
     """
     if not planning_messages:
         raise AiDraftError("Kein Chat-Verlauf vorhanden.")
-    # Resolve the adapter through the legacy shim so the frozen monkeypatch
-    # seam (services.ai.chat_with_context / .PROPOSAL_DRAFTS_SYSTEM) keeps
-    # intercepting — see module docstring. Lazy import avoids an import cycle
-    # (services.ai re-exports this very function).
-    from services import ai as _seam
+    # Resolve the adapter through the app.core.ai module object so the
+    # monkeypatch seam (ai.chat_with_context / .PROPOSAL_DRAFTS_SYSTEM)
+    # keeps intercepting — see module docstring. Lazy import preserves the
+    # module-as-seam pattern (per-call attribute lookup, not import-time bind).
+    from app.core import ai as _seam
 
     messages = [{"role": m.role, "content": m.content} for m in planning_messages]
     messages.append(
