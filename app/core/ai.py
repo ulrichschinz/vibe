@@ -14,11 +14,11 @@ LinkedIn-import flow) stays in the owning domain's service
 adapter lives here. Contract-conformant: imports ``app.core.*`` only — never
 ``app.domains.*`` / ``app.interfaces.*`` (core knows no domain).
 
-The legacy modules ``services/ai.py`` and ``services/linkedin_import.py``
-remain as thin re-export shims so the frozen Schritt-0.5 characterization
-tests (which ``monkeypatch.setattr(services.ai, "chat_with_context", …)`` /
-``services.linkedin_import.extract_lead_from_pdf``) keep intercepting through
-the same module objects until they retire (Schritt 7 lifecycle).
+The legacy module ``services/linkedin_import.py`` remains as a thin
+re-export shim so the frozen Schritt-0.5 characterization tests
+(``monkeypatch.setattr(services.linkedin_import, "extract_lead_from_pdf",
+…)``) keep intercepting through the same module object until they retire
+(T7-C lifecycle). ``services/ai.py`` died in T7-B (ADR-015).
 """
 
 from __future__ import annotations

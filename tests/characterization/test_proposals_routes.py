@@ -18,7 +18,7 @@ from sqlmodel import Session, select
 from app.core.ai_settings import AiSettings
 from app.domains.proposals.models import Proposal, ProposalStatus
 from routes import proposals as proposals_route
-from services import ai
+from app.core import ai
 from services.proposals import create_proposal as create_proposal_svc
 from tests.characterization.conftest import build_minimal_app
 from tests.fixtures.factories import make_lead_de_b2b, make_planning_messages

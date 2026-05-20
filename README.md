@@ -133,7 +133,7 @@ Aktuell hardcoded — bewusst, weil Single-Tenant:
 | Stelle | Was |
 |---|---|
 | `services/numbering.py` | Angebotsnummer-Präfix `AR-YYYY-NNN` |
-| `services/ai.py` | KI-System-Prompts („Du bist Texter für Agentic Reach …") |
+| `app/core/ai.py` | KI-System-Prompts („Du bist Texter für Agentic Reach …") |
 | `templates/base.html` | HTML-`<title>`, Logo-`alt` |
 | `templates/proposals/document.html` | Firmenname, Anschrift, Mail, Signatur (Letterhead, Footer, Schlussseite) |
 
@@ -143,7 +143,7 @@ Solange Vibe Single-Tenant bleibt, ist ein Fork der einfachste Weg. Checkliste:
 
 1. **Assets ersetzen** — `static/brand/` 1:1 durch eigene Dateien überschreiben. Gleiche Dateinamen (`logos/lockup-horizontal-color.svg`, `logos/mark-color.svg`, `tokens.css`, …) → kein Code-Change nötig. CSS-Variablen in `tokens.css` (Farben, Spacing) anpassen.
 2. **Angebotsnummer** — Präfix in `services/numbering.py:8` ändern (z.B. `AR-` → `BX-`).
-3. **KI-Prompts** — Markenname in `services/ai.py` (3 Stellen) ersetzen.
+3. **KI-Prompts** — Markenname in `app/core/ai.py` (3 Stellen) ersetzen.
 4. **Templates** — Firmenname, Anschrift, Mail, Signatur in `templates/base.html` und `templates/proposals/document.html` ersetzen. Title-Tag in `base.html` anpassen.
 5. **Deployment** — eigene `APP_HOST`-Variable, eigener Traefik/Caddy-Hostname.
 

@@ -1,9 +1,16 @@
-"""Unit tests for services/ai.py — proposal-draft parser + generator."""
+"""Unit tests for the AI proposal-draft parser + generator.
+
+Parser + ``chat_with_context`` adapter live in ``app.core.ai``;
+``generate_proposal_drafts`` orchestration in
+``app.domains.proposals.service``. The shim ``services/ai.py`` died in
+T7-B (ADR-015) — tests now patch the ``app.core.ai`` module object directly.
+"""
 from __future__ import annotations
 
 import pytest
 
-from services import ai
+from app.core import ai
+from app.domains.proposals.service import generate_proposal_drafts
 
 
 # ─── Parser ─────────────────────────────────────────────────────────────────
@@ -116,7 +123,7 @@ class _Settings:
 @pytest.mark.unit
 def test_generate_raises_when_chat_empty():
     with pytest.raises(ai.AiDraftError):
-        ai.generate_proposal_drafts(_Lead(), [], _Settings())
+        generate_proposal_drafts(_Lead(), [], _Settings())
 
 
 @pytest.mark.unit
@@ -138,7 +145,7 @@ def test_generate_invokes_chat_with_drafts_system(monkeypatch):
     msgs = [_Msg("user", "KI-Strategie für 80-Personen-Firma."),
             _Msg("assistant", "Vorschlag: Roadmap + Pilot.")]
 
-    out = ai.generate_proposal_drafts(_Lead(), msgs, _Settings())
+    out = generate_proposal_drafts(_Lead(), msgs, _Settings())
 
     assert captured["system"] == ai.PROPOSAL_DRAFTS_SYSTEM
     assert captured["settings"].api_key == "sk-test"

@@ -3,9 +3,8 @@ moved verbatim from `routes/ai.py`).
 
 Model imports point at `app.core.*`/`app.domains.*` directly; the AI
 adapter call resolves to `app.core.ai` directly (no frozen characterization
-test patches `services.ai` for the `/ai` router — the Schritt-6 lazy
-`services.ai` seam is only the proposals/leads-service path and stays
-untouched there).
+test patches the `/ai` router — the lazy `app.core.ai` seam is only the
+proposals/leads-service path; `services/ai.py` is gone since T7-B/ADR-015).
 """
 
 from fastapi import APIRouter, Depends, HTTPException
