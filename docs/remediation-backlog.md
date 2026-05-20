@@ -181,12 +181,32 @@ das Gate erzwingt nur die *Existenz* des Domänen-Eintrags (`grep`); ob die
 Domäne tatsächlich keine andere importiert, prüft der nachgelagerte
 `make … contracts`-Lauf — der CI-Smoke führt beide aus.
 
-### T6 — Struktur-Assertions ins Doc-Gate — **P2** — schließt R5
+### T6 — Struktur-Assertions ins Doc-Gate — **P2** — schließt R5 — ✅ umgesetzt 2026-05-20
 
-`scripts/check_architecture_metrics.py` erweitern: erwartete
-import-linter-Contract-Namen-Menge + Shim-Pfad-Inventar gegen eine neue
-ARCHITECTURE.md-Tabelle assert. Macht Struktur-Prosa selbst-verifizierend
-(heute driftbar ohne CI-Rot).
+`scripts/check_architecture_metrics.py` wurde um zwei Asserter erweitert:
+`check_importlinter_contracts` (vergleicht die Set der `name`-Werte aus
+`[[tool.importlinter.contracts]]`-Blöcken in `pyproject.toml` gegen die neue
+`## Struktur-Verträge (CI-erzwungen)`-Tabelle in `ARCHITECTURE.md`) und
+`check_shim_inventory` (vergleicht das AST-fundierte Set trivialer
+Re-Export-Shims gegen die neue `## Re-Export-Shim-Inventar (CI-erzwungen)`-
+Tabelle, inkl. LOC-Match je Zeile). Discovery ist strukturell statt
+docstring-marker-basiert: Modul-Body nach optionalem Docstring darf NUR
+`Import`/`ImportFrom` + höchstens eine `__all__`-Assign-Zeile enthalten
+(keine `def`/`class`/andere Assigns); das ist die exakte Signatur aller fünf
+heute existierenden Shims und schließt false-positives wie
+`app/shared/labels.py` (Daten-Dicts) und leere `__init__.py` automatisch
+aus. Stdlib-only (Regex für TOML, `ast` für Python — gleiche Disziplin wie
+ADR-012 §B); keine YAML-Änderung nötig, das Skript ist bereits in allen
+drei CI-Pfaden (`make verify`, `doc-metrics.yml`, `deploy.yml`) und lokal.
+Self-Test (im PR dokumentiert): 6 Mutationen, je passender Befund —
+phantom-contract / removed-contract / LOC-drift / phantom-shim-path /
+removed-shim-row / missing-heading. Drift-Meldungen nennen die
+Handlungsanweisung („drop the row" / „restore the shim" / „T7
+shim-death gates"). Rationale: `docs/adr/013-t6-structure-assertions-doc-gate.md`.
+**Ehrlich zur Grenze:** AST-Discovery toleriert keinen Shim, der eine
+Hilfsfunktion exportiert — wird ein heutiger Shim erweitert, fällt er aus
+der Discovery und der Gate verlangt Bereinigung oder Inventar-Anpassung
+(genau das R5-schließende Verhalten, keine Lockerung der Shim-Definition).
 
 ### T7 — Shim-Sterbe-Gates — **P2** — schließt R2 strukturell
 
