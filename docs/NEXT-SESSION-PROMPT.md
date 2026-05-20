@@ -29,6 +29,7 @@ bereits passiert, in Doku & Memory nachlesbar):
 Aktuelle main-Reihenfolge (oben = neuester Stand):
 
 ```
+83208b8  ops:  T6 — Struktur-Assertions ins Doc-Gate (schließt R5) (#29)
 43caa2a  ops:  T5 — scaffold patcht Independence-Contract (schließt R6) (#27)
 56204f7  test: T4b — e2e-Suite via run_migrations (Alembic-Pfad real) (#24)
 f5fa552  test: T4a — Alembic-Baseline-Schema vs. create_all empirisch geprüft (#22)
@@ -57,8 +58,21 @@ statt `create_all` — `tests/e2e/conftest.py` überschreibt das geteilte
 **T5** (Scaffold patcht `independence`-`modules`-Array in `pyproject.toml`
 idempotent; CI-Scaffold-Smoke greppt es; chirurgischer 1-Zeilen-Insert
 stdlib-only — R6 strukturell zu; `new-domain.expected` bleibt versiegelt,
-künftiger Lauf zeigt 9/8 als T5-Messung, kein Korrekturlass; ADR-012).
-Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
+künftiger Lauf zeigt 9/8 als T5-Messung, kein Korrekturlass; ADR-012),
+**T6** (Struktur-Assertions ins Doc-Gate — `scripts/check_architecture_metrics.py`
+hat zwei neue Asserter: `check_importlinter_contracts` (Set der
+`name`-Werte aus `[[tool.importlinter.contracts]]` in `pyproject.toml`
+gegen neue `## Struktur-Verträge (CI-erzwungen)`-Tabelle) und
+`check_shim_inventory` (AST-fundiertes Shim-Set — Body nach optionalem
+Docstring nur `Import`/`ImportFrom` + max. `__all__`-Assign — gegen
+neue `## Re-Export-Shim-Inventar (CI-erzwungen)`-Tabelle, inkl.
+LOC-Match je Zeile). Drift in beide Richtungen bricht den Build; stdlib-
+only (Regex für TOML, `ast` für Python — gleiche Disziplin wie ADR-012
+§B). Keine YAML-Änderung, das Skript läuft schon in allen drei CI-Pfaden.
+Gate-Output meldet jetzt `5 import-linter contracts and 5 re-export shims
+accounted for` — T7 hat damit einen lebenden Zähler. Self-Test (6
+Mutationen, alle Drift-Wege empirisch verifiziert). R5 strukturell zu.
+ADR-013). Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
 (Backup-Automatik + Restore-Test on-host), **D3** (Deploy-`verify`-Job
 + Pre-Deploy-Backup-Hook serverseitig), **D4** (immutable `:sha`-Tag
 + image-basierter Rollback-Pfad).
@@ -66,15 +80,14 @@ Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
 ## Offen
 
 **Track:**
-- **T6** (P2) — Struktur-Assertions ins Doc-Gate
-  (`scripts/check_architecture_metrics.py` erweitern um erwartete
-  import-linter-Contract-Namen-Menge + Shim-Pfad-Inventar gegen eine
-  neue ARCHITECTURE.md-Tabelle). Macht Struktur-Prosa selbst-verifizierend.
-  Vorschlag als nächster Schritt: kleiner Hebel, kein App-Deps-Risiko,
-  stdlib-only erweiterbar.
 - **T7** (P2) — Shim-Sterbe-Gates für `models.py` /
   `services.ai`+`linkedin_import` / `services.mcp_server`. Mehrere PRs,
-  nicht eines.
+  nicht eines. **Vorschlag als nächster Schritt**: jeder Shim-Tod fällt
+  jetzt im T6-Inventar-Gate auf (`5 re-export shims accounted for`-Zähler
+  ändert sich) — gute Sichtbarkeit für die mehrstufige Bearbeitung. Pro
+  PR: ein Shim sterben lassen (Test-Importer migrieren, Datei löschen,
+  Inventar-Zeile entfernen, ggf. import-linter-Aktivierung), Char-Test-
+  Lifecycle-Swap wo zutreffend.
 
 **Ops:**
 - **D2b** — Off-Host-Backup-Automatik. Heute fehlt am Server jedes
@@ -86,13 +99,15 @@ Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
   für riskante Migrations-Proben ohne Prod-Risiko.
 
 **Empfohlene Reihenfolge (mein Vorschlag, nicht bindend):**
-T6 → T7; D2b parallel sobald die Ziel-Infra entschieden ist.
+T7 (mehrere PRs, je ein Shim-Tod); D2b parallel sobald die Ziel-Infra
+entschieden ist.
 
 ## Stehendes Mandat (Track-PRs eigenständig mergen)
 
 Du darfst Track-PRs **nach grüner CI selbst squash-mergen** und das
 Branch löschen — analog zu Sessions vom 2026-05-20 (T4b PR #24 +
-NEXT-SESSION-PROMPT-Folge PR #25; T5 PR #27 + Folge-Doku). Begründung: jede Track-PR-Iteration
+NEXT-SESSION-PROMPT-Folge PR #25; T5 PR #27 + Folge-Doku PR #28; T6
+PR #29 + Folge-Doku). Begründung: jede Track-PR-Iteration
 ist klein, byte-äquivalent geprüft (`make verify` inkl. Char-Tests +
 90 %-Invoicing-Suite + import-linter + Doc-Gate + Probe-Lint), und der
 Deploy-Pfad ist self-perpetuating gesichert (D3 Pre-Deploy-`verify`-Job
