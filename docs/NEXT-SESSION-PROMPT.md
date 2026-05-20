@@ -29,6 +29,7 @@ bereits passiert, in Doku & Memory nachlesbar):
 Aktuelle main-Reihenfolge (oben = neuester Stand):
 
 ```
+5f5f8eb  ops:  T7-A — models.py-Shim sterben lassen (R2 strukturell, 1/3) (#31)
 83208b8  ops:  T6 — Struktur-Assertions ins Doc-Gate (schließt R5) (#29)
 43caa2a  ops:  T5 — scaffold patcht Independence-Contract (schließt R6) (#27)
 56204f7  test: T4b — e2e-Suite via run_migrations (Alembic-Pfad real) (#24)
@@ -69,10 +70,19 @@ neue `## Re-Export-Shim-Inventar (CI-erzwungen)`-Tabelle, inkl.
 LOC-Match je Zeile). Drift in beide Richtungen bricht den Build; stdlib-
 only (Regex für TOML, `ast` für Python — gleiche Disziplin wie ADR-012
 §B). Keine YAML-Änderung, das Skript läuft schon in allen drei CI-Pfaden.
-Gate-Output meldet jetzt `5 import-linter contracts and 5 re-export shims
-accounted for` — T7 hat damit einen lebenden Zähler. Self-Test (6
-Mutationen, alle Drift-Wege empirisch verifiziert). R5 strukturell zu.
-ADR-013). Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
+Self-Test (6 Mutationen, alle Drift-Wege empirisch verifiziert). R5
+strukturell zu. ADR-013). **T7-A** (`models.py`-Shim physisch tot —
+R2 strukturell, 1/3): neues top-level `db_tables.py` mit expliziter
+`register_tables()`-Funktion (Funktions-Form disqualifiziert das Modul
+als T6-Shim → Inventar-Zähler **echt** 5→4; top-level statt
+`app.core/`, weil `core ↛ domains` jede Aggregation im `app.core`-
+Paket verbieten würde — Lektion aus CI-Iteration 2). 4 Aufrufer
+umgezogen (`database.create_db` + zwei Test-Conftests + die zwei
+Alembic-Baselines), 17 Test-Dateien `from models import …` → direkte
+`app.{core,domains,shared}.*`-Importer, `test_models_split.py` auf
+neuen Bootstrap-Vertrag umgeschrieben. Gate-Output ist jetzt
+`5 import-linter contracts and 4 re-export shims accounted for`. ADR-014.
+Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
 (Backup-Automatik + Restore-Test on-host), **D3** (Deploy-`verify`-Job
 + Pre-Deploy-Backup-Hook serverseitig), **D4** (immutable `:sha`-Tag
 + image-basierter Rollback-Pfad).
@@ -80,14 +90,27 @@ ADR-013). Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
 ## Offen
 
 **Track:**
-- **T7** (P2) — Shim-Sterbe-Gates für `models.py` /
-  `services.ai`+`linkedin_import` / `services.mcp_server`. Mehrere PRs,
-  nicht eines. **Vorschlag als nächster Schritt**: jeder Shim-Tod fällt
-  jetzt im T6-Inventar-Gate auf (`5 re-export shims accounted for`-Zähler
-  ändert sich) — gute Sichtbarkeit für die mehrstufige Bearbeitung. Pro
-  PR: ein Shim sterben lassen (Test-Importer migrieren, Datei löschen,
-  Inventar-Zeile entfernen, ggf. import-linter-Aktivierung), Char-Test-
-  Lifecycle-Swap wo zutreffend.
+- **T7-B/C** (P2) — Char-Test-Lifecycle-Swap der zwei `services/ai.py` +
+  `services/linkedin_import.py`-Shims (die frozen monkeypatch-Naht der
+  Schritt-0.5-Char-Tests). Schwieriger als T7-A: `monkeypatch.setattr
+  ("services.ai.…")`-Aufrufe in Char-Tests müssen real umgezogen werden
+  (eigener ADR, eigene PR pro Shim — oder zusammen mit shared
+  Char-Test-Migration). Inventar-Zähler-Ziel: 4 → 2.
+- **T7-D** (P2) — `services.mcp_server` → `app/interfaces/mcp/server.py`
+  relozieren (Move-not-rewrite des FastMCP-Servers + Mount-Pfad-
+  Anpassung in `main.py`/`app/interfaces/mcp/mount.py`; ADR-009 §B
+  benannte den `m.engine`-Seam als frozen → der Move ist der Lifecycle-
+  Endpunkt). Eigener ADR, eigener PR.
+- **`routes/{leads,proposals}.py`** — die zwei `app.interfaces.web.*.router`-
+  Re-Export-Shims. Nicht in T7 als eigenes Item geführt; sterben mit der
+  nächsten Char-Test-Reorganisation (Test-Importer `from routes import
+  leads as leads_route` ablegen). Inventar-Zähler-Ziel: 0.
+
+**Vorschlag als nächster Schritt**: T7-B (`services/ai.py` Shim-Tod) —
+braucht zuerst Recon der monkeypatch-Naht-Aufrufer (welche Char-Tests
+und Unit-Tests patchen `services.ai.…` wie). Erst dann den Lifecycle-
+Swap planen (eigener ADR). T7-A war mechanisch — T7-B ist erstmals
+ein echter Char-Test-Eingriff, also vorher saubere Ist-Aufnahme.
 
 **Ops:**
 - **D2b** — Off-Host-Backup-Automatik. Heute fehlt am Server jedes
@@ -99,15 +122,16 @@ ADR-013). Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
   für riskante Migrations-Proben ohne Prod-Risiko.
 
 **Empfohlene Reihenfolge (mein Vorschlag, nicht bindend):**
-T7 (mehrere PRs, je ein Shim-Tod); D2b parallel sobald die Ziel-Infra
-entschieden ist.
+T7-B (services.ai-Char-Test-Lifecycle-Swap, mit Recon-Schritt vorab) →
+T7-C (linkedin_import analog) → T7-D (mcp_server-Relokation); D2b
+parallel sobald die Ziel-Infra entschieden ist.
 
 ## Stehendes Mandat (Track-PRs eigenständig mergen)
 
 Du darfst Track-PRs **nach grüner CI selbst squash-mergen** und das
 Branch löschen — analog zu Sessions vom 2026-05-20 (T4b PR #24 +
 NEXT-SESSION-PROMPT-Folge PR #25; T5 PR #27 + Folge-Doku PR #28; T6
-PR #29 + Folge-Doku). Begründung: jede Track-PR-Iteration
+PR #29 + Folge-Doku PR #30; T7-A PR #31 + Folge-Doku). Begründung: jede Track-PR-Iteration
 ist klein, byte-äquivalent geprüft (`make verify` inkl. Char-Tests +
 90 %-Invoicing-Suite + import-linter + Doc-Gate + Probe-Lint), und der
 Deploy-Pfad ist self-perpetuating gesichert (D3 Pre-Deploy-`verify`-Job
@@ -175,6 +199,6 @@ zuerst, jede Mutation mit `.bak` vorher.
 Verifiziere den Status (`git status`, `git log --oneline -5`,
 `docs/remediation-backlog.md` lesen, Doc-Gate + Probe-Lint grün prüfen,
 `gh pr list --state open`), kläre mit dem User welches Item als
-nächstes (Vorschlag T6), und arbeite es als eigenen PR ab —
-schemaneutral, byte-äquivalent wo Move, sealed bleibt sealed,
-Kennzahlen im selben Change syncen.
+nächstes (Vorschlag T7-B mit Recon-Schritt vorab), und arbeite es als
+eigenen PR ab — schemaneutral, byte-äquivalent wo Move, sealed bleibt
+sealed, Kennzahlen im selben Change syncen.
