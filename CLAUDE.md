@@ -66,7 +66,7 @@ Copy `.env.example` to `.env`. Required vars:
 - `APP_HOST` — used in templates (e.g. `vibe.agentic-reach.com`)
 - `ADMIN_EMAIL` / `ADMIN_PASSWORD` — seeded on first startup if no users exist yet
 
-Brand assets live inside the repo at `static/brand/` (logos, `tokens.css`, `typography.css`, `brand-kit.css`, `components.css/.js`, `portrait/`). They are served via the standard `/static` mount, so templates reference them as `/static/brand/...`. There is no external `../brand` mount. See the README's **Brand-System** section for details on forking for another brand.
+Brand assets live inside the repo at `static/brand/` (logos, `tokens.css`, `typography.css`, `brand-kit.css`, `components.css/.js`, `portrait/`). They are served via the standard `/static` mount, so templates reference them as `/static/brand/...`. **Note:** the *production* Traefik compose (`/opt/services/vibe/` on the server, separate repo) additionally bind-mounts `/opt/services/brand:/brand:ro` — that path is used by the WeasyPrint PDF generation (`services/pdf.py`, see "PDF generation" below) for absolute-path font/CSS resolution. The local dev `docker-compose.yml` does *not* mount it; the brand assets for the web/Jinja path are bundled in the repo at `static/brand/`. See the README's **Brand-System** section for details on forking for another brand.
 
 ## Architecture
 
