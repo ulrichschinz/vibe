@@ -13,10 +13,10 @@
 
 | Metrik | Wert | Beleg |
 |---|---|---|
-| Python LOC gesamt | 12.194 | `find -name '*.py'` |
+| Python LOC gesamt | 12.328 | `find -name '*.py'` |
 | davon Produktivcode | 8.769 | ohne `tests/` |
-| davon Tests | 3.425 | `tests/` |
-| Test/Prod-Verhältnis | ~40 % | Remediation-Track **T2** (Web/REST-Modellsperre): Read-/Konstruktions-Fläche der 6 Interface-Module hinter die Domänen-`*.service` + neue `app/core/{identity,ai_settings}_service.py`; +278 prod LOC, `tests/` 0-Diff (ADR-011) |
+| davon Tests | 3.559 | `tests/` |
+| Test/Prod-Verhältnis | ~41 % | Remediation-Track **T4a** (Alembic-Pfad real prüfen): `tests/test_db_migration_parity.py` vergleicht `create_all`-Schema vs. `run_migrations`-Schema strukturell (`sqlite_master` + `PRAGMA`) → fängt künftige Drift Modell ↔ Alembic-Revision (Schritt-9-Vertrag); +134 Test-LOC, Prod 0-Diff |
 | SQLModel-Tabellen | 13 | `table=True`-Klassen in `app/**/models.py` + `app/core/{identity,ai_settings}.py` (Schritt 4 korrigiert: vorher 14 durch eine mitgezählte Kommentarzeile in `models.py`, real 13 Entitäten) |
 | HTTP-Endpoints | 72 | `@router.(get\|post\|...)` in `app/interfaces/{web,api}/` (Schritt 8: aus `routes/` dorthin verschoben) |
 | Route-Module | 7 | `app/interfaces/{web,api}/*.py` ohne `__init__.py` (register) u. `mount.py` (MCP-ASGI-Mount) |
