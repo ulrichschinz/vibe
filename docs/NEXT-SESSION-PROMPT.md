@@ -1,4 +1,4 @@
-# Fortsetzungs-Prompt — Scaling-Roadmap-Audit-Remediation
+# Fortsetzungs-Prompt — Audit-Remediation + Deploy-Sicherheits-Track
 
 > Diesen Text als Start-Prompt einer frischen Session verwenden (Kontext
 > wurde bewusst gelöscht). Single Sources of Truth sind die unten
@@ -7,63 +7,83 @@
 
 ---
 
-Du setzt eine Audit-Remediation in `/Users/uli/projects/agentic-reach/vibe`
-fort. Vorgeschichte (alles bereits passiert, nachlesbar):
+Du setzt einen Audit-Remediation- + Deploy-Sicherheits-Track in
+`/Users/uli/projects/agentic-reach/vibe` fort. Vorgeschichte (alles
+bereits passiert, in Doku & Memory nachlesbar):
 
-- Ein 9-Schritte-Scaling-Roadmap-Umbau (Schritte 0–9 gemerged) wurde
-  **adversarial auditiert**. Befund: `docs/audit-report-scaling-roadmap.md`.
-  Kurz: korrekt & wie geschrieben ausgeführt, aber Wirksamkeit war unbelegt
-  (Outcome-Probe übersprungen) + zentrale Anti-Pattern-Sperre für Web/REST
-  nicht erzwungen + Schema-Evolution/Partition/neue-Domäne hängen an
-  Disziplin statt Gates.
-- Daraus abgeleitet: `docs/remediation-backlog.md` — **das ist deine
-  Arbeitsliste** (T1–T7 als ausführbare Gates, E1/E2 entschieden).
-- **Entscheidungen (fix, nicht neu aufrollen):** E1 = Move-not-rewrite-
-  Decke/Schuld 6 *akzeptiert mit Revisit-Trigger*, kein Abbau-Schritt
-  (kein T8). E2 = Roadmap bleibt **eingefroren Rev. 2**; Remediation ist
-  ein **separater Track** (kein Rev. 3). `docs/scaling-roadmap.md` ist
-  historischer Record, nicht anfassen.
+- Ein 9-Schritte-Scaling-Roadmap-Umbau wurde **adversarial auditiert**
+  (`docs/audit-report-scaling-roadmap.md`) und in einem **separaten
+  Remediation-Track** (`docs/remediation-backlog.md`, T1–T7 als
+  Gates + Ops-Items D1–D6) ohne Datenverlust auf Prod gebracht.
+- **Roadmap bleibt eingefroren Rev. 2** (Governance E2 — kein Rev. 3,
+  nicht anfassen). **Schuld 6 / Move-not-rewrite akzeptiert mit
+  Revisit-Trigger** (E1 — kein Abbau-Schritt).
+- **`main` == Produktion** (jeder Merge deployt automatisch via
+  `.github/workflows/deploy.yml` → ghcr → SSH-Forced-Command auf
+  `adm.agentic-reach.com:/opt/services/vibe`). Tests laufen **nicht**
+  beim Main-Push (`branches-ignore: [main]`) — der grüne PR ist das
+  einzige Test-Gate. Per Konvention: nie direkt auf `main` pushen.
 
-## Status
+## Stand (alles gemerged auf `main`, alles deployed, alles smoke-grün)
 
-- **T3 erledigt:** `tests/test_db_partition.py` (CRM/Billing-Partition ==
-  `SQLModel.metadata.tables` + disjunkt). ARCHITECTURE.md-Kennzahlen
-  mitgezogen (Tests 3.380→3.425 / gesamt 11.871→11.916).
-- **T1 erledigt + 2/5 empirisch validiert:** `docs/outcome-probe/`
-  (README-Spec, 5 **versiegelte** `*.expected`, `BASELINE.md`,
-  `RESULTS.md`) + stdlib-Harness `scripts/outcome_probe.py` +
-  `make outcome-probe TASK=x` + CI `outcome-probe.yml`. Validierungslauf
-  N=1: `new-domain` 8/8 + `lead-field` 7/7 exakt.
-- **Alles ist UNCOMMITTED.** `git status` zeigt: `M ARCHITECTURE.md`,
-  `M Makefile`, neu `docs/audit-report-*`, `docs/remediation-backlog.md`,
-  `docs/NEXT-SESSION-PROMPT.md`, `docs/outcome-probe/`,
-  `scripts/outcome_probe.py`, `tests/test_db_partition.py`,
-  `.github/workflows/outcome-probe.yml`, `docs/audit-prompt-*`.
-  **Erste Entscheidung mit dem User klären:** committen (Vorschlag: ein
-  PR „Audit-Remediation: T3 + T1 + Backlog"), oder weiterarbeiten und
-  später bündeln. Nichts ohne explizites Go committen/pushen.
+Aktuelle main-Reihenfolge (oben = neuester Stand):
 
-## Nächste Aufgabe: **T2** (P0, der eigentliche Strukturhebel)
+```
+f5fa552  test: T4a — Alembic-Baseline-Schema vs. create_all empirisch geprüft (#22)
+f2a0a3c  docs: D3/D4 erledigt; Pre-Deploy-Backup-Hook; brand-Mount-Drift (#21)
+5a7e114  ops:  D3 — Deploy-Gate härten (verify-Job + immutable :sha-Tag) (#20)
+1952cc1  docs: Deploy-Runbook + Off-Host-Backup-Schutz (.gitignore) (#19)
+cf3a950  Remediation T2: Web/REST-Modellsperre (schließt R1) (#18)
+9ad24ee  Audit-Remediation: T3 + T1 + Backlog (separater Track) (#17)
+5258d30  Schritt 9 — Alembic (Roadmap, schon vor diesem Track)
+```
 
-Web/REST-Modellsperre — schließt Audit-Befund R1, liefert „eine Logik,
-drei Clients". Zweistufig, **T2a blockt T2b**. Vollständige Spec:
-`docs/remediation-backlog.md` §T2. Kern:
+Plus serverseitig (nicht im Repo, am `adm.agentic-reach.com` live):
+- `vibe-db-backup.timer` (systemd, täglich 02:30 UTC, WAL-sicher,
+  integrity-gated, rotiert → `/opt/backups/vibe/`, Restore getestet).
+- `/opt/scripts/deploy.sh` mit Pre-Deploy-Backup-Hook für `vibe`
+  (`set -e`-gated; runway/landingpage unverändert) — bisher 2× live
+  bewiesen, **self-perpetuating**.
 
-- **T2a (Bestand-Refactor):** Modell-Konstruktion aus `app/interfaces/web/*`
-  + `app/interfaces/api/router.py` in die jeweiligen
-  `app/domains/*/service.py` umleiten. Vor Umsetzung **volle grep-Inventur**
-  (`grep -rn 'Lead(\|Note(\|Invoice(\|User(\|Proposal(' app/interfaces/`).
-  Bekannte Sites: `web/leads.py:281,502`, `web/invoices.py:133`,
-  `web/admin.py:72`, `api/router.py:89,238`. `User(...)` hat keine Domäne
-  → Zuhause klären (`app/core/identity`-Service o. Admin-Service).
-  **Invariante:** 132 Characterization-Tests + 90 %-Invoicing 0-Diff.
-- **T2b (Gate):** `[[tool.importlinter.contracts]]` forbidden,
-  `source_modules=["app.interfaces"]`,
-  `forbidden_modules=["app.domains.leads.models","app.domains.proposals.models","app.domains.billing.models"]`,
-  `allow_indirect_imports="True"`.
+Erledigte Track-Items: **T1** (Outcome-Probe etabliert + 2/5 validiert),
+**T2** (Web/REST-Modellsperre — Gate aktiv, R1 strukturell zu),
+**T3** (Partitions-Vollständigkeits-Test), **T4a** (Alembic-Pfad real
+geprüft — `run_migrations` wird in CI ausgeführt, Schema-Drift bricht
+den Test). Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
+(Backup-Automatik + Restore-Test on-host), **D3** (Deploy-`verify`-Job
++ Pre-Deploy-Backup-Hook serverseitig), **D4** (immutable `:sha`-Tag
++ image-basierter Rollback-Pfad).
 
-Danach (P1) T4/T5 parallel, dann (P2) T6/T7. T4/T5/T6/T7-Specs ebenfalls
-in `docs/remediation-backlog.md`.
+## Offen
+
+**Track:**
+- **T4b** (P1, mittel) — `tests/conftest.py` für die e2e-Suite auf
+  `run_migrations` statt `create_all` umstellen. Macht den Alembic-Pfad
+  in jedem CI-Lauf real exerciert (heute nur via T4a). Schemaneutral,
+  aber **alle e2e-Tests müssen weiter grün bleiben** — risikoreichster
+  Test-Layer-Change im Track.
+- **T5** (P1) — `scripts/new_domain.py` patcht das `independence`-
+  Contract-Array in `pyproject.toml` idempotent + CI-Scaffold-Smoke
+  prüft `grep -q "app.domains.<name>" pyproject.toml`. Schließt R6
+  (gescaffoldete 4. Domäne ist heute in **0** Contracts).
+- **T6** (P2) — Struktur-Assertions ins Doc-Gate
+  (`scripts/check_architecture_metrics.py` erweitern um erwartete
+  import-linter-Contract-Namen-Menge + Shim-Pfad-Inventar gegen eine
+  neue ARCHITECTURE.md-Tabelle). Macht Struktur-Prosa selbst-verifizierend.
+- **T7** (P2) — Shim-Sterbe-Gates für `models.py` /
+  `services.ai`+`linkedin_import` / `services.mcp_server`.
+
+**Ops:**
+- **D2b** — Off-Host-Backup-Automatik. Heute fehlt am Server jedes
+  Tooling (kein rclone/restic/aws/gsutil/b2) **und** ein Ziel.
+  Echte Infra-Entscheidung (zweiter Host via scp/rsync-Key, oder
+  Objekt-Storage-Bucket + Creds). Interim deckt: Pre-Deploy-Hook +
+  Timer + der manuelle Off-Host-Snapshot in lokalem `.secrets/`.
+- **D5** (optional) — Staging-Umgebung (gleiches Image, Kopie der DB)
+  für riskante Migrations-Proben ohne Prod-Risiko.
+
+**Empfohlene Reihenfolge (mein Vorschlag, nicht bindend):**
+T4b → T5 → T6 → T7; D2b parallel sobald die Ziel-Infra entschieden ist.
 
 ## Harte Constraints (gelten immer, nicht verletzen)
 
@@ -72,18 +92,38 @@ in `docs/remediation-backlog.md`.
   `python3 scripts/check_architecture_metrics.py` (Doc-Gate) und
   `python3 scripts/outcome_probe.py --lint`. Beide müssen grün bleiben.
 - **Doc-Gate-Disziplin:** jede `.py`-Änderung **außerhalb `scripts/`**
-  (scripts/ ist LOC-excluded) verschiebt Kennzahlen → ARCHITECTURE.md im
-  **selben Change** synchronisieren, sonst CI rot. Zahlen via Doc-Gate
-  prüfen.
-- **`services/invoicing/` ist move-not-rewrite** (Compliance, 90 %-Netz).
-  Nur additive Änderungen, nie umschreiben.
-- **Outcome-Probe-Integrität:** `docs/outcome-probe/*.expected` sind
-  versiegelt — **niemals nach einem Lauf editieren**; ein Mismatch ist ein
-  Befund, kein Anlass zur Korrektur der Vorhersage.
+  verschiebt Kennzahlen → ARCHITECTURE.md im **selben Change** syncen,
+  sonst CI rot.
+- **`services/invoicing/` ist move-not-rewrite** (Compliance, 90 %-Netz)
+  — nur additive Änderungen, nie umschreiben.
+- **`docs/outcome-probe/*.expected` sind versiegelt** — niemals nach
+  einem Lauf editieren; ein Mismatch ist ein Befund, kein Korrekturlass.
+- **`.secrets/` enthält echte Lead-PII** (`leads.db.snap-…`) — niemals
+  committen. `.gitignore` schützt `.secrets/` + `*.db.snap-*`; bei
+  jedem `git add` explizite Pfade nutzen, **nie `-A`** (Lektion aus
+  PR #8).
+- **Track vs. Roadmap nicht vermischen.** `docs/scaling-roadmap.md`
+  ist historischer Record, nicht anfassen. Diese Arbeit lebt im
+  Remediation-Backlog + zugehörigen ADRs (ADR-011 für T2,
+  weitere für künftige Items).
 - Agent-Edit-Protokoll + Contract-Kantentabelle: `CLAUDE.md`. Memory
   `scaling-roadmap-progress` (+ `MEMORY.md`-Index) hat den vollen
   Verlaufsstand — zuerst lesen.
 
-Beginne damit, den Status zu verifizieren (`git status`,
-`docs/remediation-backlog.md` lesen, Doc-Gate + Probe-Lint grün prüfen),
-die Commit-Frage mit dem User zu klären, dann T2a in Angriff zu nehmen.
+## Server-Zugang
+
+`ssh adm.agentic-reach.com` (User `uli`, sudo verfügbar, **sei vorsichtig**).
+Hier liegt Prod (`/opt/services/vibe`, Container `vibe-vibe-1`, Bind-Mount
+der `leads.db`); Backups in `/opt/backups/vibe`; Backup-Skript
+`/usr/local/bin/vibe-db-backup.sh`; Deploy-Multi-Service-Skript
+`/opt/scripts/deploy.sh` (touched runway+landingpage). Read-only-Recon
+zuerst, jede Mutation mit `.bak` vorher.
+
+## Beginn
+
+Verifiziere den Status (`git status`, `git log --oneline -5`,
+`docs/remediation-backlog.md` lesen, Doc-Gate + Probe-Lint grün prüfen,
+`gh pr list --state open`), kläre mit dem User welches Item als
+nächstes (Vorschlag T4b), und arbeite es als eigenen PR ab —
+schemaneutral, byte-äquivalent wo Move, sealed bleibt sealed,
+Kennzahlen im selben Change syncen.
