@@ -165,16 +165,19 @@ Am Server `ar00` eingerichtet (additiv, reversibel):
 
 ### 4c. NOCH OFFEN — die Off-Host-Automatik (D2 Phase 2)
 
-Phase 1 liegt auf **demselben Host/Datenträger** wie die Live-DB
-(`/dev/sda1`). Ein Host-/Disk-Verlust ist damit noch nicht abgedeckt.
-Interim-Off-Host: der heute manuell gezogene, geprüfte Snapshot
-(`.secrets/leads.db.snap-…`, checksum-verifiziert). Für die *automatische*
+Phase 1 + der Pre-Deploy-Hook (D3, 2026-05-20) liegen weiterhin auf
+**demselben Host/Datenträger** wie die Live-DB (`/dev/sda1`). Ein Host-/
+Disk-Verlust ist damit immer noch nicht abgedeckt. **Update 2026-05-20:**
+die alte „bis zu 24 h zwischen Backup und Deploy"-Lücke ist
+geschlossen — `/opt/scripts/deploy.sh` ruft jetzt für `vibe` als
+**ersten** Schritt `/usr/local/bin/vibe-db-backup.sh` auf (vor `compose
+pull`); `set -e` blockt einen Deploy ohne Sicherung. Jeder Deploy ist
+also selbst-sichernd. Off-Host-Stand: periodisch manuell (der
+`sqlite3 .backup` + `scp`-Weg, checksum-verifiziert) — `.secrets/
+leads.db.snap-…` als interim Off-Host-Anker. Für die *automatische*
 Off-Host-Leg fehlt am Server jedes Tooling (kein rclone/restic/aws/
-gsutil/b2) **und** ein Ziel — das ist eine Infra-Entscheidung (zweiter
-Host via scp/rsync-Key, oder Objekt-Storage-Bucket + Creds). Bis dahin:
-periodisch manuell off-host ziehen (der genutzte
-`sqlite3 .backup` + `scp`-Weg). Optional robuster: Pre-Deploy-`.backup`
-in den `deploy.yml`-`deploy`-Job (jeder Deploy selbst-sichernd).
+gsutil/b2) **und** ein Ziel: Infra-Entscheidung (zweiter Host via
+scp/rsync-Key, oder Objekt-Storage-Bucket + Creds) — siehe D2b in §7.
 
 ---
 
@@ -197,24 +200,37 @@ Schlägt 2. fehl → sofort Rollback (§6) und Backup zurückspielen.
 
 ## 6. Rollback
 
-**Code-Rollback (Normalfall, da T2 schemaneutral):**
+**Image-basierter Rollback (schnellster Weg, seit D4 2026-05-20):** das
+alte Image steht unter unveränderlichem `:sha-<short>`-Tag in ghcr. Auf
+dem Server (Sekunden, ohne Git/Rebuild):
+
+```bash
+sudo docker pull ghcr.io/ulrichschinz/vibe:sha-<alt>
+sudo docker tag  ghcr.io/ulrichschinz/vibe:sha-<alt> \
+                 ghcr.io/ulrichschinz/vibe:latest
+cd /opt/services/vibe && sudo docker compose up -d
+```
+
+`compose up -d` recreated den Container auf das nun lokal als `:latest`
+markierte alte Image. Kein Push, kein CI-Lauf. Danach den fehlerhaften
+Commit *auch* via Git revertieren, damit `main` der Realität entspricht
+und der nächste Push nicht das gleiche Problem zurückbringt.
+
+**Code-Rollback (Fallback, ~Pipeline-Dauer):**
 
 ```bash
 git revert <merge-commit>     # auf main
 git push origin main          # baut Image neu, redeployt automatisch
 ```
 
-Dauer = ein Pipeline-Durchlauf (Build+Push+SSH-pull). Da T2 0-Diff ist,
-genügt der Code-Revert; **die DB muss NICHT angefasst werden** (kein
-Schema-Change war dabei).
+Dauer = ein Pipeline-Durchlauf (Build+Push+SSH-pull, ~75 s). Bei
+schemaneutralen Changes wie T2 reicht ein Code-Revert — die DB muss
+NICHT angefasst werden.
 
-**Daten-Rollback (nur falls je ein Schema-Change schiefgeht — nicht
-T2):** App stoppen → `leads.db` aus Backup (§4) zurückspielen → vorherigen
-Code deployen → starten. Reihenfolge: erst Code zurück, dann Daten, dann
-hoch.
-
-**Lücke:** kein immutables Image-Tag → kein „instant redeploy alt".
-Härtungs-Punkt §7.
+**Daten-Rollback (nur falls ein Schema-Change schiefgeht):** App stoppen
+→ `leads.db` aus Backup (§4) zurückspielen → vorherigen Code/Image
+deployen → starten. Reihenfolge: erst Code/Image zurück, dann Daten,
+dann hoch.
 
 ---
 
@@ -225,8 +241,8 @@ Härtungs-Punkt §7.
 | D1 | Server-Compose persistiert `leads.db` (Bind/Volume)? | Kernannahme der Datensicherheit | **✅ VERIFIZIERT 2026-05-19 (Bind-Mount, belegt)** |
 | D2 | Automatik + getesteter Restore (on-host) | War: 0 Automatik, 9-Tage-Lücke | **✅ ERLEDIGT 2026-05-19 (systemd-Timer, Restore getestet, §4b)** |
 | D2b | Off-Host-Automatik (Ziel + Tooling) | Phase 1 = selber Host/Disk; interim manueller Off-Host-Snapshot | **offen — Infra-Entscheidung (§4c)** |
-| D3 | `deploy.yml` an Doc-Gate/Probe koppeln (`needs:`) bzw. Pre-Deploy-Backup-Step | Deploy läuft sonst auch bei rotem Gate / ohne Sicherung | **offen** |
-| D4 | Immutable Image-Tags (`:sha`/`:datum`) statt nur `:latest` | Schneller Rollback ohne Rebuild | **offen, optional** |
+| D3 | `deploy.yml` an Doc-Gate/Probe koppeln + Pre-Deploy-Backup-Hook | Deploy lief sonst auch bei rotem Gate / ohne Sicherung | **✅ ERLEDIGT 2026-05-20** — PR #20 (`verify`-Job, Self-Bootstrap success first try) + serverseitiger `/opt/scripts/deploy.sh`-Hook ruft `vibe-db-backup.sh` vor `compose pull`; `set -e` blockt Deploy bei Backup-Fehler |
+| D4 | Immutable Image-Tags (`:sha`/`:datum`) statt nur `:latest` | Schneller Rollback ohne Rebuild | **✅ ERLEDIGT 2026-05-20** — PR #20: `:sha-<short>` zusätzlich zu `:latest`, Rollback-Pfad in §6 |
 | D5 | Staging/Smoke-Umgebung (gleiches Image, Kopie der DB) | Migrations real proben ohne Prod-Risiko | **offen, optional** |
 | D6 | Migrationsstrategie dokumentiert (s. §8) | Nächster Schema-Change soll nicht ad-hoc sein | **mit dieser Datei adressiert** |
 
