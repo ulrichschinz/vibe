@@ -340,6 +340,50 @@ die Pipeline-UI.
 Coverage (`.coveragerc` 90 %), geteiltes `validate_api_key()`, schlanke
 `attach_user`-Middleware, klar gekapseltes `services/invoicing/`.
 
+## Struktur-Verträge (CI-erzwungen)
+
+Die ausführbaren `import-linter`-Verträge des Repos. Diese Tabelle ist die
+*selbst-verifizierende* Gegenseite zur Prosa-Beschreibung in
+„Schichten — und wo die Schichtung bricht": der Doc-Gate
+(`scripts/check_architecture_metrics.py`, Remediation-Track T6) bricht den
+Build, sobald die Menge der `name`-Werte hier von der Menge in
+`pyproject.toml` abweicht (Drift in beide Richtungen, Wortlaut-genau). Die
+Reihenfolge spiegelt die Aktivierungs-Schritte 5 → 7 → 8 → 8 → T2b. Jede
+Zeile hat ihre Rationale-Begründung im verlinkten ADR — die `name`-Strings
+verdichten den Vertrags-Inhalt, nicht das *Warum*.
+
+| Name | Typ | Rationale |
+|------|-----|-----------|
+| `billing core (services.invoicing) must not import CRM/interfaces — Naht via the BillingOrder contract (Schritt 5, +interfaces Schritt 8)` | forbidden | [ADR-007](adr/007-billing-order-contract.md) (S8-Erweiterung: ADR-009) |
+| `MCP interface (services.mcp_server) must not directly import/construct domain models — MCP-Entdopplung (Schritt 7, +billing Schritt 8)` | forbidden | [ADR-008](adr/008-mcp-dedup-interface-edge.md) (S8-Erweiterung: ADR-009) |
+| `reusable kernel (app.core) is domain-agnostic — knows no domain/interface/contract (Schritt 8)` | forbidden | [ADR-009](adr/009-interface-split-rfc7807.md) §G |
+| `domains are independent — cross-domain only via app.contracts (Schritt 8)` | independence | [ADR-009](adr/009-interface-split-rfc7807.md) §G; Domänen-Set wird vom Scaffold gepflegt ([ADR-012](adr/012-t5-scaffold-independence-contract.md), T5) |
+| `web/REST interfaces must not directly import/construct domain models — Web/REST-Modellsperre (Remediation-Track T2b)` | forbidden | [ADR-011](adr/011-t2-web-rest-model-lock.md) |
+
+Bewusst **nicht** aktiv (mit Begründung in ADR-009 §G):
+`shared ↛ domains` (enum-keyed Labels — Enum-Relokation, eigenem Schritt
+nicht zugeordnet). Bare-`models`-Modul nicht als `forbidden`-Ziel: ein
+einzelnes `.py` ist kein gültiges `grimp`-`root_package` (ADR-007;
+transitiv über die Domain-Pakete abgedeckt).
+
+## Re-Export-Shim-Inventar (CI-erzwungen)
+
+Jede Datei mit ausschließlich Imports + optionalem `__all__` ist
+strukturell ein „trivialer Re-Export-Shim" — ein bewusst lebender
+Naht-Punkt aus dem Move-not-rewrite-Umzug, **kein** Refactoring-Rückstand.
+Der Doc-Gate (T6) zählt sie AST-präzise (Body = `Import`/`ImportFrom` ±
+`__all__`-Assign, sonst nichts), und die Tabelle ist die einzige Stelle, an
+der sie deklariert sind: AST-Fund ≠ Tabelle → CI-Rot. Damit ist auch das
+Sterbe-Inventar für Remediation-Track T7 selbst-verifizierend.
+
+| Pfad | LOC | Naht / Aufgabe |
+|------|-----|----------------|
+| `models.py` | 120 | Aggregations-Modul + Test-Shim. Re-exportiert `app.{core,domains,shared}.*`. Stirbt mit dem Test-Import-Swap (`from models import …` → `from app.… import …`); kein Prod-Importer mehr (S8 §F). |
+| `routes/leads.py` | 14 | Test-Shim. Re-exportiert `app.interfaces.web.leads.router`. Stirbt, sobald die Char-Tests `from routes import leads as leads_route` ablegen. |
+| `routes/proposals.py` | 13 | Test-Shim. Re-exportiert `app.interfaces.web.proposals.router`. Stirbt, sobald die Char-Tests `from routes import proposals as proposals_route` ablegen. |
+| `services/ai.py` | 35 | Frozen monkeypatch-Naht der S0.5-Char-Tests + `test_ai_proposal_drafts`. Re-exportiert `app.core.ai.*` + `app.domains.proposals.service.generate_proposal_drafts`. Stirbt mit dem Char-/Unit-Test-Lifecycle-Swap (S6 → T7). |
+| `services/linkedin_import.py` | 28 | Frozen monkeypatch-Naht der S0.5-Char-Tests. Re-exportiert `app.core.ai.{SYSTEM_PROMPT,LinkedInImportError,_parse_json_block,extract_lead_from_pdf}`. Stirbt mit dem Char-Test-Lifecycle-Swap. |
+
 ## Invoicing↔CRM-Naht (Vertrags-Schnitt — Schritt 5 gekappt)
 
 Seit Schritt 5 ist die Naht **explizit als Vertrag** geschnitten — der
