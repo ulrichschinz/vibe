@@ -13,10 +13,10 @@
 
 | Metrik | Wert | Beleg |
 |---|---|---|
-| Python LOC gesamt | 12.328 | `find -name '*.py'` |
+| Python LOC gesamt | 12.374 | `find -name '*.py'` |
 | davon Produktivcode | 8.769 | ohne `tests/` |
-| davon Tests | 3.559 | `tests/` |
-| Test/Prod-Verhältnis | ~41 % | Remediation-Track **T4a** (Alembic-Pfad real prüfen): `tests/test_db_migration_parity.py` vergleicht `create_all`-Schema vs. `run_migrations`-Schema strukturell (`sqlite_master` + `PRAGMA`) → fängt künftige Drift Modell ↔ Alembic-Revision (Schritt-9-Vertrag); +134 Test-LOC, Prod 0-Diff |
+| davon Tests | 3.605 | `tests/` |
+| Test/Prod-Verhältnis | ~41 % | Remediation-Track **T4b** (Alembic-Pfad in jedem CI-Lauf real exerciert): `tests/e2e/conftest.py` überschreibt das geteilte `engine`-Fixture für die e2e-Suite und baut das Schema via `app.core.db_migrate.run_migrations` statt `create_all` + Helfer. Schemaneutral per T4a; +46 Test-LOC, Prod 0-Diff. Vorgängerzeile (T4a) bleibt: `tests/test_db_migration_parity.py` vergleicht `create_all`-Schema vs. `run_migrations`-Schema strukturell (`sqlite_master` + `PRAGMA`) → fängt künftige Drift Modell ↔ Alembic-Revision (Schritt-9-Vertrag) |
 | SQLModel-Tabellen | 13 | `table=True`-Klassen in `app/**/models.py` + `app/core/{identity,ai_settings}.py` (Schritt 4 korrigiert: vorher 14 durch eine mitgezählte Kommentarzeile in `models.py`, real 13 Entitäten) |
 | HTTP-Endpoints | 72 | `@router.(get\|post\|...)` in `app/interfaces/{web,api}/` (Schritt 8: aus `routes/` dorthin verschoben) |
 | Route-Module | 7 | `app/interfaces/{web,api}/*.py` ohne `__init__.py` (register) u. `mount.py` (MCP-ASGI-Mount) |

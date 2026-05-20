@@ -142,9 +142,20 @@ Test. ARCHITECTURE.md Kennzahlen mitgezogen (Tests 3.425→3.559 / gesamt
 12.194→12.328, Prod 0-Diff). Ehrlich zur Grenze: prüft das *Schema*,
 nicht den *Daten*-Adopt-Pfad (in Prod längst gelaufen).
 
-**T4b (mittel):** mindestens die e2e-Suite durch `run_migrations` statt
-`create_all` (conftest-Fixture), damit der Alembic-Pfad von Tests überhaupt
-ausgeübt wird.
+**T4b (mittel) — ✅ umgesetzt 2026-05-20:** `tests/e2e/conftest.py`
+überschreibt das geteilte `engine`-Fixture für die e2e-Suite und baut das
+Schema via `app.core.db_migrate.run_migrations` statt `create_all` +
+`install_invoice_triggers` + `install_lead_invoice_columns`. Die e2e-Suite
+exerciert damit in jedem CI-Lauf den Alembic-Pfad — bisher lief er nur via
+T4a (`tests/test_db_migration_parity.py`) und in Prod. Schemaneutral per
+T4a-Befund (byte-äquivalent modulo `alembic_version`/
+`alembic_version_billing`); andere Test-Layer (unit/integration/
+characterization) bleiben am alten Fixture, das die 132 Char-Tests +
+90 %-Invoicing pinnt. ARCHITECTURE.md Kennzahlen mitgezogen (+46 Test-LOC).
+Ehrlich zur Grenze: deckt den *Schema*-Aufbau-Pfad ab; der Alembic-
+Online-Daten-Adopt (`upgrade head` gegen bestehende DB) ist nicht durch
+diese Fixture neu abgedeckt — er läuft bereits in Prod (`docs/
+deploy-runbook.md` §2) und idempotent per Konstruktion.
 
 ### T5 — Scaffold patcht den Independence-Contract — **P1** — schließt R6
 
