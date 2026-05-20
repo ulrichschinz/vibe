@@ -157,7 +157,7 @@ Online-Daten-Adopt (`upgrade head` gegen bestehende DB) ist nicht durch
 diese Fixture neu abgedeckt — er läuft bereits in Prod (`docs/
 deploy-runbook.md` §2) und idempotent per Konstruktion.
 
-### T5 — Scaffold patcht den Independence-Contract — **P1** — schließt R6
+### T5 — Scaffold patcht den Independence-Contract — **P1** — schließt R6 — ✅ umgesetzt 2026-05-20
 
 `scripts/new_domain.py` trägt die neue Domäne idempotent ins
 `independence`-`modules`-Array in `pyproject.toml` ein; CI-Scaffold-Smoke
@@ -165,6 +165,21 @@ deploy-runbook.md` §2) und idempotent per Konstruktion.
 skaliert Cross-Domain-Enforcement mit den Domänen statt an einem manuellen
 zentralen Eingriff zu hängen. (Befund: gescaffoldete 4. Domäne ist in **0**
 Contracts.)
+
+**Umsetzung:** chirurgischer 1-Zeilen-Insert in
+`pyproject.toml` (stdlib-only, kein TOML-Roundtrip — pyproject führt
+mehrzeilige `#`-Rationale und Layout, das ein Roundtrip-Serializer verliert).
+Idempotent: zweiter Lauf ist No-op (`return False`). Block-Lokalisierung
+über State-Machine (`[[tool.importlinter.contracts]]` → `type =
+"independence"` → `modules = [` → schließendes `]`). CI-Cleanup (`test.yml`)
+revertiert nun `git checkout -- app pyproject.toml` (vorher nur `app`).
+Verifikation lokal: scaffold + `--force`-zweitlauf erzeugen je **denselben**
+1-Zeilen-Diff (`app.domains.scaffoldsmoke` einmal eingefügt, zweiter Lauf
+kein zusätzlicher Diff); Cleanup-Pfad reproduziert. Rationale:
+`docs/adr/012-t5-scaffold-independence-contract.md`. **Ehrlich zur Grenze:**
+das Gate erzwingt nur die *Existenz* des Domänen-Eintrags (`grep`); ob die
+Domäne tatsächlich keine andere importiert, prüft der nachgelagerte
+`make … contracts`-Lauf — der CI-Smoke führt beide aus.
 
 ### T6 — Struktur-Assertions ins Doc-Gate — **P2** — schließt R5
 

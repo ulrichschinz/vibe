@@ -49,3 +49,21 @@ Damit ist die im Audit als *komplett übersprungen* befundene
 Wirksamkeits-Verifikation **etabliert und zu ~2/5 empirisch validiert**,
 nicht mehr nur behauptet — die volle 3/3×5-Schwelle bleibt als laufende,
 jetzt *überprüfbare* Disziplin (Harness + Gate existieren).
+
+## Hinweis 2026-05-20 — T5 verändert das `new-domain`-Outcome bewusst
+
+**`new-domain.expected` bleibt versiegelt** (Sealed-Datum 2026-05-19,
+8 Dateien, `pyproject.toml` annotiert „NICHT im Set — R6"). Nach
+Remediation-Track **T5** patcht `scripts/new_domain.py` jetzt das
+`independence`-`modules`-Array in `pyproject.toml` idempotent (Befund R6
+geschlossen). Folge: ein künftiger empirischer `new-domain`-Lauf wird
+**9 Dateien** zeigen — `pyproject.toml` zusätzlich. Das ist **kein
+Messfehler und kein Korrekturlass** der Seal, sondern *exakt die
+Quantifizierung* von T5: die `.expected`-Annotation hatte das Loch
+ausgewiesen, der Diff ist nun das Maß, dass das Loch geschlossen ist.
+
+**Disziplin-Konsequenz:** beim nächsten N=3-Lauf von `new-domain` wird
+die Probe einen *erwarteten* Mismatch zeigen. RESULTS-Eintrag dann:
+„9 vs 8 — T5-Delta, dokumentiert, nicht reseal." Sealed bleibt sealed;
+der Audit-Trail (R6 → T5) ist über die ungeänderte Seal-Annotation +
+diesen Eintrag eindeutig rekonstruierbar.

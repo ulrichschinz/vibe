@@ -83,10 +83,19 @@ jobs:
       - name: Scaffold smoke (new-domain → lint+format+types+contracts+test, zero edits)
         run: |
           python scripts/new_domain.py scaffoldsmoke
+          # Remediation-Track T5: the scaffold patches the independence
+          # contract in pyproject.toml so the new domain is enforced from
+          # commit 1, not in 0 contracts (closes audit R6). Assert here that
+          # the patch actually landed — the downstream `make … contracts`
+          # would also fail if the rule were absent, but a direct grep is
+          # the proper deliverable-level gate.
+          grep -q '"app.domains.scaffoldsmoke"' pyproject.toml
           make PY=python lint format-check typecheck contracts
           python -m pytest tests/test_scaffoldsmoke.py -q
           rm -rf app/domains/scaffoldsmoke tests/test_scaffoldsmoke.py scaffold.db
-          git checkout -- app 2>/dev/null || true
+          # Revert the scaffold's tracked-file edits (T5: pyproject.toml's
+          # independence-modules array is patched alongside app/).
+          git checkout -- app pyproject.toml 2>/dev/null || true
 
       - name: Run contract tests (KoSIT + PDF/A-3)
         run: make PY=python test-contract

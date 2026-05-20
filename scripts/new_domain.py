@@ -36,6 +36,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 APP = REPO / "app"
+PYPROJECT = REPO / "pyproject.toml"
 
 _NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
@@ -60,6 +61,75 @@ def _ensure(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
     print(f"  seeded {path.relative_to(REPO)}")
+
+
+# --- Remediation-Track T5: scaffold patches the independence contract ---------
+# R6 of the adversarial audit: a scaffolded 4th domain landed in **0**
+# import-linter contracts — Cross-Domain-Enforcement did not scale with the
+# domain set. The fix lives here (scaffold = the one-command anti-"random
+# files" step), not as a manual post-step on each new domain. Idempotent:
+# re-scaffolding (`--force`) or running the patch twice is a no-op.
+#
+# Implementation note: stdlib-only (no tomli_w / tomlkit) — pyproject.toml
+# carries multi-line `#`-rationale comments and a specific layout that a
+# round-trip serializer would lose. We surgically insert a single line into
+# the `modules = [ ... ]` array of the `type = "independence"` contract,
+# preserving every other byte. Rationale: `docs/adr/012-t5-scaffold-
+# independence-contract.md`.
+
+
+def _patch_independence_contract(name: str) -> bool:
+    """Insert ``"app.domains.<name>",`` into the independence-contract modules
+    array of ``pyproject.toml``. No-op when the entry is already present or the
+    target block is absent (e.g. on a stripped-down clone). Returns ``True`` if
+    the file was modified.
+    """
+    if not PYPROJECT.exists():
+        return False
+
+    target = f'"app.domains.{name}"'
+    lines = PYPROJECT.read_text(encoding="utf-8").splitlines(keepends=True)
+
+    # State machine: locate the `[[tool.importlinter.contracts]]` block whose
+    # `type = "independence"` line precedes a `modules = [`, then find the
+    # closing `]` of that array. Insert before the `]`, matching the existing
+    # 4-space indent + trailing comma style.
+    in_contract = False
+    is_independence = False
+    in_modules = False
+
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped == "[[tool.importlinter.contracts]]":
+            in_contract = True
+            is_independence = False
+            in_modules = False
+            continue
+        if not in_contract:
+            continue
+        if stripped.startswith("[[") or stripped.startswith("["):
+            # Next TOML block started without hitting the array — give up on
+            # this contract; the outer loop resets state on the next header.
+            in_contract = stripped == "[[tool.importlinter.contracts]]"
+            is_independence = False
+            in_modules = False
+            continue
+        if stripped == 'type = "independence"':
+            is_independence = True
+            continue
+        if is_independence and stripped.startswith("modules"):
+            in_modules = True
+            continue
+        if in_modules:
+            if target in line:
+                return False  # already present — idempotent no-op
+            if stripped == "]":
+                lines.insert(idx, f'    {target},\n')
+                PYPROJECT.write_text("".join(lines), encoding="utf-8")
+                print(f"  patched pyproject.toml (independence += {target})")
+                return True
+
+    return False
 
 
 # --- generated-file templates -------------------------------------------------
@@ -311,6 +381,10 @@ def main(argv: list[str] | None = None) -> int:
     _write(domain_dir / "repository.py", _repository(name, cls), force=args.force)
     _write(domain_dir / "router.py", _router(name, cls, args.kind), force=args.force)
     _write(REPO / "tests" / f"test_{name}.py", _test(name, cls), force=args.force)
+
+    # Remediation-Track T5: keep the independence contract in lock-step with
+    # the domain set (no manual post-step on each new domain).
+    _patch_independence_contract(name)
 
     print(
         "done. Edit order: models -> schemas -> service -> router -> test. "
