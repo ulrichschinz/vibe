@@ -181,13 +181,14 @@ The local `docker-compose.yml` uses Caddy as reverse proxy (dev/standalone). The
 > Merge in `app/domains/proposals/service.py`, der Anthropic-Adapter +
 > Prompt-Registry + `===MARKER===`/`<json>`-Parser **verbatim** in
 > `app/core/ai.py` (kein Robustheits-Fix — Struktur-Schuld 6).
-> `services/linkedin_import.py` ist Re-Export-Shim = die frozen
-> monkeypatch-Naht der Schritt-0.5-Char-Tests (stirbt mit ihnen in T7-C).
-> `services/ai.py` war analog gelagert, ist seit **T7-B (ADR-015)** physisch
-> tot — die drei Test-Importer (`tests/unit/test_ai_proposal_drafts.py` +
-> `tests/{characterization,integration}/`) patchen jetzt direkt das
-> `app.core.ai`-Modul-Objekt; `app/domains/proposals/service.py` resolved
-> den Adapter via lazy `from app.core import ai as _seam`. `routes/{leads,proposals,ai}.py` rufen
+> Beide AI-Adapter-Shims sind tot: `services/ai.py` seit **T7-B (ADR-015)**,
+> `services/linkedin_import.py` seit **T7-C (ADR-016)**. Tests patchen jetzt
+> direkt das `app.core.ai`-Modul-Objekt — die fünf Importer
+> (`tests/unit/test_ai_proposal_drafts.py` +
+> `tests/{characterization,integration}/`) wurden mechanisch retargetet;
+> `app/domains/{proposals,leads}/service.py` resolven
+> den Adapter via lazy `from app.core import ai as _seam` (bzw. `_li`).
+> `routes/{leads,proposals,ai}.py` rufen
 > nur noch den Service; 140 Char-Tests 0-Diff. **Schritt 7 ist
 > gelandet:** die MCP-Entdopplung — die Lead/Note/Proposal-Tools in
 > `services/mcp_server.py` sind dünn und delegieren an
@@ -230,9 +231,9 @@ The local `docker-compose.yml` uses Caddy as reverse proxy (dev/standalone). The
 > ist seit Remediation-Track T2 aktiv** (ADR-011 — Read-/Konstruktions-
 > Fläche hinter die Domänen-`*.service`; `shared ↛ domains` bleibt
 > deferred).
-> `services/mcp_server.py` + `services/linkedin_import.py`-Shim bleiben
-> (frozen Seams, ADR-008/009 §B/§E; `services/ai.py` ist seit T7-B/ADR-015
-> tot). Rationale
+> `services/mcp_server.py` bleibt (frozen `m.engine`-Seam, ADR-008/009 §B/§E
+> — T7-D-Move-Endpunkt); `services/ai.py` ist seit T7-B/ADR-015 tot,
+> `services/linkedin_import.py` seit T7-C/ADR-016. Rationale
 > `docs/adr/009-interface-split-rfc7807.md`. **Schritt 9 ist gelandet:**
 > Alembic — zwei **getrennt versionierte** Bäume (`migrations/crm` →
 > `alembic_version`, `migrations/billing` → `alembic_version_billing`) auf

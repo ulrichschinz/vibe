@@ -119,12 +119,12 @@ def linkedin_preview(
 ) -> Lead:
     """Extract a LinkedIn PDF and build an *unpersisted* preview ``Lead``.
 
-    Raises ``LinkedInImportError`` (via the legacy shim) on extraction
+    Raises ``LinkedInImportError`` (from ``app.core.ai``) on extraction
     failure — the route maps that to a redirect. Nothing is written here.
     """
-    # Resolve through the legacy shim so the frozen monkeypatch seam
-    # (services.linkedin_import.extract_lead_from_pdf) keeps intercepting.
-    from services import linkedin_import as _li
+    # Lazy-resolve the AI adapter at call time so the frozen monkeypatch
+    # seam (app.core.ai.extract_lead_from_pdf) keeps intercepting.
+    from app.core import ai as _li
 
     data = _li.extract_lead_from_pdf(pdf_bytes, why_good, settings)
 
