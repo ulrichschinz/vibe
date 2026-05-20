@@ -9,7 +9,29 @@ env:
   SERVICE_NAME: vibe
 
 jobs:
+  # D3 — Pre-deploy gate. Mirrors the always-on stdlib checks
+  # (doc-metrics.yml + outcome-probe.yml) inline so the deploy is actually
+  # blocked when they would be red on `main`. Cross-workflow `needs:` isn't
+  # supported in GitHub Actions → the gate is inlined here. `test.yml` is
+  # deliberately NOT part of this gate (it doesn't run on main-push by repo
+  # convention — the PR is the test gate, by design). Both scripts below
+  # are pure stdlib (no app deps, ~5 s each); they fail-fast on any drift.
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Doc-Gate (ARCHITECTURE.md ↔ code)
+        run: python3 scripts/check_architecture_metrics.py
+      - name: Outcome-probe sealed predictions well-formed
+        run: python3 scripts/outcome_probe.py --lint
+
   build-and-push:
+    needs: verify
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -26,12 +48,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # D3 — also tag with an immutable `:sha-<short>` for fast image-based
+      # rollback (server can `docker pull <repo>:sha-<old>` + temporarily
+      # point the compose `image:` at that tag, without a Git revert +
+      # rebuild cycle). `:latest` is kept so the existing forced-command
+      # `compose pull` continues to pick up the newest image transparently.
+      - name: Compute short SHA
+        id: sha
+        run: echo "short=$(echo "${{ github.sha }}" | cut -c1-7)" >> "$GITHUB_OUTPUT"
+
       - name: Build and push image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: ${{ env.REGISTRY }}/${{ github.repository }}:latest
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository }}:latest
+            ${{ env.REGISTRY }}/${{ github.repository }}:sha-${{ steps.sha.outputs.short }}
 
   deploy:
     needs: build-and-push
@@ -45,6 +78,15 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: echo "deploy triggered"
-          # Note: the server uses a forced command — the script above is ignored.
-          # Connecting with the deploy key automatically triggers:
-          # cd /opt/services/vibe && docker compose pull && docker compose up -d --remove-orphans
+          # Note: the server uses a forced command — the script above is
+          # ignored. Connecting with the deploy key automatically triggers:
+          #   cd /opt/services/vibe && docker compose pull \
+          #     && docker compose up -d --remove-orphans
+          #
+          # D3 follow-up (server-side, NOT this workflow): prepend
+          # `sudo /usr/local/bin/vibe-db-backup.sh` to the forced command
+          # so every deploy is self-backing-up. Tracked separately because
+          # it is a server SSH `authorized_keys` `command="…"` edit, not
+          # a workflow change. Until then the daily 02:30 UTC timer plus a
+          # manual pre-merge snapshot (docs/deploy-runbook.md §4a) carry
+          # the backup obligation.
