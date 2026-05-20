@@ -29,6 +29,7 @@ bereits passiert, in Doku & Memory nachlesbar):
 Aktuelle main-Reihenfolge (oben = neuester Stand):
 
 ```
+43caa2a  ops:  T5 — scaffold patcht Independence-Contract (schließt R6) (#27)
 56204f7  test: T4b — e2e-Suite via run_migrations (Alembic-Pfad real) (#24)
 f5fa552  test: T4a — Alembic-Baseline-Schema vs. create_all empirisch geprüft (#22)
 f2a0a3c  docs: D3/D4 erledigt; Pre-Deploy-Backup-Hook; brand-Mount-Drift (#21)
@@ -52,7 +53,11 @@ Erledigte Track-Items: **T1** (Outcome-Probe etabliert + 2/5 validiert),
 geprüft — `run_migrations` wird in CI ausgeführt, Schema-Drift bricht
 den Test), **T4b** (e2e-Suite baut Schema jetzt via `run_migrations`
 statt `create_all` — `tests/e2e/conftest.py` überschreibt das geteilte
-`engine`-Fixture, schemaneutral per T4a, andere Test-Layer unverändert).
+`engine`-Fixture, schemaneutral per T4a, andere Test-Layer unverändert),
+**T5** (Scaffold patcht `independence`-`modules`-Array in `pyproject.toml`
+idempotent; CI-Scaffold-Smoke greppt es; chirurgischer 1-Zeilen-Insert
+stdlib-only — R6 strukturell zu; `new-domain.expected` bleibt versiegelt,
+künftiger Lauf zeigt 9/8 als T5-Messung, kein Korrekturlass; ADR-012).
 Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
 (Backup-Automatik + Restore-Test on-host), **D3** (Deploy-`verify`-Job
 + Pre-Deploy-Backup-Hook serverseitig), **D4** (immutable `:sha`-Tag
@@ -61,15 +66,12 @@ Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
 ## Offen
 
 **Track:**
-- **T5** (P1) — `scripts/new_domain.py` patcht das `independence`-
-  Contract-Array in `pyproject.toml` idempotent + CI-Scaffold-Smoke
-  prüft `grep -q "app.domains.<name>" pyproject.toml`. Schließt R6
-  (gescaffoldete 4. Domäne ist heute in **0** Contracts). Klein und
-  isoliert — guter nächster Schritt.
 - **T6** (P2) — Struktur-Assertions ins Doc-Gate
   (`scripts/check_architecture_metrics.py` erweitern um erwartete
   import-linter-Contract-Namen-Menge + Shim-Pfad-Inventar gegen eine
   neue ARCHITECTURE.md-Tabelle). Macht Struktur-Prosa selbst-verifizierend.
+  Vorschlag als nächster Schritt: kleiner Hebel, kein App-Deps-Risiko,
+  stdlib-only erweiterbar.
 - **T7** (P2) — Shim-Sterbe-Gates für `models.py` /
   `services.ai`+`linkedin_import` / `services.mcp_server`. Mehrere PRs,
   nicht eines.
@@ -84,13 +86,13 @@ Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
   für riskante Migrations-Proben ohne Prod-Risiko.
 
 **Empfohlene Reihenfolge (mein Vorschlag, nicht bindend):**
-T5 → T6 → T7; D2b parallel sobald die Ziel-Infra entschieden ist.
+T6 → T7; D2b parallel sobald die Ziel-Infra entschieden ist.
 
 ## Stehendes Mandat (Track-PRs eigenständig mergen)
 
 Du darfst Track-PRs **nach grüner CI selbst squash-mergen** und das
-Branch löschen — analog zur Session vom 2026-05-20 (T4b PR #24 +
-NEXT-SESSION-PROMPT-Folge PR #25). Begründung: jede Track-PR-Iteration
+Branch löschen — analog zu Sessions vom 2026-05-20 (T4b PR #24 +
+NEXT-SESSION-PROMPT-Folge PR #25; T5 PR #27 + Folge-Doku). Begründung: jede Track-PR-Iteration
 ist klein, byte-äquivalent geprüft (`make verify` inkl. Char-Tests +
 90 %-Invoicing-Suite + import-linter + Doc-Gate + Probe-Lint), und der
 Deploy-Pfad ist self-perpetuating gesichert (D3 Pre-Deploy-`verify`-Job
@@ -158,6 +160,6 @@ zuerst, jede Mutation mit `.bak` vorher.
 Verifiziere den Status (`git status`, `git log --oneline -5`,
 `docs/remediation-backlog.md` lesen, Doc-Gate + Probe-Lint grün prüfen,
 `gh pr list --state open`), kläre mit dem User welches Item als
-nächstes (Vorschlag T5), und arbeite es als eigenen PR ab —
+nächstes (Vorschlag T6), und arbeite es als eigenen PR ab —
 schemaneutral, byte-äquivalent wo Move, sealed bleibt sealed,
 Kennzahlen im selben Change syncen.
