@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from models import InvoiceStatus
+from app.domains.billing.models import InvoiceStatus
 from services.invoicing.state_machine import (
     InvoiceStateError,
     assert_can_transition,

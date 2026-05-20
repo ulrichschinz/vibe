@@ -176,13 +176,12 @@ def install_lead_invoice_columns(target_engine):
 def create_db():
     # Move-Vertrag (Schritt 4): the table definitions live in
     # app/domains/*/models.py + app/core/{identity,ai_settings}.py.
-    # `models.py` stays the single deterministic table-metadata aggregation
-    # module (its Move-Vertrag role); this registry-bootstrap import is the
-    # only documented `models` reach left. `database` is a top-level module
-    # (not an import-linter root_package), so this is invisible to the
-    # contracts; the Schritt-8 models-shim-death is prod *name-re-export*
-    # scoped — no `services`/`routes`/`app` module imports it (ADR-009 §F).
-    import models  # noqa: F401
+    # T7-A (ADR-014): the aggregation role moved out of the dead
+    # top-level `models.py` shim into an explicit, functional bootstrap
+    # — one call, one place that knows the 5-module table set.
+    from db_tables import register_tables
+
+    register_tables()
 
     # Schritt 9 (Alembic): schema is now established by two independently
     # versioned Alembic trees (CRM + Billing, separate version tables) whose

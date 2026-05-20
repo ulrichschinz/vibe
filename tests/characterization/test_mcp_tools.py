@@ -15,15 +15,9 @@ from __future__ import annotations
 import pytest
 from sqlmodel import Session
 
-from models import (
-    Invoice,
-    InvoiceStatus,
-    Lead,
-    LeadSource,
-    LeadStage,
-    Proposal,
-    ProposalStatus,
-)
+from app.domains.billing.models import Invoice, InvoiceStatus
+from app.domains.leads.models import Lead, LeadSource, LeadStage
+from app.domains.proposals.models import Proposal, ProposalStatus
 from services.proposals import create_proposal as create_proposal_svc
 from tests.characterization.conftest import call_tool
 from tests.fixtures.factories import make_issuer, make_lead_de_b2b

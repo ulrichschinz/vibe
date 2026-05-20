@@ -23,9 +23,11 @@ if str(ROOT) not in sys.path:
 import pytest
 from sqlmodel import Session, SQLModel
 
-import models  # noqa: F401  registers tables on the metadata
-import database  # noqa: F401
-import services.invoicing.immutability  # noqa: F401  registers SA event listeners
+from db_tables import register_tables
+
+register_tables()  # populate SQLModel.metadata before per-test create_all
+import database  # noqa: F401,E402
+import services.invoicing.immutability  # noqa: F401,E402  registers SA event listeners
 
 
 @pytest.fixture

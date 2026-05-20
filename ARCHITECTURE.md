@@ -13,11 +13,11 @@
 
 | Metrik | Wert | Beleg |
 |---|---|---|
-| Python LOC gesamt | 12.374 | `find -name '*.py'` |
-| davon Produktivcode | 8.769 | ohne `tests/` |
-| davon Tests | 3.605 | `tests/` |
-| Test/Prod-Verhältnis | ~41 % | Remediation-Track **T4b** (Alembic-Pfad in jedem CI-Lauf real exerciert): `tests/e2e/conftest.py` überschreibt das geteilte `engine`-Fixture für die e2e-Suite und baut das Schema via `app.core.db_migrate.run_migrations` statt `create_all` + Helfer. Schemaneutral per T4a; +46 Test-LOC, Prod 0-Diff. Vorgängerzeile (T4a) bleibt: `tests/test_db_migration_parity.py` vergleicht `create_all`-Schema vs. `run_migrations`-Schema strukturell (`sqlite_master` + `PRAGMA`) → fängt künftige Drift Modell ↔ Alembic-Revision (Schritt-9-Vertrag) |
-| SQLModel-Tabellen | 13 | `table=True`-Klassen in `app/**/models.py` + `app/core/{identity,ai_settings}.py` (Schritt 4 korrigiert: vorher 14 durch eine mitgezählte Kommentarzeile in `models.py`, real 13 Entitäten) |
+| Python LOC gesamt | 12.297 | `find -name '*.py'` |
+| davon Produktivcode | 8.700 | ohne `tests/` |
+| davon Tests | 3.597 | `tests/` |
+| Test/Prod-Verhältnis | ~41 % | Remediation-Track **T7-A** (`models.py`-Shim physisch tot, Aggregations-Rolle in `db_tables.register_tables()` umgezogen — top-level, weil `core ↛ domains` aktiv ist — ADR-014): Prod −85 LOC (`models.py` −118 gelöscht, neues `db_tables.py` +33), Tests −8 LOC (`from models import …` → direkte `app.{core,domains,shared}.*`-Importer in 17 Dateien, `test_models_split.py` auf den neuen Bootstrap-Vertrag umgeschrieben). Vorgängerzeile **T4b** bleibt sachlich gültig: `tests/e2e/conftest.py` überschreibt das geteilte `engine`-Fixture für die e2e-Suite und baut das Schema via `app.core.db_migrate.run_migrations` statt `create_all` + Helfer (Alembic-Pfad in jedem CI-Lauf real exerciert; schemaneutral per T4a). Vorgängerzeile **T4a** bleibt: `tests/test_db_migration_parity.py` vergleicht `create_all`-Schema vs. `run_migrations`-Schema strukturell (`sqlite_master` + `PRAGMA`) → fängt künftige Drift Modell ↔ Alembic-Revision (Schritt-9-Vertrag) |
+| SQLModel-Tabellen | 13 | `table=True`-Klassen in `app/**/models.py` + `app/core/{identity,ai_settings}.py`; Registry-Bootstrap (T7-A): `db_tables.register_tables()` (top-level — `core ↛ domains` zwingt es aus `app.core` raus) importiert sie deterministisch (kernel → leads → proposals → billing). Schritt 4 korrigiert: vorher 14 durch eine mitgezählte Kommentarzeile in `models.py`, real 13 Entitäten |
 | HTTP-Endpoints | 72 | `@router.(get\|post\|...)` in `app/interfaces/{web,api}/` (Schritt 8: aus `routes/` dorthin verschoben) |
 | Route-Module | 7 | `app/interfaces/{web,api}/*.py` ohne `__init__.py` (register) u. `mount.py` (MCP-ASGI-Mount) |
 | MCP-Tools | 16 | `@mcp.tool` in `services/mcp_server.py` (physisch dort — frozen `m.engine`-Seam, ADR-009 §B) |
@@ -55,6 +55,13 @@ vibe/
 │                                    (`app.core.db_migrate.run_migrations`)
 │                                    statt implizitem `create_all`; Trigger-/
 │                                    Lead-Spalten-DDL als geteilte Helfer
+├── db_tables.py                 25  T7-A (ADR-014): `register_tables()`
+│                                    — expliziter Tabellen-Metadaten-
+│                                    Bootstrap (Nachfolger der toten
+│                                    `models.py`-Aggregations-Rolle).
+│                                    Top-level (außerhalb import-linter-
+│                                    `root_packages`), weil `core ↛
+│                                    domains` aktiv ist.
 ├── alembic.ini                  ~40 Schritt 9: CLI-Config der zwei Bäume
 │                                    (`-n crm` / `-n billing`); In-Prozess
 │                                    läuft programmatisch (nicht aus dieser)
@@ -66,11 +73,6 @@ vibe/
 │                                    = altes create_all-Schema (delegiert,
 │                                    byte-gleich). Nicht in import-linter-
 │                                    /mypy-/ruff-Scope (nur Doc-Gate-LOC)
-├── models.py                   118  Schritt 4: Tabellen-Aggregations-Modul
-│                                    (`create_all` hängt daran) + seit
-│                                    Schritt 8 NUR noch test-zugewandter
-│                                    Re-Export-Shim (kein Prod-Namens-
-│                                    Konsument mehr — ADR-009 §F)
 ├── routes/                      ~30  Schritt 8: nur noch test-zugewandte
 │   ├── __init__.py               0   Re-Export-Shims (frozen Char-/
 │   ├── leads.py                 ~13  Integration-Tests importieren
@@ -179,7 +181,9 @@ vibe/
         │   (eine Logik, drei Clients — Schritt 6/7/8)
         ▼
    app/domains/*/models  +  app/core/{identity,ai_settings}
-        │  (models.py = nur noch test-Shim + Aggregator)
+        │  (Tabellen-Aggregation = `db_tables.register_tables()` —
+        │   top-level, weil `core ↛ domains` aktiv ist;
+        │   `models.py`-Shim ist seit T7-A physisch tot — ADR-014)
         ▼
    SQLite (WAL, BEGIN IMMEDIATE — single-writer)
    Schema: 2 Alembic-Bäume (CRM/Billing, getrennte version_table) — S9
@@ -225,7 +229,7 @@ AiSettings      (Singleton: Provider/Key/Modell)
 IssuerProfile   (Rechnungssteller-Stammdaten)
 
 Lead 1──* Note
-Lead 1──* Proposal ──* (ProposalLineItem; in models.py)
+Lead 1──* Proposal ──* (ProposalLineItem; in app/domains/proposals/models.py)
 Lead 1──* PlanningMessage          (Claude-Chat-Verlauf)
 Lead.tags / Lead.agent_metadata    = JSON-String in SQLite (json.dumps/loads)
 
@@ -235,8 +239,8 @@ ViesAuditEntry                     USt-IdNr.-Prüf-Audit
 IntegrityCheckRun                  Unveränderlichkeits-Nachweis
 ```
 `LeadStage`-Reihenfolge: `STAGE_ORDER` (seit Schritt 4 in
-`app/domains/leads/models.py`, via `models.py`-Shim re-exportiert) treibt
-die Pipeline-UI.
+`app/domains/leads/models.py` — direkter Import seit T7-A, kein
+Shim-Umweg mehr) treibt die Pipeline-UI.
 
 ## Cross-cutting
 
@@ -292,13 +296,14 @@ die Pipeline-UI.
    Schemas~~ → **Schritt 4 gelandet**: nach
    `app/domains/{leads,proposals,billing}/models.py` +
    `app/core/{identity,ai_settings}.py` + `app/shared/labels.py`
-   gesplittet; `models.py` ist nur noch Re-Export-Shim +
-   Tabellen-Aggregations-Modul. Offen: der Shim lebt noch (Aufrufer
-   wandern Schritte 6–8; Shim-Sterbe-Gate erst im PR des letzten
-   Aufrufers). Schritt 6 hat zusätzlich die *AI-Adapter*-Shims
-   `services/ai.py`/`services/linkedin_import.py` erzeugt (Re-Export auf
-   `app/core/ai.py`; sie sind die frozen monkeypatch-Naht der Schritt-0.5-
-   Char-Tests und sterben mit ihnen in Schritt 7).
+   gesplittet. **T7-A (ADR-014) gelandet**: der Re-Export-Shim ist
+   physisch gelöscht; die Tabellen-Aggregations-Rolle lebt jetzt als
+   expliziter `db_tables.register_tables()`-Aufruf (top-level —
+   `core ↛ domains` zwingt es aus `app.core` raus; drei Aufrufer:
+   `database.create_db`, `tests/conftest.py`, `tests/e2e/conftest.py`). Schritt 6 hat zusätzlich die *AI-Adapter*-
+   Shims `services/ai.py`/`services/linkedin_import.py` erzeugt
+   (Re-Export auf `app/core/ai.py`; sie sind die frozen monkeypatch-Naht
+   der Schritt-0.5-Char-Tests und sterben mit ihnen in T7-B/C).
 2. Dicke Route-Module: `leads.py` 539→481, `proposals.py` 212→187,
    `ai.py` 282→193 — **Schritt 6** zog Dashboard-Aggregation, LinkedIn-
    Orchestrierung, AI-Draft-Merge und Planning-Historie/Prompt-Builder in
@@ -362,9 +367,9 @@ verdichten den Vertrags-Inhalt, nicht das *Warum*.
 
 Bewusst **nicht** aktiv (mit Begründung in ADR-009 §G):
 `shared ↛ domains` (enum-keyed Labels — Enum-Relokation, eigenem Schritt
-nicht zugeordnet). Bare-`models`-Modul nicht als `forbidden`-Ziel: ein
-einzelnes `.py` ist kein gültiges `grimp`-`root_package` (ADR-007;
-transitiv über die Domain-Pakete abgedeckt).
+nicht zugeordnet). Das frühere Bare-`models`-Modul ist seit T7-A
+(ADR-014) physisch tot — die Datei-Löschung ist das Gate, kein
+`forbidden`-Ziel nötig.
 
 ## Re-Export-Shim-Inventar (CI-erzwungen)
 
@@ -378,7 +383,6 @@ Sterbe-Inventar für Remediation-Track T7 selbst-verifizierend.
 
 | Pfad | LOC | Naht / Aufgabe |
 |------|-----|----------------|
-| `models.py` | 120 | Aggregations-Modul + Test-Shim. Re-exportiert `app.{core,domains,shared}.*`. Stirbt mit dem Test-Import-Swap (`from models import …` → `from app.… import …`); kein Prod-Importer mehr (S8 §F). |
 | `routes/leads.py` | 14 | Test-Shim. Re-exportiert `app.interfaces.web.leads.router`. Stirbt, sobald die Char-Tests `from routes import leads as leads_route` ablegen. |
 | `routes/proposals.py` | 13 | Test-Shim. Re-exportiert `app.interfaces.web.proposals.router`. Stirbt, sobald die Char-Tests `from routes import proposals as proposals_route` ablegen. |
 | `services/ai.py` | 35 | Frozen monkeypatch-Naht der S0.5-Char-Tests + `test_ai_proposal_drafts`. Re-exportiert `app.core.ai.*` + `app.domains.proposals.service.generate_proposal_drafts`. Stirbt mit dem Char-/Unit-Test-Lifecycle-Swap (S6 → T7). |

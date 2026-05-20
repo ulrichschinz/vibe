@@ -7,7 +7,7 @@ from decimal import Decimal
 import pytest
 from sqlmodel import Session, select
 
-from models import Invoice, InvoiceKind, InvoiceStatus
+from app.domains.billing.models import Invoice, InvoiceKind, InvoiceStatus
 from services.invoicing.finalize import (
     FinalizeError,
     FinalizeOptions,

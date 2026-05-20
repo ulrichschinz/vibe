@@ -10,7 +10,9 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
-from models import AiSettings, Lead, LeadStage, Proposal
+from app.core.ai_settings import AiSettings
+from app.domains.leads.models import Lead, LeadStage
+from app.domains.proposals.models import Proposal
 from routes import leads as leads_route
 from routes import proposals as proposals_route
 from tests.characterization.conftest import build_minimal_app

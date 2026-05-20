@@ -4,7 +4,7 @@ from __future__ import annotations
 import pytest
 from sqlmodel import Session, select
 
-from models import InvoiceNumberSequence
+from app.domains.billing.models import InvoiceNumberSequence
 from services.invoicing.numbering import assign_next_number, format_number
 
 

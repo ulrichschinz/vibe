@@ -27,8 +27,9 @@ def test_partitions_are_disjoint() -> None:
 
 
 def test_partition_union_is_exactly_the_metadata_table_set() -> None:
-    import models  # noqa: F401  aggregation shim registers every table
+    from db_tables import register_tables
 
+    register_tables()  # populate SQLModel.metadata (T7-A, ADR-014)
     registered = set(SQLModel.metadata.tables)
     partitioned = set(CRM_TABLES) | set(BILLING_TABLES)
 

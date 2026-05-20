@@ -15,7 +15,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
-from models import AiSettings, Proposal, ProposalStatus
+from app.core.ai_settings import AiSettings
+from app.domains.proposals.models import Proposal, ProposalStatus
 from routes import proposals as proposals_route
 from services import ai
 from services.proposals import create_proposal as create_proposal_svc

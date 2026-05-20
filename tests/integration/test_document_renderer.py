@@ -47,7 +47,7 @@ def test_render_xml_well_formed_for_de_b2b(session: Session):
     f = finalize_invoice(session, inv.id, options=FinalizeOptions(today=date(2026, 5, 9)))
     lines = sorted(f.invoice_id if hasattr(f, "invoice_id") else [], key=lambda x: 0)  # noqa
     from sqlmodel import select
-    from models import InvoiceLineItem
+    from app.domains.billing.models import InvoiceLineItem
     line_objs = list(session.exec(
         select(InvoiceLineItem).where(InvoiceLineItem.invoice_id == f.id).order_by(InvoiceLineItem.position)
     ).all())
@@ -154,7 +154,7 @@ def test_consistency_check_detects_mismatch(session: Session):
     inv = make_draft_invoice(session, lead)
     f = finalize_invoice(session, inv.id, options=FinalizeOptions(today=date(2026, 5, 9)))
     from sqlmodel import select
-    from models import InvoiceLineItem
+    from app.domains.billing.models import InvoiceLineItem
     line_objs = list(session.exec(
         select(InvoiceLineItem).where(InvoiceLineItem.invoice_id == f.id)
     ).all())

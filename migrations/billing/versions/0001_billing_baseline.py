@@ -31,7 +31,9 @@ depends_on = None
 
 
 def upgrade() -> None:
-    import models  # noqa: F401  registers every table on SQLModel.metadata
+    from db_tables import register_tables
+
+    register_tables()  # T7-A (ADR-014): expliziter Tabellen-Bootstrap statt models-Shim
     from sqlmodel import SQLModel
 
     import database
@@ -46,7 +48,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    import models  # noqa: F401
+    from db_tables import register_tables
+
+    register_tables()  # T7-A (ADR-014)
     from sqlmodel import SQLModel
 
     from app.core.db_migrate import BILLING_TABLES

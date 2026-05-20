@@ -6,7 +6,12 @@ from datetime import date
 import pytest
 from sqlmodel import Session, select
 
-from models import ViesAuditEntry, ViesResponseStatus
+from app.domains.billing.models import (
+    Invoice,
+    InvoiceStatus,
+    ViesAuditEntry,
+    ViesResponseStatus,
+)
 from services.invoicing.finalize import FinalizeOptions, finalize_invoice
 from services.invoicing.vies import (
     ViesBlockedError,
@@ -75,7 +80,6 @@ def test_invalid_vat_id_blocks_and_audits(session: Session):
 
     # Invoice still draft (rolled back)
     session.expire_all()
-    from models import Invoice, InvoiceStatus
     inv2 = session.get(Invoice, inv.id)
     assert inv2.status == InvoiceStatus.draft
 

@@ -8,9 +8,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from main import app
-from models import (
-    Invoice, InvoiceStatus, IssuerProfile, Lead, User, UserRole,
-)
+from app.core.identity import User, UserRole
+from app.domains.billing.models import Invoice, InvoiceStatus, IssuerProfile
+from app.domains.leads.models import Lead
 from services.auth import hash_password
 from sqlmodel import Session
 

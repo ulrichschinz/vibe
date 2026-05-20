@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from sqlmodel import Session, select
 
-from models import IntegrityCheckResult, IntegrityCheckRun
+from app.domains.billing.models import IntegrityCheckResult, IntegrityCheckRun
 from services.invoicing.archive import archive_document
 from services.invoicing.document import render_document
 from services.invoicing.finalize import FinalizeOptions, finalize_invoice

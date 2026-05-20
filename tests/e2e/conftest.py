@@ -23,9 +23,11 @@ from __future__ import annotations
 
 import pytest
 
-import models  # noqa: F401  registers every table on SQLModel.metadata
 import database
 from app.core.db_migrate import run_migrations
+from db_tables import register_tables
+
+register_tables()  # populate SQLModel.metadata before Alembic's target_metadata diff
 
 
 @pytest.fixture
