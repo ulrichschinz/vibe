@@ -86,6 +86,39 @@ Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
 **Empfohlene Reihenfolge (mein Vorschlag, nicht bindend):**
 T5 → T6 → T7; D2b parallel sobald die Ziel-Infra entschieden ist.
 
+## Stehendes Mandat (Track-PRs eigenständig mergen)
+
+Du darfst Track-PRs **nach grüner CI selbst squash-mergen** und das
+Branch löschen — analog zur Session vom 2026-05-20 (T4b PR #24 +
+NEXT-SESSION-PROMPT-Folge PR #25). Begründung: jede Track-PR-Iteration
+ist klein, byte-äquivalent geprüft (`make verify` inkl. Char-Tests +
+90 %-Invoicing-Suite + import-linter + Doc-Gate + Probe-Lint), und der
+Deploy-Pfad ist self-perpetuating gesichert (D3 Pre-Deploy-`verify`-Job
+gated Main; serverseitiger Pre-Deploy-Backup-Hook sichert die DB vor
+jedem Apply; D4 `:sha`-Tag erlaubt sekundenschnellen Rollback ohne
+Rebuild). Manuelle Maintainer-Reviews vor Merge waren in keiner
+Track-PR der Hebel — die Gates *waren* der Review.
+
+**Geltungsbereich:** Track-PRs (Remediation-Backlog T1–T7), Ops-PRs
+(D-Items) und Folge-Doku-PRs zu beiden (z. B. NEXT-SESSION-PROMPT-,
+ARCHITECTURE.md-, Backlog-Updates im Anschluss an einen gemergten
+Track-PR). **NICHT erfasst:** alles, was die Roadmap selbst anfasst (E2 —
+Rev. 2 ist eingefroren); Änderungen an `.secrets/`-Schutz oder
+Deploy-/Backup-Infrastruktur ohne explizite Rückfrage; alles, was den
+Steuerberater-/Compliance-Bereich berührt (siehe
+[[billing-bounded-context-decision]]). Im Zweifel: rückfragen statt
+mergen.
+
+**Ablauf nach grüner CI:**
+1. `gh pr merge <#> --squash --delete-branch`
+2. `git checkout main && git pull --ff-only` + `git log --oneline -3`
+   verifizieren (Squash-SHA sichtbar = Auto-Deploy läuft)
+3. Doc-Gate + Probe-Lint lokal nachschießen (sollten grün bleiben — kein
+   `.py`-Drift möglich, weil der PR ja gerade grün war)
+4. Folge-Doku-PR (falls passend, analog #23/#25): NEXT-SESSION-PROMPT
+   auf den neuen Stand ziehen, Memory `scaling-roadmap-progress` +
+   `MEMORY.md`-Index ergänzen — und denselben Mandats-Pfad nutzen.
+
 ## Harte Constraints (gelten immer, nicht verletzen)
 
 - **Kein lokaler Interpreter mit App-Deps.** `make verify` ist CI-only.
