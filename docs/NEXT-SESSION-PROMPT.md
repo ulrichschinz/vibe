@@ -29,6 +29,7 @@ bereits passiert, in Doku & Memory nachlesbar):
 Aktuelle main-Reihenfolge (oben = neuester Stand):
 
 ```
+56204f7  test: T4b — e2e-Suite via run_migrations (Alembic-Pfad real) (#24)
 f5fa552  test: T4a — Alembic-Baseline-Schema vs. create_all empirisch geprüft (#22)
 f2a0a3c  docs: D3/D4 erledigt; Pre-Deploy-Backup-Hook; brand-Mount-Drift (#21)
 5a7e114  ops:  D3 — Deploy-Gate härten (verify-Job + immutable :sha-Tag) (#20)
@@ -49,7 +50,10 @@ Erledigte Track-Items: **T1** (Outcome-Probe etabliert + 2/5 validiert),
 **T2** (Web/REST-Modellsperre — Gate aktiv, R1 strukturell zu),
 **T3** (Partitions-Vollständigkeits-Test), **T4a** (Alembic-Pfad real
 geprüft — `run_migrations` wird in CI ausgeführt, Schema-Drift bricht
-den Test). Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
+den Test), **T4b** (e2e-Suite baut Schema jetzt via `run_migrations`
+statt `create_all` — `tests/e2e/conftest.py` überschreibt das geteilte
+`engine`-Fixture, schemaneutral per T4a, andere Test-Layer unverändert).
+Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
 (Backup-Automatik + Restore-Test on-host), **D3** (Deploy-`verify`-Job
 + Pre-Deploy-Backup-Hook serverseitig), **D4** (immutable `:sha`-Tag
 + image-basierter Rollback-Pfad).
@@ -57,21 +61,18 @@ den Test). Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
 ## Offen
 
 **Track:**
-- **T4b** (P1, mittel) — `tests/conftest.py` für die e2e-Suite auf
-  `run_migrations` statt `create_all` umstellen. Macht den Alembic-Pfad
-  in jedem CI-Lauf real exerciert (heute nur via T4a). Schemaneutral,
-  aber **alle e2e-Tests müssen weiter grün bleiben** — risikoreichster
-  Test-Layer-Change im Track.
 - **T5** (P1) — `scripts/new_domain.py` patcht das `independence`-
   Contract-Array in `pyproject.toml` idempotent + CI-Scaffold-Smoke
   prüft `grep -q "app.domains.<name>" pyproject.toml`. Schließt R6
-  (gescaffoldete 4. Domäne ist heute in **0** Contracts).
+  (gescaffoldete 4. Domäne ist heute in **0** Contracts). Klein und
+  isoliert — guter nächster Schritt.
 - **T6** (P2) — Struktur-Assertions ins Doc-Gate
   (`scripts/check_architecture_metrics.py` erweitern um erwartete
   import-linter-Contract-Namen-Menge + Shim-Pfad-Inventar gegen eine
   neue ARCHITECTURE.md-Tabelle). Macht Struktur-Prosa selbst-verifizierend.
 - **T7** (P2) — Shim-Sterbe-Gates für `models.py` /
-  `services.ai`+`linkedin_import` / `services.mcp_server`.
+  `services.ai`+`linkedin_import` / `services.mcp_server`. Mehrere PRs,
+  nicht eines.
 
 **Ops:**
 - **D2b** — Off-Host-Backup-Automatik. Heute fehlt am Server jedes
@@ -83,7 +84,7 @@ den Test). Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
   für riskante Migrations-Proben ohne Prod-Risiko.
 
 **Empfohlene Reihenfolge (mein Vorschlag, nicht bindend):**
-T4b → T5 → T6 → T7; D2b parallel sobald die Ziel-Infra entschieden ist.
+T5 → T6 → T7; D2b parallel sobald die Ziel-Infra entschieden ist.
 
 ## Harte Constraints (gelten immer, nicht verletzen)
 
@@ -124,6 +125,6 @@ zuerst, jede Mutation mit `.bak` vorher.
 Verifiziere den Status (`git status`, `git log --oneline -5`,
 `docs/remediation-backlog.md` lesen, Doc-Gate + Probe-Lint grün prüfen,
 `gh pr list --state open`), kläre mit dem User welches Item als
-nächstes (Vorschlag T4b), und arbeite es als eigenen PR ab —
+nächstes (Vorschlag T5), und arbeite es als eigenen PR ab —
 schemaneutral, byte-äquivalent wo Move, sealed bleibt sealed,
 Kennzahlen im selben Change syncen.
