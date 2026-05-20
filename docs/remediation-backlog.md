@@ -130,10 +130,17 @@ Abhängigkeit, läuft in `make test-fast`.
 
 ### T4 — Alembic-Pfad real prüfen — **P1** — schließt R3
 
-**T4a (billig):** Fixture fährt `app.core.db_migrate.run_migrations(engine)`
-vs. `SQLModel.metadata.create_all`, vergleicht `sqlite_master` + `PRAGMA
-table_info`/`index_list` → macht „byte-gleich" *geprüft* statt tautologisch
-und fängt künftige Revisions-Drift. Heute: **0** Tests fahren `run_migrations`.
+**T4a (billig) — ✅ umgesetzt 2026-05-20:**
+`tests/test_db_migration_parity.py` baut beide Schemas in einer
+Tmp-SQLite-Datei auf (Pre-Schritt-9 `create_all` + Trigger/Lead-Spalten
+über die geteilten `install_*`-Helfer **gegen** `run_migrations`) und
+vergleicht strukturell (`sqlite_master` + `PRAGMA table_info`/
+`index_list`, Alembic-Versions-Tabellen ausgenommen). Damit ist
+„byte-gleich" *geprüft* statt konstruktiv tautologisch. Künftige Drift
+(Modell-Erweiterung ohne korrespondierende Alembic-Revision) bricht den
+Test. ARCHITECTURE.md Kennzahlen mitgezogen (Tests 3.425→3.559 / gesamt
+12.194→12.328, Prod 0-Diff). Ehrlich zur Grenze: prüft das *Schema*,
+nicht den *Daten*-Adopt-Pfad (in Prod längst gelaufen).
 
 **T4b (mittel):** mindestens die e2e-Suite durch `run_migrations` statt
 `create_all` (conftest-Fixture), damit der Alembic-Pfad von Tests überhaupt
