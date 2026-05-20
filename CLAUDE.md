@@ -75,14 +75,20 @@ Single-process FastAPI app. No async DB usage — all routes use synchronous SQL
 ```
 main.py          — app factory, middleware (attach_user), lifespan, bootstrap_admin()
 database.py      — SQLite engine + get_session() dependency
-models.py        — Schritt 4 aggregation module + (Schritt 8) test-facing
-                   re-export shim only. `create_db()` imports it (registry
-                   bootstrap); NO `services|routes|app` module imports its
-                   names anymore — they point at `app.*` directly. 13
-                   tables/enums/schemas live in
-                   `app/domains/{leads,proposals,billing}/models.py`(+`schemas.py`)
-                   and `app/core/{identity,ai_settings}.py`; labels in
-                   `app/shared/labels.py`
+db_tables.py     — Tabellen-Metadaten-Bootstrap (Erbe der toten
+                   `models.py`-Aggregations-Rolle, T7-A / ADR-014).
+                   `register_tables()` macht die deterministischen
+                   Side-Effect-Imports der 5 Tabellen-Module (kernel →
+                   leads → proposals → billing) explizit. Top-level
+                   (außerhalb import-linter-`root_packages`), weil der
+                   seit Schritt 8 aktive `core ↛ domains`-Vertrag jede
+                   Aggregation im `app.core`-Paket verbieten würde.
+                   Drei Aufrufer: `database.create_db`,
+                   `tests/conftest.py`, `tests/e2e/conftest.py`.
+                   13 tables/enums/schemas live in
+                   `app/domains/{leads,proposals,billing}/models.py`
+                   (+`schemas.py`) and `app/core/{identity,ai_settings}.py`;
+                   labels in `app/shared/labels.py`
 routes/          — Schritt 8: thin test-facing re-export shims only
   leads.py       — re-exports `app.interfaces.web.leads.router`
   proposals.py   — re-exports `app.interfaces.web.proposals.router`
@@ -138,7 +144,7 @@ Invoice 1──* InvoiceLineItem       (compliance domain; soft-FK Invoice.lead_
 User    (standalone; admins manage other users via /admin)
 ```
 
-`LeadStage` order is defined in `STAGE_ORDER` list in `app/domains/leads/models.py` (re-exported via the `models.py` shim) and drives the pipeline UI in templates.
+`LeadStage` order is defined in `STAGE_ORDER` list in `app/domains/leads/models.py` (imported directly since T7-A — no shim anymore) and drives the pipeline UI in templates.
 
 ## Docker notes
 
@@ -213,8 +219,9 @@ The local `docker-compose.yml` uses Caddy as reverse proxy (dev/standalone). The
 > erweitert; neu aktiv: `core ↛ domains/interfaces/contracts` +
 > `domains/<x> ↛ domains/<y>` (independence). Prod-`models`-Shim-Tod
 > (kein `services|routes|app`-Modul importiert die Shim-Namen mehr;
-> `models.py` bleibt test-Shim + Aggregator; physischer Datei-Tod +
-> Test-Migration = deferred). In Schritt 8 bewusst **nicht** aktiviert
+> `models.py` blieb test-Shim + Aggregator; **physischer Datei-Tod +
+> Test-Migration = Remediation-Track T7-A gelandet** — Aggregations-
+> Rolle in `app.core.db_tables.register_tables()`, ADR-014). In Schritt 8 bewusst **nicht** aktiviert
 > (Zustand galt noch nicht): web/REST-`interfaces ↛ domains/*/models`
 > (CRUD-Handler konstruierten weiter Modelle) + `shared ↛ domains`
 > (enum-keyed Labels). **Update: die `interfaces ↛ domains/*/models`-Zeile
@@ -321,8 +328,8 @@ seed that Schritt 2/3 supersede. Registration is auto-discovery (interfaces
 iterate `app/domains/*`, Schritt 8); the scaffold patches no central
 registry. Note: as of **Schritt 4** the *models* live in
 `app/domains/*/models.py` (+`app/core/{identity,ai_settings}.py`,
-`app/shared/labels.py`); the *existing* CRM/billing **logic** still lives
-in `routes/`+`services/` and reaches the models via the `models.py` shim
-(Service-/Interface-Umzug = Schritte 6–8) — scaffold for genuinely new
+`app/shared/labels.py`); since T7-A (ADR-014) every consumer imports
+them **directly** (no `models.py`-shim anymore — the file is gone).
+Service-/Interface-Umzug = Schritte 6–8. Scaffold for genuinely new
 domains; edit existing logic in its current slice with the same edit
 order.

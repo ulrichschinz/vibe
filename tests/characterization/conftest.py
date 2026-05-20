@@ -27,7 +27,7 @@ from sqlmodel import Session
 from starlette.middleware.sessions import SessionMiddleware
 
 from database import get_session
-from models import User, UserRole
+from app.core.identity import User, UserRole
 from services.auth import require_editor, require_login
 
 

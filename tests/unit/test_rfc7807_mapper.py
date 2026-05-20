@@ -29,7 +29,7 @@ from starlette.datastructures import URL
 
 from app.core.errors import PROBLEM_JSON, is_api_request, problem_response
 from main import app
-from models import ApiKey
+from app.core.identity import ApiKey
 from services.auth import hash_api_key, hash_password
 
 
@@ -86,7 +86,7 @@ def api(engine, tmp_path, monkeypatch):
 
     raw_key = "char-api-key-0001"
     with Session(engine) as session:
-        from models import User, UserRole
+        from app.core.identity import User, UserRole
         from tests.fixtures.factories import make_issuer, make_lead_de_b2b
 
         make_issuer(session)

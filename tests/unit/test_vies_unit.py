@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from models import ViesResponseStatus
+from app.domains.billing.models import ViesResponseStatus
 from services.invoicing.vies import (
     ViesResult,
     _split_vat_id,

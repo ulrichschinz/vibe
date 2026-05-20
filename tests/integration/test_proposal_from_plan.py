@@ -14,7 +14,8 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from database import get_session
-from models import AiSettings, User, UserRole
+from app.core.ai_settings import AiSettings
+from app.core.identity import User, UserRole
 from routes import proposals as proposals_route
 from services import ai
 from services.auth import require_editor, require_login

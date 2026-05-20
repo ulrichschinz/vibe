@@ -11,7 +11,7 @@ from decimal import Decimal
 import pytest
 from sqlmodel import Session
 
-from models import Invoice, InvoiceStatus
+from app.domains.billing.models import Invoice, InvoiceStatus
 from services.invoicing.finalize import (
     FinalizeOptions,
     InvoiceValidationError,

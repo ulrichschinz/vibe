@@ -35,12 +35,14 @@ from pathlib import Path
 from sqlalchemy import create_engine
 from sqlmodel import SQLModel
 
-# Registry-Bootstrap: gleicher Trick wie database.create_db() — ohne
-# diesen Import wäre SQLModel.metadata leer.
-import models  # noqa: F401
+# Registry-Bootstrap: gleicher Pfad wie database.create_db() — ohne
+# diesen Aufruf wäre SQLModel.metadata leer (T7-A, ADR-014).
+from db_tables import register_tables
 
-from app.core.db_migrate import run_migrations
-from database import install_invoice_triggers, install_lead_invoice_columns
+register_tables()
+
+from app.core.db_migrate import run_migrations  # noqa: E402
+from database import install_invoice_triggers, install_lead_invoice_columns  # noqa: E402
 
 
 # Tabellen, die ZUM Schema-Vergleich AUSGENOMMEN werden: die Alembic-

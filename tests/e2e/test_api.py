@@ -5,7 +5,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from main import app
-from models import ApiKey, IssuerProfile, Lead
+from app.core.identity import ApiKey
+from app.domains.billing.models import IssuerProfile
+from app.domains.leads.models import Lead
 from services.auth import hash_api_key
 from sqlmodel import Session
 
@@ -28,7 +30,7 @@ def client_with_api_key(engine, tmp_path, monkeypatch):
         make_issuer(session)
         lead = make_lead_de_b2b(session)
         # create an admin user to own the API key
-        from models import User, UserRole
+        from app.core.identity import User, UserRole
         from services.auth import hash_password
         admin = User(email="api@test", name="API", hashed_password=hash_password("x"), role=UserRole.admin)
         session.add(admin); session.commit(); session.refresh(admin)

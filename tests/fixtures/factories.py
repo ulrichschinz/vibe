@@ -6,14 +6,13 @@ from decimal import Decimal
 
 from sqlmodel import Session
 
-from models import (
+from app.domains.billing.models import (
     Invoice,
     InvoiceLineItem,
     InvoiceStatus,
     IssuerProfile,
-    Lead,
-    PlanningMessage,
 )
+from app.domains.leads.models import Lead, PlanningMessage
 
 
 def make_issuer(session: Session, **overrides) -> IssuerProfile:
