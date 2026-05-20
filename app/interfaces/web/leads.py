@@ -219,7 +219,7 @@ async def lead_import_linkedin(
         )
         return RedirectResponse("/leads/import-linkedin", status_code=303)
 
-    from services.linkedin_import import LinkedInImportError
+    from app.core.ai import LinkedInImportError
 
     current_user = getattr(request.state, "user", None)
     owner_id_default = current_user.id if current_user else None

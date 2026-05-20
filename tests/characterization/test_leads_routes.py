@@ -55,7 +55,7 @@ def test_dashboard_aggregation_over_all_stages_returns_200(engine, session):
 @pytest.mark.characterization
 def test_linkedin_import_happy_path_renders_preview_without_persisting(engine, session, monkeypatch):
     _enable_ai(session)
-    import services.linkedin_import as li
+    from app.core import ai as li
 
     def fake_extract(pdf_bytes, why_good, settings):
         return {
@@ -102,7 +102,7 @@ def test_linkedin_import_non_pdf_redirects_and_persists_nothing(engine, session)
 @pytest.mark.characterization
 def test_linkedin_import_extraction_error_redirects_and_persists_nothing(engine, session, monkeypatch):
     _enable_ai(session)
-    import services.linkedin_import as li
+    from app.core import ai as li
 
     def boom(pdf_bytes, why_good, settings):
         raise li.LinkedInImportError("model refused")

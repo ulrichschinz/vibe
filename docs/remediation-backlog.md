@@ -224,9 +224,20 @@ Je ein PR pro Shim. Tracking-Stand (R2 strukturell, kumulativ):
   `from app.core import ai as _seam`). monkeypatch-Naht
   `setattr(ai, "chat_with_context", …)` unverändert — same module object.
   Shim-Inventar 4 → 3.
-- **T7-C** — `services/linkedin_import.py` (P2, ausstehend). Analog T7-B,
-  vermutlich kleiner (Shim hat nur 4 re-exportierte Symbole; aktueller
-  Importer-Scan beim PR vorab). Eigener ADR, eigener PR.
+- **T7-C** ✅ — `services/linkedin_import.py`-Shim physisch gelöscht
+  (ADR-016). Recon vorab: 2 Prod-Importer
+  (`app/domains/leads/service.py:127` lazy, `app/interfaces/web/leads.py:222`
+  modul-lokal) + 2 Test-Importer mit 2 `setattr(li, "extract_lead_from_pdf",
+  …)`-Aufrufen (alle in `tests/characterization/test_leads_routes.py`).
+  Mechanik: 2 Prod-Imports retargeted (`from services import linkedin_import
+  as _li` → `from app.core import ai as _li`; `from services.linkedin_import
+  import LinkedInImportError` → `from app.core.ai import LinkedInImportError`),
+  2 Test-Imports retargeted (`import services.linkedin_import as li` →
+  `from app.core import ai as li`). monkeypatch-Aufrufe byte-identisch.
+  Kein Sonderfall analog T7-B/`generate_proposal_drafts` — alle 4
+  re-exportierten Symbole (`SYSTEM_PROMPT`, `LinkedInImportError`,
+  `_parse_json_block`, `extract_lead_from_pdf`) leben tatsächlich in
+  `app/core/ai.py`. Shim-Inventar 3 → 2.
 - **T7-D** — `services/mcp_server.py` → `app/interfaces/mcp/server.py`
   (P2, ausstehend). Move-not-rewrite des FastMCP-Servers + Mount-Pfad-
   Anpassung; ADR-009 §B benennt den `m.engine`-Seam als frozen — der Move

@@ -13,10 +13,10 @@
 
 | Metrik | Wert | Beleg |
 |---|---|---|
-| Python LOC gesamt | 12.268 | `find -name '*.py'` |
-| davon Produktivcode | 8.664 | ohne `tests/` |
+| Python LOC gesamt | 12.240 | `find -name '*.py'` |
+| davon Produktivcode | 8.636 | ohne `tests/` |
 | davon Tests | 3.604 | `tests/` |
-| Test/Prod-Verhältnis | ~42 % | Remediation-Track **T7-B** (`services/ai.py`-Shim physisch tot, ADR-015): Prod −36 LOC (35-Zeilen-Shim gelöscht; `app/domains/proposals/service.py` Docstring-/Kommentar-Retarget line-neutral; lazy `from services import ai as _seam` → `from app.core import ai as _seam`; zusätzlich −1 LOC in `app/interfaces/web/ai.py`-Docstring durch Retarget des veralteten `services.ai`-Naht-Kommentars), Tests +7 LOC (`tests/unit/test_ai_proposal_drafts.py`: Docstring auf „T7-B / ADR-015"-Diagnose erweitert + zusätzlicher Import `from app.domains.proposals.service import generate_proposal_drafts`; 2 Aufrufstellen `ai.generate_proposal_drafts(...)` → `generate_proposal_drafts(...)`; die zwei anderen Importer — `tests/characterization/test_proposals_routes.py` + `tests/integration/test_proposal_from_plan.py` — sind reine 1-Zeilen-Importer-Swaps. monkeypatch-Naht unverändert (`monkeypatch.setattr(ai, "chat_with_context", …)` greift jetzt direkt auf das `app.core.ai`-Modul-Objekt). Vorgängerzeile **T7-A** bleibt sachlich gültig: `models.py`-Shim physisch tot, Aggregations-Rolle in `db_tables.register_tables()` umgezogen (top-level — `core ↛ domains` zwingt es aus `app.core` raus — ADR-014). Vorgängerzeile **T4b** bleibt sachlich gültig: `tests/e2e/conftest.py` überschreibt das geteilte `engine`-Fixture für die e2e-Suite und baut das Schema via `app.core.db_migrate.run_migrations` statt `create_all` + Helfer (Alembic-Pfad in jedem CI-Lauf real exerciert; schemaneutral per T4a). Vorgängerzeile **T4a** bleibt: `tests/test_db_migration_parity.py` vergleicht `create_all`-Schema vs. `run_migrations`-Schema strukturell (`sqlite_master` + `PRAGMA`) → fängt künftige Drift Modell ↔ Alembic-Revision (Schritt-9-Vertrag) |
+| Test/Prod-Verhältnis | ~42 % | Remediation-Track **T7-C** (`services/linkedin_import.py`-Shim physisch tot, ADR-016): Prod −28 LOC (28-Zeilen-Shim gelöscht; `app/domains/leads/service.py` Docstring-/Kommentar-Retarget line-neutral; lazy `from services import linkedin_import as _li` → `from app.core import ai as _li`; `app/interfaces/web/leads.py` 1-Zeilen-Importer-Swap), Tests 0 LOC (`tests/characterization/test_leads_routes.py`: zwei 1-Zeilen-Importer-Swaps `import services.linkedin_import as li` → `from app.core import ai as li`; monkeypatch-Naht byte-identisch — `monkeypatch.setattr(li, "extract_lead_from_pdf", …)` greift jetzt direkt auf das `app.core.ai`-Modul-Objekt). Kein Sonderfall analog T7-B/`generate_proposal_drafts` — alle 4 re-exportierten Symbole (`SYSTEM_PROMPT`, `LinkedInImportError`, `_parse_json_block`, `extract_lead_from_pdf`) leben tatsächlich in `app/core/ai.py`. Vorgängerzeile **T7-B** (`services/ai.py`-Shim physisch tot, ADR-015): Prod −36 LOC, Tests +7 LOC (`tests/unit/test_ai_proposal_drafts.py`: Docstring auf „T7-B / ADR-015"-Diagnose erweitert + zusätzlicher Import `from app.domains.proposals.service import generate_proposal_drafts`; 2 Aufrufstellen `ai.generate_proposal_drafts(...)` → `generate_proposal_drafts(...)`; die zwei anderen Importer — `tests/characterization/test_proposals_routes.py` + `tests/integration/test_proposal_from_plan.py` — sind reine 1-Zeilen-Importer-Swaps. monkeypatch-Naht unverändert (`monkeypatch.setattr(ai, "chat_with_context", …)` greift jetzt direkt auf das `app.core.ai`-Modul-Objekt). Vorgängerzeile **T7-A** bleibt sachlich gültig: `models.py`-Shim physisch tot, Aggregations-Rolle in `db_tables.register_tables()` umgezogen (top-level — `core ↛ domains` zwingt es aus `app.core` raus — ADR-014). Vorgängerzeile **T4b** bleibt sachlich gültig: `tests/e2e/conftest.py` überschreibt das geteilte `engine`-Fixture für die e2e-Suite und baut das Schema via `app.core.db_migrate.run_migrations` statt `create_all` + Helfer (Alembic-Pfad in jedem CI-Lauf real exerciert; schemaneutral per T4a). Vorgängerzeile **T4a** bleibt: `tests/test_db_migration_parity.py` vergleicht `create_all`-Schema vs. `run_migrations`-Schema strukturell (`sqlite_master` + `PRAGMA`) → fängt künftige Drift Modell ↔ Alembic-Revision (Schritt-9-Vertrag) |
 | SQLModel-Tabellen | 13 | `table=True`-Klassen in `app/**/models.py` + `app/core/{identity,ai_settings}.py`; Registry-Bootstrap (T7-A): `db_tables.register_tables()` (top-level — `core ↛ domains` zwingt es aus `app.core` raus) importiert sie deterministisch (kernel → leads → proposals → billing). Schritt 4 korrigiert: vorher 14 durch eine mitgezählte Kommentarzeile in `models.py`, real 13 Entitäten |
 | HTTP-Endpoints | 72 | `@router.(get\|post\|...)` in `app/interfaces/{web,api}/` (Schritt 8: aus `routes/` dorthin verschoben) |
 | Route-Module | 7 | `app/interfaces/{web,api}/*.py` ohne `__init__.py` (register) u. `mount.py` (MCP-ASGI-Mount) |
@@ -77,12 +77,11 @@ vibe/
 │   ├── __init__.py               0   Re-Export-Shims (frozen Char-/
 │   ├── leads.py                 ~13  Integration-Tests importieren
 │   └── proposals.py             ~13  `from routes import {leads,proposals}`)
-├── services/                  2768  Business-Logik (inkonsistent genutzt)
+├── services/                  2740  Business-Logik (inkonsistent genutzt)
 │   ├── mcp_server.py           436  FastMCP + 16 Tools — Schritt 7: dünn,
 │   │                                delegiert an app/domains/*/service
 │   │                                (nur Session(engine)-Lifecycle); Invoice-
 │   │                                Tools unverändert (Finalize via Vertrag)
-│   ├── linkedin_import.py       28  Schritt 6: Re-Export-Shim → app/core/ai
 │   ├── pdf.py                   72  Jinja2→WeasyPrint (saubere Funktion)
 │   ├── proposals.py             54  create/mark_sent (sauberer Service)
 │   ├── auth.py                  46  Hashing, require_login/_editor/_admin
@@ -196,9 +195,9 @@ vibe/
   **Schritt 6 gelandet**: `app/domains/proposals/service.py`; der Anthropic-
   Adapter + Prompts + `===MARKER===`/`<json>`-Parser liegen in
   `app/core/ai.py` (verbatim verschoben, **kein** Robustheits-Fix —
-  Struktur-Schuld 6). `services/linkedin_import.py` ist jetzt Re-Export-Shim
-  (frozen monkeypatch-Naht bis T7-C); `services/ai.py` ist seit T7-B
-  (ADR-015) physisch tot — Tests patchen direkt `app.core.ai`.
+  Struktur-Schuld 6). Beide AI-Adapter-Shims sind tot: `services/ai.py`
+  seit T7-B (ADR-015), `services/linkedin_import.py` seit T7-C (ADR-016) —
+  Tests patchen direkt das `app.core.ai`-Modul-Objekt.
 - `routes/ai.py` — Planning-Chat-Endpoints; Prompt-Builder + PlanningMessage-
   Historie sind **Schritt 6** nach `app/domains/leads/service.py` (Planning
   gehört zum Lead) gewandert, der Router hält nur HTTP + den AI-Transport.
@@ -304,9 +303,10 @@ Shim-Umweg mehr) treibt die Pipeline-UI.
    `core ↛ domains` zwingt es aus `app.core` raus; drei Aufrufer:
    `database.create_db`, `tests/conftest.py`, `tests/e2e/conftest.py`).
    Schritt 6 hatte zusätzlich die *AI-Adapter*-Shims `services/ai.py` und
-   `services/linkedin_import.py` erzeugt; **T7-B (ADR-015) gelandet** —
-   `services/ai.py` ist tot (Tests patchen jetzt direkt das `app.core.ai`-
-   Modul); `services/linkedin_import.py` lebt weiter (T7-C ausstehend).
+   `services/linkedin_import.py` erzeugt; beide sind tot — `services/ai.py`
+   seit **T7-B (ADR-015)**, `services/linkedin_import.py` seit
+   **T7-C (ADR-016)**. Tests patchen jetzt direkt das `app.core.ai`-Modul-
+   Objekt (gleicher Patch-Mechanismus, eine Indirektion weniger).
 2. Dicke Route-Module: `leads.py` 539→481, `proposals.py` 212→187,
    `ai.py` 282→193 — **Schritt 6** zog Dashboard-Aggregation, LinkedIn-
    Orchestrierung, AI-Draft-Merge und Planning-Historie/Prompt-Builder in
@@ -388,7 +388,6 @@ Sterbe-Inventar für Remediation-Track T7 selbst-verifizierend.
 |------|-----|----------------|
 | `routes/leads.py` | 14 | Test-Shim. Re-exportiert `app.interfaces.web.leads.router`. Stirbt, sobald die Char-Tests `from routes import leads as leads_route` ablegen. |
 | `routes/proposals.py` | 13 | Test-Shim. Re-exportiert `app.interfaces.web.proposals.router`. Stirbt, sobald die Char-Tests `from routes import proposals as proposals_route` ablegen. |
-| `services/linkedin_import.py` | 28 | Frozen monkeypatch-Naht der S0.5-Char-Tests. Re-exportiert `app.core.ai.{SYSTEM_PROMPT,LinkedInImportError,_parse_json_block,extract_lead_from_pdf}`. Stirbt mit dem Char-Test-Lifecycle-Swap (T7-C). |
 
 ## Invoicing↔CRM-Naht (Vertrags-Schnitt — Schritt 5 gekappt)
 
