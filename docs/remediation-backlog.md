@@ -258,10 +258,15 @@ Je ein PR pro Shim. Tracking-Stand (R2 strukturell, kumulativ):
   Funktions-Definitionen, kein reines `Import`+`__all__`-Muster; T6-AST-
   Walk klassifiziert korrekt als Nicht-Shim → Gate-Output bleibt
   `5 import-linter contracts and 2 re-export shims accounted for`). LOC-
-  Drift: Prod +4 / Tests +4 / Total +8 (Naht-Docstring-Erweiterungen in
-  `app/interfaces/mcp/{__init__,server}.py` + Conftest; analog T7-B-Muster).
-  Doc-Gate-Skript `scripts/check_architecture_metrics.py::m_mcp_tools`
-  zählt jetzt am neuen Pfad. Schicht-Hygiene auf der Interface-Achse
+  Drift: Prod +10 / Tests +4 / Total +14 (Naht-Docstring-Erweiterungen
+  +8 in `app/interfaces/mcp/{__init__,server}.py` + Conftest +
+  Format-Conformance-Bump +6 für den ruff-format-`app/`-Scope —
+  ADR-017 §H). Zusatz-Per-File-Ignore `"app/interfaces/mcp/server.py" =
+  ["E402"]` in `pyproject.toml` (deliberate Late-Imports der Invoice-
+  Tool-Gruppe; analog `web/*`/`api/*`-Layout-Debt). F401-`select`-Drop
+  ist genuin (1-Symbol-Drop, 0-LOC). Doc-Gate-Skript
+  `scripts/check_architecture_metrics.py::m_mcp_tools` zählt jetzt am
+  neuen Pfad. Schicht-Hygiene auf der Interface-Achse
   jetzt vollständig: `services/` enthält **keine** Interface-Schicht mehr
   (auth/numbering/pdf/proposals = Reusable-Kernel, invoicing/ = Compliance-
   Move-not-rewrite). **R2 strukturell vollständig zu** (T7-A + T7-B +

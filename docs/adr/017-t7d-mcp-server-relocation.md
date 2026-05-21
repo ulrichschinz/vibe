@@ -61,12 +61,12 @@ das Modul korrekt als Nicht-Shim.
 
 ### §A — `git mv` statt Neuschreiben
 
-Inhalt der Datei bleibt **byte-identisch** (außer dem datei-eigenen
-Docstring — siehe §C). Begründung: das Modul ist seit Schritt 7/8
-strukturell sauber (Tools dünn, keine Modell-Konstruktion), und der
-move-not-rewrite-Modus aus Audit-Decision E1 verbietet inhaltliche
-Bonus-Sweeps in Track-PRs. Die Compliance-Naht (`engine` als modul-
-globales Symbol) zieht 1:1 mit.
+Inhalt der Datei bleibt **semantisch byte-identisch** (außer dem datei-
+eigenen Docstring §C; F401-`select`-Drop §G; Format-Konformitäts-Bump §H).
+Begründung: das Modul ist seit Schritt 7/8 strukturell sauber (Tools dünn,
+keine Modell-Konstruktion), und der move-not-rewrite-Modus aus Audit-
+Decision E1 verbietet inhaltliche Bonus-Sweeps in Track-PRs. Die
+Compliance-Naht (`engine` als modul-globales Symbol) zieht 1:1 mit.
 
 ### §B — Patch-Naht: das `app.interfaces.mcp.server`-Modul-Objekt selbst
 
@@ -123,6 +123,30 @@ Keine neue Regel; keine zusätzliche Härtung über das hinaus, was Schritt
   wie bei T7-A/B/C). Cross-Referenz auf ADR-017 lebt im
   Statusbanner + Backlog, nicht im historischen ADR-Text.
 
+### §G — F401-`select`-Drop
+
+`from sqlmodel import Session, select` mit ungenutztem `select`: F401-
+Befund, der erst durch den Move ins ruff-Scope sichtbar wurde
+(`services/` war pre-T7-D nicht gelintet). `select` ist seit Schritt 7
+(MCP-Entdopplung — Queries wandern nach `app/domains/*/service.py`)
+genuin tot. 1-Symbol-Drop, 0-LOC-Diff (`from sqlmodel import Session`
+bleibt eine Zeile). Disziplin-konform mit der `web/api`-Präzedenz
+(F401 bleibt aktiv, E712/E741 ignored).
+
+### §H — Format-Konformitäts-Bump
+
+`ruff format` reformatiert `app/`-Bewohner; `services/`-Bewohner waren
+ausgenommen (siehe `pyproject.toml [tool.ruff.format]`-Scope-Kommentar +
+Makefile `format-check`). Mit dem Move zieht die Format-Conformance mit —
+`ruff format app/interfaces/mcp/server.py` liefert +6 LOC (Leerzeilen
+nach Section-Komment-Bannern + zwei Mehrzeilen-Aufrufe in
+`finalize_invoice`/`create_storno`). Rein kosmetisch, keine semantische
+Änderung. Eine zusätzliche per-file-ignore
+`"app/interfaces/mcp/server.py" = ["E402"]` in
+`[tool.ruff.lint.per-file-ignores]` deckt die deliberaten Late-Imports der
+Invoice-Tool-Gruppe (Z. 253ff. — Schritt-8-Schema, Layout-Debt analog
+`web/*`/`api/*`).
+
 ### §F — Was bewusst **nicht** Teil dieser PR ist
 
 - **`routes/{leads,proposals}.py`-Shim-Tod**: kein eigenes T-Item, fällt
@@ -159,11 +183,11 @@ Keine neue Regel; keine zusätzliche Härtung über das hinaus, was Schritt
   Datenmodell-Refs, Struktur-Verträge-Regel-Name, LOC-Subtotals) + README.md
   + CLAUDE.md Banner-Sync + Backlog-Eintrag + Doc-Gate-Skript
   (`scripts/check_architecture_metrics.py::m_mcp_tools` zählt jetzt am
-  neuen Pfad). Doc-Gate grün: `12.248 / 8.640 / 3.608` (Prod +4, Tests +4,
-  Total +8 — Naht-Docstring-Erweiterungen in `app/interfaces/mcp/{__init__,
-  server}.py` und `tests/characterization/conftest.py::mcp_module`; analog
-  zu T7-B's +7-Test-LOC). Reines Datei-Inhalt = byte-äquivalent bis auf
-  den eigenen Datei-Docstring (§C).
+  neuen Pfad). Doc-Gate grün: `12.254 / 8.646 / 3.608` (Prod +10, Tests +4,
+  Total +14 — Naht-Docstring-Erweiterungen +8 wie geplant, plus
+  Format-Conformance-Bump +6 §H). Datei-Inhalt = semantisch byte-äquivalent
+  bis auf Docstring §C, F401-Drop §G und Format §H — alles dreierlei
+  rein kosmetisch, kein Verhaltens-Diff.
 
 ## Folge-Schritte
 
