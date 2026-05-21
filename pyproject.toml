@@ -166,14 +166,13 @@ ignore_errors = true
 # correctness is CI-verified (no local interpreter with app deps — grimp
 # needs to import the package graph; same constraint as Schritt 4).
 [tool.importlinter]
-root_packages = ["services", "routes", "app"]
+root_packages = ["services", "app"]
 
 [[tool.importlinter.contracts]]
 name = "billing core (services.invoicing) must not import CRM/interfaces — Naht via the BillingOrder contract (Schritt 5, +interfaces Schritt 8)"
 type = "forbidden"
 source_modules = ["services.invoicing"]
 forbidden_modules = [
-    "routes",
     "app.domains.leads",
     "app.domains.proposals",
     "app.interfaces",

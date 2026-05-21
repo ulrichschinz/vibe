@@ -38,7 +38,9 @@ SQLModel, Jinja2-UI + WeasyPrint-PDF, Claude-Anbindung, plus REST- und
 MCP-Schnittstelle für Agenten. Seit Schritt 8 läuft die Delivery-Schicht
 über `app/interfaces/{web,api,mcp}` (register-Auto-Discovery + zentraler
 RFC-7807-Mapper); Domänen-Logik in `app/domains/*`, Kern in `app/core/*`.
-`routes/` ist nur noch test-zugewandter Re-Export-Shim (leads, proposals).
+Das frühere `routes/`-Paket ist seit dem R2-Final-Cleanup physisch tot
+(die letzten zwei Test-Shims versorgt; Char-/Integration-Tests importieren
+jetzt direkt `app.interfaces.web.{leads,proposals}`).
 Seit Schritt 9 wird das Schema durch zwei getrennt versionierte Alembic-
 Bäume (CRM + Billing, eigene version_table je Baum) etabliert — keine
 impliziten `create_all`-Schema-Änderungen mehr.
@@ -73,10 +75,6 @@ vibe/
 │                                    = altes create_all-Schema (delegiert,
 │                                    byte-gleich). Nicht in import-linter-
 │                                    /mypy-/ruff-Scope (nur Doc-Gate-LOC)
-├── routes/                      ~30  Schritt 8: nur noch test-zugewandte
-│   ├── __init__.py               0   Re-Export-Shims (frozen Char-/
-│   ├── leads.py                 ~13  Integration-Tests importieren
-│   └── proposals.py             ~13  `from routes import {leads,proposals}`)
 ├── services/                  2377  Reusable-Kernel + Compliance-Kern
 │   │                                (seit T7-D ohne Interface-Schicht;
 │   │                                FastMCP-Server zog nach app/interfaces/mcp/
@@ -439,9 +437,9 @@ direkte CRM-Reach existiert nicht mehr:
   Lead-Löschung lässt finalisierte Rechnungen unberührt.
 
 Erzwungen durch die geschärfte `import-linter`-Regel
-„`services.invoicing` ↛ `routes`/`app.domains.leads`/
-`app.domains.proposals`" (`pyproject.toml`; der `models`-Shim ist über
-die transitive `forbidden`-Erkennung mit abgedeckt — Rationale
+„`services.invoicing` ↛ `app.domains.{leads,proposals}` / `app.interfaces`"
+(`pyproject.toml`; der `models`-Shim war bis T7-A über die transitive
+`forbidden`-Erkennung mit abgedeckt, ist seit T7-A physisch tot — Rationale
 `docs/adr/007-billing-order-contract.md`; in Schritt 8 um `app.interfaces`
 als verbotenes Ziel ergänzt). Geteiltes `get_session`/`engine`
 (`database.py`) bleibt bewusst geteilt (Single-Process; DB-Split erst
