@@ -29,6 +29,7 @@ bereits passiert, in Doku & Memory nachlesbar):
 Aktuelle main-Reihenfolge (oben = neuester Stand):
 
 ```
+14f0b0f  ops:  T7-D — services/mcp_server.py → app/interfaces/mcp/server.py (Move-not-rewrite, ADR-009 §B-Endpunkt) (#37)
 5dfbbdf  ops:  T7-C — services/linkedin_import.py-Shim sterben lassen (R2 strukturell, 3/3) (#35)
 62e0afe  ops:  T7-B — services/ai.py-Shim sterben lassen (R2 strukturell, 2/3) (#33)
 5f5f8eb  ops:  T7-A — models.py-Shim sterben lassen (R2 strukturell, 1/3) (#31)
@@ -48,7 +49,7 @@ Plus serverseitig (nicht im Repo, am `adm.agentic-reach.com` live):
 - `vibe-db-backup.timer` (systemd, täglich 02:30 UTC, WAL-sicher,
   integrity-gated, rotiert → `/opt/backups/vibe/`, Restore getestet).
 - `/opt/scripts/deploy.sh` mit Pre-Deploy-Backup-Hook für `vibe`
-  (`set -e`-gated; runway/landingpage unverändert) — bisher 2× live
+  (`set -e`-gated; runway/landingpage unverändert) — bisher mehrfach live
   bewiesen, **self-perpetuating**.
 
 Erledigte Track-Items: **T1** (Outcome-Probe etabliert + 2/5 validiert),
@@ -60,65 +61,63 @@ statt `create_all` — `tests/e2e/conftest.py` überschreibt das geteilte
 `engine`-Fixture, schemaneutral per T4a, andere Test-Layer unverändert),
 **T5** (Scaffold patcht `independence`-`modules`-Array in `pyproject.toml`
 idempotent; CI-Scaffold-Smoke greppt es; chirurgischer 1-Zeilen-Insert
-stdlib-only — R6 strukturell zu; `new-domain.expected` bleibt versiegelt,
-künftiger Lauf zeigt 9/8 als T5-Messung, kein Korrekturlass; ADR-012),
+stdlib-only — R6 strukturell zu; ADR-012),
 **T6** (Struktur-Assertions ins Doc-Gate — `scripts/check_architecture_metrics.py`
-hat zwei neue Asserter: `check_importlinter_contracts` (Set der
-`name`-Werte aus `[[tool.importlinter.contracts]]` in `pyproject.toml`
-gegen neue `## Struktur-Verträge (CI-erzwungen)`-Tabelle) und
-`check_shim_inventory` (AST-fundiertes Shim-Set — Body nach optionalem
-Docstring nur `Import`/`ImportFrom` + max. `__all__`-Assign — gegen
-neue `## Re-Export-Shim-Inventar (CI-erzwungen)`-Tabelle, inkl.
-LOC-Match je Zeile). Drift in beide Richtungen bricht den Build; stdlib-
-only (Regex für TOML, `ast` für Python — gleiche Disziplin wie ADR-012
-§B). Keine YAML-Änderung, das Skript läuft schon in allen drei CI-Pfaden.
-Self-Test (6 Mutationen, alle Drift-Wege empirisch verifiziert). R5
-strukturell zu. ADR-013). **T7-A** (`models.py`-Shim physisch tot —
-R2 strukturell, 1/3): neues top-level `db_tables.py` mit expliziter
-`register_tables()`-Funktion (Funktions-Form disqualifiziert das Modul
-als T6-Shim → Inventar-Zähler **echt** 5→4; top-level statt
-`app.core/`, weil `core ↛ domains` jede Aggregation im `app.core`-
-Paket verbieten würde — Lektion aus CI-Iteration 2). 4 Aufrufer
-umgezogen (`database.create_db` + zwei Test-Conftests + die zwei
-Alembic-Baselines), 17 Test-Dateien `from models import …` → direkte
-`app.{core,domains,shared}.*`-Importer, `test_models_split.py` auf
-neuen Bootstrap-Vertrag umgeschrieben. ADR-014.
+hat zwei neue Asserter: `check_importlinter_contracts` + `check_shim_inventory`;
+beide stdlib-only, Drift in beide Richtungen bricht den Build; R5
+strukturell zu; ADR-013).
+**T7-A** (`models.py`-Shim physisch tot — R2 strukturell, 1/3):
+Aggregations-Rolle in top-level `db_tables.register_tables()` umgezogen;
+17 Test-Dateien `from models import …` → direkte
+`app.{core,domains,shared}.*`-Importer; ADR-014.
 **T7-B** (`services/ai.py`-Shim physisch tot — R2 strukturell, 2/3):
-Anders als T7-A keine Aggregations-Rolle, sondern reine monkeypatch-
-Naht der frozen S0.5-Char-Tests + S6-Unit-Test. Recon vorab fand 1
-Prod-Importer (`app/domains/proposals/service.py:62`, lazy) + 3 Test-
-Importer mit 5 `setattr(ai, "chat_with_context", …)`-Aufrufen.
-Lifecycle-Swap mechanisch: Prod-Seam retargeted auf
-`from app.core import ai as _seam`; 3 Test-Files `from services
-import ai` → `from app.core import ai`; Sonderfall
-`ai.generate_proposal_drafts` (lebt in `app.domains.proposals.service`)
-per Zusatz-Import + 2 Aufrufstellen gelöst (macht Schritt-6-Layering
-Adapter ≠ Orchestrierung sichtbar). monkeypatch-Aufrufe selbst byte-
-identisch. Bonus-Sweep: veraltete `services.ai`-Seam-Kommentare in
-`app/core/ai.py`, `app/interfaces/web/{ai,proposals}.py`, `README.md`
-retargeted. Keine neue import-linter-Regel (Datei-Löschung ist das
-Gate). **CI grün first try, KEIN fix-forward** — Recon zahlte sich
-aus. ADR-015.
-**T7-C** (`services/linkedin_import.py`-Shim physisch tot — R2
-strukturell, 3/3): mechanisch sauberer als T7-B — alle 4
-re-exportierten Symbole (`SYSTEM_PROMPT`, `LinkedInImportError`,
-`_parse_json_block`, `extract_lead_from_pdf`) leben tatsächlich in
-`app/core/ai.py`, **kein Sonderfall** analog T7-B/
-`generate_proposal_drafts`. Recon vorab fand 2 Prod-Importer
-(`app/domains/leads/service.py:127` lazy, `app/interfaces/web/leads.py:222`
-modul-lokal) + 2 Test-Importer mit 2 `setattr(li, "extract_lead_from_pdf",
-…)`-Aufrufen (alle in `tests/characterization/test_leads_routes.py`).
-Lifecycle-Swap mechanisch: 2 Prod-Imports retargeted
-(`from services import linkedin_import as _li` →
-`from app.core import ai as _li`; `from services.linkedin_import
-import LinkedInImportError` → `from app.core.ai import LinkedInImportError`),
-2 Test-Imports retargeted (`import services.linkedin_import as li` →
-`from app.core import ai as li`), monkeypatch-Aufrufe byte-identisch.
-Keine neue import-linter-Regel. **CI grün first try, KEIN fix-forward**
-(zweites Mal in Folge nach T7-B — Recon-Disziplin gefestigt).
-Kennzahlen: LOC 12.297→12.240, Prod 8.700→8.636 (−64 über T7-A/B/C),
-Tests 3.597→3.604 (+7 über T7-A/B/C). Gate-Output ist jetzt
-`5 import-linter contracts and 2 re-export shims accounted for`. ADR-016.
+Reine monkeypatch-Naht der frozen S0.5-Char-Tests + S6-Unit-Test.
+1 Prod-Importer (`app/domains/proposals/service.py:62`, lazy) + 3 Test-
+Importer mit 5 `setattr(ai, "chat_with_context", …)`-Aufrufen. Sonderfall
+`ai.generate_proposal_drafts` (lebt in `app.domains.proposals.service`,
+nicht `app.core.ai`) per Zusatz-Import + 2 Aufrufstellen gelöst.
+CI grün first try; ADR-015.
+**T7-C** (`services/linkedin_import.py`-Shim physisch tot — R2 strukturell,
+3/3): mechanisch sauberer als T7-B — alle 4 re-exportierten Symbole
+leben tatsächlich in `app/core/ai.py`, kein Sonderfall. 2 Prod-Importer
++ 2 Test-Imports retargeted; CI grün first try; ADR-016.
+**T7-D** (`services/mcp_server.py` → `app/interfaces/mcp/server.py` —
+R2 strukturell vollständig zu): **Andere Mechanik** als T7-A/B/C — kein
+Shim-Tod, sondern Move-not-rewrite eines lebenden 363-LOC-Moduls (16
+`@mcp.tool` + modul-globaler `engine`-Seam). ADR-009 §B-Endpunkt eingelöst:
+der frozen `m.engine`-Monkeypatch-Seam zog byte-äquivalent mit, weil
+`monkeypatch.setattr(m, "engine", …)` an das Modul-Objekt bindet, nicht
+an den Import-Pfad-String (selber `sys.modules`-Eintrag). Recon vorab fand:
+2 Prod-Importer (`app/interfaces/mcp/{__init__,mount}.py`, beide
+`from services.mcp_server import mcp`) + 1 Test-Importer
+(`tests/characterization/conftest.py:81`, `import services.mcp_server as m`).
+`main.py` greift nur indirekt via `app.interfaces.mcp`-Paket — unverändert.
+Mechanik: `git mv` + 2 Prod-Imports retargeted + 1 Test-Import retargeted
++ 1 Linter-Regel umbenannt (`source_modules = ["app.interfaces.mcp.server"]`
++ `name`-String synchron zur ARCHITECTURE.md-Struktur-Verträge-Tabelle,
+sonst Doc-Gate rot) + Doc-Gate-Skript `m_mcp_tools` zählt am neuen Pfad
++ datei-eigenes Docstring auf neuen Mount-Pfad korrigiert (referenzierte
+vorher `routes/mcp.py`, seit Schritt 8 weg — Stale-Korrektur).
+**Zwei kleine fix-forward-Iterationen nötig** (anders als T7-B/C, die
+first-try grün waren): (1) ruff-Lint-Sweep im neuen Pfad-Scope —
+`select` war seit Schritt 7 genuin tot (F401-Drop, 0 LOC) + per-file-
+E402-ignore für die deliberaten Late-Imports der Invoice-Tool-Gruppe
+(analog `web/*`/`api/*`-Layout-Debt); (2) `ruff format` Konformitäts-
+Bump (+6 prod LOC: Leerzeilen nach Section-Komment-Bannern + 2
+Mehrzeilen-Aufrufe in `finalize_invoice`/`create_storno` — rein kosmetisch),
+weil `app/`-Pfad unter den Format-Scope fällt. **Lektion**: der Move
+ins `app/`-Scope macht latente Legacy-Layout-Schulden sichtbar; das ist
+in ADR-017 §G/§H dokumentiert und sollte für künftige Move-Items
+einkalkuliert werden (kein Recon-Fehler, sondern Strukturschuld).
+Kennzahlen: LOC 12.254 / 8.646 / 3.608 (+14 = +8 Naht-Docstring +6 Format).
+Shim-Inventar unverändert (mcp_server ist keine Re-Export-Shim — Body
+enthält Funktions-Definitionen; T6-AST-Walk klassifiziert korrekt als
+Nicht-Shim → Gate-Output bleibt `5 import-linter contracts and 2
+re-export shims accounted for`). Schicht-Hygiene auf der Interface-Achse
+jetzt vollständig: `services/` enthält keine Interface-Schicht mehr
+(`auth/numbering/pdf/proposals` = Reusable-Kernel, `invoicing/` =
+Compliance-Move-not-rewrite). ADR-017. **R2 strukturell vollständig
+zu** (T7-A + T7-B + T7-C + T7-D); **T7 abgeschlossen**.
 Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
 (Backup-Automatik + Restore-Test on-host), **D3** (Deploy-`verify`-Job
 + Pre-Deploy-Backup-Hook serverseitig), **D4** (immutable `:sha`-Tag
@@ -127,31 +126,12 @@ Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
 ## Offen
 
 **Track:**
-- **T7-D** (P2) — `services.mcp_server` → `app/interfaces/mcp/server.py`
-  relozieren (Move-not-rewrite des FastMCP-Servers + Mount-Pfad-
-  Anpassung in `main.py`/`app/interfaces/mcp/mount.py`; ADR-009 §B
-  benannte den `m.engine`-Seam als frozen → der Move ist der Lifecycle-
-  Endpunkt). Eigener ADR, eigener PR. **Hinweis:** anders als T7-A/B/C
-  ist das ein **Move**, kein Shim-Tod — der T6-Inventar-Zähler ändert
-  sich dadurch nicht (mcp_server ist 436 LOC echte Logik, kein
-  Re-Export-Shim). Konkret: importer-Sweep auf `services.mcp_server`
-  (`main.py` mountet via `routes/mcp.py`-Wrapper-ASGI), Mount-Pfad +
-  `from services.mcp_server import mcp_server as m` retargeten,
-  Datei verschieben (Compliance-frei — `m.engine`-Seam ist frozen,
-  also nur Pfad).
+- *(keiner)* — T7 ist abgeschlossen. Der Remediation-Track hat keine
+  offenen T-Items mehr.
 - **`routes/{leads,proposals}.py`** — die zwei `app.interfaces.web.*.router`-
   Re-Export-Shims. Nicht in T7 als eigenes Item geführt; sterben mit der
   nächsten Char-Test-Reorganisation (Test-Importer `from routes import
   leads as leads_route` ablegen). Inventar-Zähler-Ziel: 0.
-
-**Vorschlag als nächster Schritt**: T7-D (mcp_server-Relokation) —
-**andere** Mechanik als T7-A/B/C (Move-not-rewrite eines lebenden
-Moduls statt Shim-Tod). Recon zuerst: alle Importer von
-`services.mcp_server` ermitteln (vermutlich `routes/mcp.py` +
-`main.py`-Mount); Mount-Pfad-Konsequenzen klären (Trailing-Slash,
-`/mcp/`-URL); Move-not-rewrite-Plan in ADR-017 fixieren bevor irgendwas
-verschoben wird. Recon-Disziplin von T7-B/T7-C beibehalten — sie
-hat zweimal in Folge first-try-CI-grün produziert.
 
 **Ops:**
 - **D2b** — Off-Host-Backup-Automatik. Heute fehlt am Server jedes
@@ -163,16 +143,19 @@ hat zweimal in Folge first-try-CI-grün produziert.
   für riskante Migrations-Proben ohne Prod-Risiko.
 
 **Empfohlene Reihenfolge (mein Vorschlag, nicht bindend):**
-T7-D (mcp_server-Relokation, Move-not-rewrite, ADR-017); D2b parallel
-sobald die Ziel-Infra entschieden ist.
+D2b sobald die Ziel-Infra entschieden ist (P1, Wertbeitrag = echte
+Off-Host-DR-Garantie); D5 falls eine größere Schema-Änderung ansteht
+(P2, optional). Die `routes/*.py`-Test-Shims können bei nächster Char-
+Test-Reorganisation mitgenommen werden — kein eigenes T-Item.
 
 ## Stehendes Mandat (Track-PRs eigenständig mergen)
 
 Du darfst Track-PRs **nach grüner CI selbst squash-mergen** und das
-Branch löschen — analog zu Sessions vom 2026-05-20 (T4b PR #24 +
+Branch löschen — analog zu Sessions vom 2026-05-20/21 (T4b PR #24 +
 NEXT-SESSION-PROMPT-Folge PR #25; T5 PR #27 + Folge-Doku PR #28; T6
 PR #29 + Folge-Doku PR #30; T7-A PR #31 + Folge-Doku PR #32;
-T7-B PR #33 + Folge-Doku PR #34; T7-C PR #35 + Folge-Doku).
+T7-B PR #33 + Folge-Doku PR #34; T7-C PR #35 + Folge-Doku PR #36;
+T7-D PR #37 + Folge-Doku).
 Begründung: jede Track-PR-Iteration
 ist klein, byte-äquivalent geprüft (`make verify` inkl. Char-Tests +
 90 %-Invoicing-Suite + import-linter + Doc-Gate + Probe-Lint), und der
@@ -198,7 +181,7 @@ mergen.
    verifizieren (Squash-SHA sichtbar = Auto-Deploy läuft)
 3. Doc-Gate + Probe-Lint lokal nachschießen (sollten grün bleiben — kein
    `.py`-Drift möglich, weil der PR ja gerade grün war)
-4. Folge-Doku-PR (falls passend, analog #23/#25): NEXT-SESSION-PROMPT
+4. Folge-Doku-PR (falls passend, analog #36): NEXT-SESSION-PROMPT
    auf den neuen Stand ziehen, Memory `scaling-roadmap-progress` +
    `MEMORY.md`-Index ergänzen — und denselben Mandats-Pfad nutzen.
 
@@ -208,6 +191,12 @@ mergen.
   Einziger lokaler Hebel: stdlib-Skripte —
   `python3 scripts/check_architecture_metrics.py` (Doc-Gate) und
   `python3 scripts/outcome_probe.py --lint`. Beide müssen grün bleiben.
+  **Zusatz seit T7-D**: `ruff` (`pip install --user ruff`) ist
+  app-dep-frei und reicht für `ruff format --check app` + `ruff check
+  scripts app` lokal vor Push — empfohlen bei jedem Move-not-rewrite-
+  Item in `app/`, weil `services/` außerhalb des Format-Scopes lag und
+  Move-Items latente Layout-Debt sichtbar machen (T7-D-Lektion,
+  ADR-017 §G/§H).
 - **Doc-Gate-Disziplin:** jede `.py`-Änderung **außerhalb `scripts/`**
   verschiebt Kennzahlen → ARCHITECTURE.md im **selben Change** syncen,
   sonst CI rot.
@@ -241,8 +230,7 @@ zuerst, jede Mutation mit `.bak` vorher.
 Verifiziere den Status (`git status`, `git log --oneline -5`,
 `docs/remediation-backlog.md` lesen, Doc-Gate + Probe-Lint grün prüfen,
 `gh pr list --state open`), kläre mit dem User welches Item als
-nächstes (Vorschlag T7-D, mcp_server-Move-not-rewrite, mit Recon-
-Schritt vorab — **andere Mechanik** als T7-A/B/C, also nicht
-mechanisch übertragen), und arbeite es als eigenen PR ab —
-schemaneutral, byte-äquivalent wo Move, sealed bleibt sealed,
-Kennzahlen im selben Change syncen.
+nächstes (Vorschlag D2b sobald die Ziel-Infra geklärt ist — echte
+Infra-Entscheidung, deshalb mit dem User abklären), und arbeite es als
+eigenen PR ab — schemaneutral, byte-äquivalent wo Move, sealed bleibt
+sealed, Kennzahlen im selben Change syncen.
