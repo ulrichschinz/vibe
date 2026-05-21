@@ -105,7 +105,10 @@ def m_route_modules() -> int:
 
 
 def m_mcp_tools() -> int:
-    text = (REPO / "services" / "mcp_server.py").read_text(encoding="utf-8")
+    # T7-D (ADR-017): mcp_server.py moved from services/ to
+    # app/interfaces/mcp/. Doc-Gate counts the @mcp.tool decorators at
+    # the new home.
+    text = (REPO / "app" / "interfaces" / "mcp" / "server.py").read_text(encoding="utf-8")
     return sum(1 for ln in text.splitlines() if "@mcp.tool" in ln)
 
 

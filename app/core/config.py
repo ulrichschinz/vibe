@@ -57,7 +57,7 @@ class Settings(BaseSettings):
     # main.py — session signing (read at app construction)
     secret_key: str = "dev-secret-change-me"
 
-    # services/mcp_server.py, routes/admin.py — public host for URLs
+    # app/interfaces/mcp/server.py, routes/admin.py — public host for URLs
     app_host: str = ""
 
     # main.py bootstrap_admin() — both must be set or bootstrap is skipped

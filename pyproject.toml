@@ -204,16 +204,17 @@ forbidden_modules = [
 # Schritt 8 extends the Schritt-7 `interfaces/mcp` row to the billing
 # models: the new `app.domains.billing.service` facade absorbed the last
 # direct `Invoice(...)`/`InvoiceLineItem(...)` construction the invoice
-# tools did, so `services.mcp_server` now imports **no** domain model
-# directly. `mcp_server` stays physically here (frozen `m.engine` seam,
-# ADR-009 §B), so it remains the `source_modules`. `allow_indirect_imports
-# = "True"` keeps forbidding only the **direct** model import while letting
-# the legitimate intra-domain `service → models` chain through (the exact
+# tools did, so the MCP interface now imports **no** domain model
+# directly. T7-D (ADR-017) relocated the file from `services/mcp_server.py`
+# to `app/interfaces/mcp/server.py` — the `m.engine` seam moved with it
+# (ADR-009 §B's deferred follow-up). `allow_indirect_imports = "True"`
+# keeps forbidding only the **direct** model import while letting the
+# legitimate intra-domain `service → models` chain through (the exact
 # ADR-008 subtlety; the inverse of the transitive Schritt-5 billing rule).
 [[tool.importlinter.contracts]]
-name = "MCP interface (services.mcp_server) must not directly import/construct domain models — MCP-Entdopplung (Schritt 7, +billing Schritt 8)"
+name = "MCP interface (app.interfaces.mcp.server) must not directly import/construct domain models — MCP-Entdopplung (Schritt 7, +billing Schritt 8, +T7-D relocation)"
 type = "forbidden"
-source_modules = ["services.mcp_server"]
+source_modules = ["app.interfaces.mcp.server"]
 forbidden_modules = [
     "app.domains.leads.models",
     "app.domains.proposals.models",

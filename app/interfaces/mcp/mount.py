@@ -6,10 +6,10 @@ X-API-Key header against the same ApiKey table the REST API uses. Reuses
 `validate_api_key` from `app.interfaces.api.router` so revoking a key in the
 admin UI takes effect for both REST and MCP on the next request.
 
-The FastMCP server itself stays in `services/mcp_server.py` — that module
-is the eingefrorene `m.engine` monkeypatch seam of the Schritt-7
-characterization tests (ADR-008/ADR-009 §B); its physical relocation is a
-deferred follow-up, not Schritt 8.
+The FastMCP server itself lives in `app/interfaces/mcp/server.py` since
+T7-D (ADR-017) — the `m.engine` monkeypatch seam of the Schritt-7
+characterization tests (ADR-008/ADR-009 §B) moved with the file; the
+test-conftest seam now imports `app.interfaces.mcp.server as m`.
 """
 
 from sqlmodel import Session
@@ -17,7 +17,7 @@ from starlette.responses import PlainTextResponse
 
 from database import engine
 from app.interfaces.api.router import validate_api_key
-from services.mcp_server import mcp
+from app.interfaces.mcp.server import mcp
 
 _mcp_asgi = mcp.streamable_http_app()
 

@@ -1,7 +1,10 @@
 """MCP server exposing lead/note/proposal operations to AI agents.
 
-The server is mounted at /mcp by routes/mcp.py. Auth is enforced by an ASGI
-middleware in routes/mcp.py — tools here trust that the caller is authenticated.
+The server is mounted at /mcp by `app/interfaces/mcp/mount.py` (since
+Schritt 8, ADR-009 §B). Auth is enforced by an ASGI middleware in
+`mount.py` — tools here trust that the caller is authenticated. The
+file moved here from `services/mcp_server.py` in T7-D (ADR-017); the
+characterization-test `m.engine` seam (ADR-008/ADR-009 §B) followed.
 """
 from typing import Optional
 import json
