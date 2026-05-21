@@ -1,12 +1,16 @@
 """MCP server exposing lead/note/proposal operations to AI agents.
 
-The server is mounted at /mcp by routes/mcp.py. Auth is enforced by an ASGI
-middleware in routes/mcp.py — tools here trust that the caller is authenticated.
+The server is mounted at /mcp by `app/interfaces/mcp/mount.py` (since
+Schritt 8, ADR-009 §B). Auth is enforced by an ASGI middleware in
+`mount.py` — tools here trust that the caller is authenticated. The
+file moved here from `services/mcp_server.py` in T7-D (ADR-017); the
+characterization-test `m.engine` seam (ADR-008/ADR-009 §B) followed.
 """
+
 from typing import Optional
 import json
 
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from mcp.server.fastmcp import FastMCP
 
@@ -44,6 +48,7 @@ DEFAULT_SERVICES = proposals_service.DEFAULT_SERVICES
 
 
 # ── lead tools ──────────────────────────────────────────────────────────────
+
 
 @mcp.tool()
 def create_lead(
@@ -163,6 +168,7 @@ def update_lead(
 
 # ── note tools ──────────────────────────────────────────────────────────────
 
+
 @mcp.tool()
 def add_note(lead_id: int, body: str) -> dict:
     """Append a note to a lead."""
@@ -178,6 +184,7 @@ def list_notes(lead_id: int) -> list[dict]:
 
 
 # ── proposal tools ──────────────────────────────────────────────────────────
+
 
 @mcp.tool()
 def create_proposal(
@@ -319,7 +326,8 @@ def finalize_invoice(invoice_id: int, idempotency_key: Optional[str] = None) -> 
     with Session(engine) as s:
         try:
             inv = _finalize_invoice(
-                s, invoice_id,
+                s,
+                invoice_id,
                 idempotency_key=idempotency_key or str(_uuid.uuid4()),
                 options=_FinalizeOptions(
                     renderer=_render_document,
@@ -354,7 +362,8 @@ def storno_invoice(invoice_id: int, reason: Optional[str] = None) -> dict:
     with Session(engine) as s:
         try:
             storno = _create_storno(
-                s, invoice_id,
+                s,
+                invoice_id,
                 reason=reason,
                 options=_FinalizeOptions(renderer=_render_document, archiver=_archive_document),
             )

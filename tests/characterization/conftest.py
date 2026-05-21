@@ -71,14 +71,18 @@ def call_tool(tool, **kwargs):
 
 @pytest.fixture
 def mcp_module(engine, monkeypatch, tmp_path):
-    """services.mcp_server with its module-global engine redirected to the
-    per-test engine (it does `from database import engine` at import, so
-    monkeypatching there is the only seam — analogous to the attach_user
+    """app.interfaces.mcp.server with its module-global engine redirected
+    to the per-test engine (it does `from database import engine` at import,
+    so monkeypatching there is the only seam — analogous to the attach_user
     middleware fix). Each tool opens its own short-lived Session(engine),
     exactly like production; tests therefore seed/assert via their own
     short-lived sessions and never hold one open across a tool call.
+
+    Since T7-D/ADR-017 the module lives at `app/interfaces/mcp/server.py`;
+    the seam mechanic is unchanged because `monkeypatch.setattr` binds to
+    the module object, not its import path (same `sys.modules` entry).
     """
-    import services.mcp_server as m
+    import app.interfaces.mcp.server as m
 
     monkeypatch.setattr(m, "engine", engine)
     monkeypatch.setenv("INVOICE_ARCHIVE_ROOT", str(tmp_path / "archive"))

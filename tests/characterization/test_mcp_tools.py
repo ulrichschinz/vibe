@@ -1,4 +1,4 @@
-"""Characterization — services/mcp_server.py tools.
+"""Characterization — app/interfaces/mcp/server.py tools (T7-D-relozierter Home).
 
 Pins the CURRENT return-payload *shape* + DB side-effect of the tools
 Schritt 7 rewires: the duplicated Lead-construction tools

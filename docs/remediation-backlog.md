@@ -238,10 +238,39 @@ Je ein PR pro Shim. Tracking-Stand (R2 strukturell, kumulativ):
   re-exportierten Symbole (`SYSTEM_PROMPT`, `LinkedInImportError`,
   `_parse_json_block`, `extract_lead_from_pdf`) leben tatsächlich in
   `app/core/ai.py`. Shim-Inventar 3 → 2.
-- **T7-D** — `services/mcp_server.py` → `app/interfaces/mcp/server.py`
-  (P2, ausstehend). Move-not-rewrite des FastMCP-Servers + Mount-Pfad-
-  Anpassung; ADR-009 §B benennt den `m.engine`-Seam als frozen — der Move
-  ist der Lifecycle-Endpunkt. Eigener ADR, eigener PR.
+- **T7-D** ✅ — `services/mcp_server.py` → `app/interfaces/mcp/server.py`
+  umgesetzt 2026-05-21 (ADR-017). **Andere Mechanik** als T7-A/B/C: kein
+  Shim-Tod, sondern Move-not-rewrite eines lebenden 436-LOC-Moduls (16
+  Tools + modul-globaler `engine`-Seam). ADR-009 §B-Endpunkt eingelöst —
+  der frozen `m.engine`-Monkeypatch-Seam zog byte-äquivalent mit, weil
+  `monkeypatch.setattr(m, "engine", …)` an das Modul-Objekt bindet, nicht
+  an den Import-Pfad-String (selber `sys.modules`-Eintrag). Recon vorab:
+  2 Prod-Importer (`app/interfaces/mcp/{__init__,mount}.py`, beide
+  `from services.mcp_server import mcp`) + 1 Test-Importer
+  (`tests/characterization/conftest.py:81`, `import services.mcp_server as m`).
+  `main.py` indirekt via `app.interfaces.mcp`-Paket — unverändert. Mechanik:
+  `git mv` + 2 Prod-Import-Zeilen retargeted + 1 Test-Import-Zeile
+  retargeted + 1 Linter-Regel umbenannt (`name` + `source_modules`
+  synchron zur ARCHITECTURE.md-Struktur-Verträge-Tabelle, sonst Doc-Gate
+  rot) + datei-eigenes Docstring auf neuen Mount-Pfad korrigiert (referenzierte
+  vorher `routes/mcp.py`, seit Schritt 8 weg — Stale-Korrektur). **Shim-
+  Inventar unverändert** (mcp_server ist keine Re-Export-Shim — Body enthält
+  Funktions-Definitionen, kein reines `Import`+`__all__`-Muster; T6-AST-
+  Walk klassifiziert korrekt als Nicht-Shim → Gate-Output bleibt
+  `5 import-linter contracts and 2 re-export shims accounted for`). LOC-
+  Drift: Prod +10 / Tests +4 / Total +14 (Naht-Docstring-Erweiterungen
+  +8 in `app/interfaces/mcp/{__init__,server}.py` + Conftest +
+  Format-Conformance-Bump +6 für den ruff-format-`app/`-Scope —
+  ADR-017 §H). Zusatz-Per-File-Ignore `"app/interfaces/mcp/server.py" =
+  ["E402"]` in `pyproject.toml` (deliberate Late-Imports der Invoice-
+  Tool-Gruppe; analog `web/*`/`api/*`-Layout-Debt). F401-`select`-Drop
+  ist genuin (1-Symbol-Drop, 0-LOC). Doc-Gate-Skript
+  `scripts/check_architecture_metrics.py::m_mcp_tools` zählt jetzt am
+  neuen Pfad. Schicht-Hygiene auf der Interface-Achse
+  jetzt vollständig: `services/` enthält **keine** Interface-Schicht mehr
+  (auth/numbering/pdf/proposals = Reusable-Kernel, invoicing/ = Compliance-
+  Move-not-rewrite). **R2 strukturell vollständig zu** (T7-A + T7-B +
+  T7-C + T7-D); T7 abgeschlossen.
 
 Daneben (kein eigenes T7-Item): die zwei `routes/{leads,proposals}.py`-
 Re-Export-Shims (`app.interfaces.web.*.router`) sterben mit der nächsten

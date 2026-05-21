@@ -231,10 +231,16 @@ The local `docker-compose.yml` uses Caddy as reverse proxy (dev/standalone). The
 > ist seit Remediation-Track T2 aktiv** (ADR-011 — Read-/Konstruktions-
 > Fläche hinter die Domänen-`*.service`; `shared ↛ domains` bleibt
 > deferred).
-> `services/mcp_server.py` bleibt (frozen `m.engine`-Seam, ADR-008/009 §B/§E
-> — T7-D-Move-Endpunkt); `services/ai.py` ist seit T7-B/ADR-015 tot,
-> `services/linkedin_import.py` seit T7-C/ADR-016. Rationale
-> `docs/adr/009-interface-split-rfc7807.md`. **Schritt 9 ist gelandet:**
+> **T7-D ist gelandet** (`mcp_server` physisch nach `app/interfaces/mcp/server.py`,
+> ADR-017): der ADR-009 §B/§E-Lifecycle-Endpunkt ist eingelöst — der frozen
+> `m.engine`-Seam zog byte-äquivalent mit; 2 Prod-Importer
+> (`app/interfaces/mcp/{__init__,mount}.py`) + 1 Test-Importer
+> (`tests/characterization/conftest.py::mcp_module`) retargeted;
+> Import-Linter-Regel-Name + `source_modules` synchron umbenannt; LOC-/
+> Shim-Inventar-Kennzahlen unverändert. `services/ai.py` ist seit
+> T7-B/ADR-015 tot, `services/linkedin_import.py` seit T7-C/ADR-016.
+> Rationale `docs/adr/009-interface-split-rfc7807.md` +
+> `docs/adr/017-t7d-mcp-server-relocation.md`. **Schritt 9 ist gelandet:**
 > Alembic — zwei **getrennt versionierte** Bäume (`migrations/crm` →
 > `alembic_version`, `migrations/billing` → `alembic_version_billing`) auf
 > der heute gemeinsamen SQLite-Datei; `database.create_db()` ruft

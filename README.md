@@ -73,8 +73,8 @@ vibe/
 │   ├── numbering.py         # Angebotsnummer AR-YYYY-NNN
 │   ├── auth.py              # Passwort-Hashing, Session-Utilities
 │   ├── ai.py                # Claude-API-Integration
-│   ├── proposals.py         # Shared Helpers (create / mark_sent) — UI + MCP
-│   └── mcp_server.py        # FastMCP-Server mit 10 Tools (Leads / Notes / Proposals)
+│   └── proposals.py         # Shared Helpers (create / mark_sent) — UI + MCP
+│   # (mcp_server.py → seit T7-D unter app/interfaces/mcp/server.py — ADR-017)
 ├── templates/
 │   ├── base.html            # Nav, Brand-CSS/JS
 │   ├── dashboard.html       # Pipeline-Übersicht
