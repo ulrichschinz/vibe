@@ -17,7 +17,7 @@ from sqlmodel import Session, select
 
 from app.core.ai_settings import AiSettings
 from app.domains.proposals.models import Proposal, ProposalStatus
-from routes import proposals as proposals_route
+from app.interfaces.web import proposals as proposals_route
 from app.core import ai
 from services.proposals import create_proposal as create_proposal_svc
 from tests.characterization.conftest import build_minimal_app

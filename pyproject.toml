@@ -196,7 +196,7 @@ forbidden_modules = [
 # DEFAULT (transitive) detection to catch the `models`-shim reach — here a
 # transitive flag would wrongly forbid `mcp_server → leads.service →
 # leads.models`. The shared clean `services/proposals.py` is left untouched
-# (also used verbatim by `routes/proposals.py`); it is a service, not the
+# (also used verbatim by `app/interfaces/web/proposals.py`); it is a service, not the
 # MCP interface, so its `Proposal(...)` construction is legitimate.
 #
 # Scope: only the `interfaces/mcp` row is activated here, for the
