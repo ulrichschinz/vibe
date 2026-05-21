@@ -29,6 +29,7 @@ bereits passiert, in Doku & Memory nachlesbar):
 Aktuelle main-Reihenfolge (oben = neuester Stand):
 
 ```
+5dfbbdf  ops:  T7-C — services/linkedin_import.py-Shim sterben lassen (R2 strukturell, 3/3) (#35)
 62e0afe  ops:  T7-B — services/ai.py-Shim sterben lassen (R2 strukturell, 2/3) (#33)
 5f5f8eb  ops:  T7-A — models.py-Shim sterben lassen (R2 strukturell, 1/3) (#31)
 83208b8  ops:  T6 — Struktur-Assertions ins Doc-Gate (schließt R5) (#29)
@@ -97,8 +98,27 @@ identisch. Bonus-Sweep: veraltete `services.ai`-Seam-Kommentare in
 `app/core/ai.py`, `app/interfaces/web/{ai,proposals}.py`, `README.md`
 retargeted. Keine neue import-linter-Regel (Datei-Löschung ist das
 Gate). **CI grün first try, KEIN fix-forward** — Recon zahlte sich
-aus. Gate-Output ist jetzt `5 import-linter contracts and 3 re-export
-shims accounted for`. ADR-015.
+aus. ADR-015.
+**T7-C** (`services/linkedin_import.py`-Shim physisch tot — R2
+strukturell, 3/3): mechanisch sauberer als T7-B — alle 4
+re-exportierten Symbole (`SYSTEM_PROMPT`, `LinkedInImportError`,
+`_parse_json_block`, `extract_lead_from_pdf`) leben tatsächlich in
+`app/core/ai.py`, **kein Sonderfall** analog T7-B/
+`generate_proposal_drafts`. Recon vorab fand 2 Prod-Importer
+(`app/domains/leads/service.py:127` lazy, `app/interfaces/web/leads.py:222`
+modul-lokal) + 2 Test-Importer mit 2 `setattr(li, "extract_lead_from_pdf",
+…)`-Aufrufen (alle in `tests/characterization/test_leads_routes.py`).
+Lifecycle-Swap mechanisch: 2 Prod-Imports retargeted
+(`from services import linkedin_import as _li` →
+`from app.core import ai as _li`; `from services.linkedin_import
+import LinkedInImportError` → `from app.core.ai import LinkedInImportError`),
+2 Test-Imports retargeted (`import services.linkedin_import as li` →
+`from app.core import ai as li`), monkeypatch-Aufrufe byte-identisch.
+Keine neue import-linter-Regel. **CI grün first try, KEIN fix-forward**
+(zweites Mal in Folge nach T7-B — Recon-Disziplin gefestigt).
+Kennzahlen: LOC 12.297→12.240, Prod 8.700→8.636 (−64 über T7-A/B/C),
+Tests 3.597→3.604 (+7 über T7-A/B/C). Gate-Output ist jetzt
+`5 import-linter contracts and 2 re-export shims accounted for`. ADR-016.
 Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
 (Backup-Automatik + Restore-Test on-host), **D3** (Deploy-`verify`-Job
 + Pre-Deploy-Backup-Hook serverseitig), **D4** (immutable `:sha`-Tag
@@ -107,28 +127,31 @@ Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
 ## Offen
 
 **Track:**
-- **T7-C** (P2) — Char-Test-Lifecycle-Swap des
-  `services/linkedin_import.py`-Shims (analog T7-B; die frozen
-  monkeypatch-Naht der Schritt-0.5-Char-Tests). T7-B-Erfahrung
-  übertragen: Recon vorab (welche Tests patchen
-  `services.linkedin_import.…` wie); dann mechanischer Importer-Swap.
-  Eigener ADR, eigener PR. Inventar-Zähler-Ziel: 3 → 2.
 - **T7-D** (P2) — `services.mcp_server` → `app/interfaces/mcp/server.py`
   relozieren (Move-not-rewrite des FastMCP-Servers + Mount-Pfad-
   Anpassung in `main.py`/`app/interfaces/mcp/mount.py`; ADR-009 §B
   benannte den `m.engine`-Seam als frozen → der Move ist der Lifecycle-
-  Endpunkt). Eigener ADR, eigener PR.
+  Endpunkt). Eigener ADR, eigener PR. **Hinweis:** anders als T7-A/B/C
+  ist das ein **Move**, kein Shim-Tod — der T6-Inventar-Zähler ändert
+  sich dadurch nicht (mcp_server ist 436 LOC echte Logik, kein
+  Re-Export-Shim). Konkret: importer-Sweep auf `services.mcp_server`
+  (`main.py` mountet via `routes/mcp.py`-Wrapper-ASGI), Mount-Pfad +
+  `from services.mcp_server import mcp_server as m` retargeten,
+  Datei verschieben (Compliance-frei — `m.engine`-Seam ist frozen,
+  also nur Pfad).
 - **`routes/{leads,proposals}.py`** — die zwei `app.interfaces.web.*.router`-
   Re-Export-Shims. Nicht in T7 als eigenes Item geführt; sterben mit der
   nächsten Char-Test-Reorganisation (Test-Importer `from routes import
   leads as leads_route` ablegen). Inventar-Zähler-Ziel: 0.
 
-**Vorschlag als nächster Schritt**: T7-C (`services/linkedin_import.py`
-Shim-Tod) — analog T7-B mit Recon-Schritt vorab. Aufrufer scannen
-(`monkeypatch.setattr(services.linkedin_import, …)`-Stellen, Prod-
-Importer), Lifecycle-Swap-ADR schreiben, dann mechanisch ausführen.
-T7-B-Disziplin (Recon + vorausschauender `grep -rn` über
-`migrations/`/Docs/README) übernehmen — sie war first-try-CI-grün.
+**Vorschlag als nächster Schritt**: T7-D (mcp_server-Relokation) —
+**andere** Mechanik als T7-A/B/C (Move-not-rewrite eines lebenden
+Moduls statt Shim-Tod). Recon zuerst: alle Importer von
+`services.mcp_server` ermitteln (vermutlich `routes/mcp.py` +
+`main.py`-Mount); Mount-Pfad-Konsequenzen klären (Trailing-Slash,
+`/mcp/`-URL); Move-not-rewrite-Plan in ADR-017 fixieren bevor irgendwas
+verschoben wird. Recon-Disziplin von T7-B/T7-C beibehalten — sie
+hat zweimal in Folge first-try-CI-grün produziert.
 
 **Ops:**
 - **D2b** — Off-Host-Backup-Automatik. Heute fehlt am Server jedes
@@ -140,9 +163,8 @@ T7-B-Disziplin (Recon + vorausschauender `grep -rn` über
   für riskante Migrations-Proben ohne Prod-Risiko.
 
 **Empfohlene Reihenfolge (mein Vorschlag, nicht bindend):**
-T7-C (linkedin_import-Lifecycle-Swap, analog T7-B mit Recon vorab) →
-T7-D (mcp_server-Relokation); D2b parallel sobald die Ziel-Infra
-entschieden ist.
+T7-D (mcp_server-Relokation, Move-not-rewrite, ADR-017); D2b parallel
+sobald die Ziel-Infra entschieden ist.
 
 ## Stehendes Mandat (Track-PRs eigenständig mergen)
 
@@ -150,7 +172,8 @@ Du darfst Track-PRs **nach grüner CI selbst squash-mergen** und das
 Branch löschen — analog zu Sessions vom 2026-05-20 (T4b PR #24 +
 NEXT-SESSION-PROMPT-Folge PR #25; T5 PR #27 + Folge-Doku PR #28; T6
 PR #29 + Folge-Doku PR #30; T7-A PR #31 + Folge-Doku PR #32;
-T7-B PR #33 + Folge-Doku). Begründung: jede Track-PR-Iteration
+T7-B PR #33 + Folge-Doku PR #34; T7-C PR #35 + Folge-Doku).
+Begründung: jede Track-PR-Iteration
 ist klein, byte-äquivalent geprüft (`make verify` inkl. Char-Tests +
 90 %-Invoicing-Suite + import-linter + Doc-Gate + Probe-Lint), und der
 Deploy-Pfad ist self-perpetuating gesichert (D3 Pre-Deploy-`verify`-Job
@@ -218,6 +241,8 @@ zuerst, jede Mutation mit `.bak` vorher.
 Verifiziere den Status (`git status`, `git log --oneline -5`,
 `docs/remediation-backlog.md` lesen, Doc-Gate + Probe-Lint grün prüfen,
 `gh pr list --state open`), kläre mit dem User welches Item als
-nächstes (Vorschlag T7-C analog T7-B mit Recon-Schritt vorab), und
-arbeite es als eigenen PR ab — schemaneutral, byte-äquivalent wo Move,
-sealed bleibt sealed, Kennzahlen im selben Change syncen.
+nächstes (Vorschlag T7-D, mcp_server-Move-not-rewrite, mit Recon-
+Schritt vorab — **andere Mechanik** als T7-A/B/C, also nicht
+mechanisch übertragen), und arbeite es als eigenen PR ab —
+schemaneutral, byte-äquivalent wo Move, sealed bleibt sealed,
+Kennzahlen im selben Change syncen.
