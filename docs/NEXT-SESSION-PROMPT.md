@@ -29,6 +29,7 @@ bereits passiert, in Doku & Memory nachlesbar):
 Aktuelle main-Reihenfolge (oben = neuester Stand):
 
 ```
+181bf54  ops:  R2-Final-Cleanup — routes/{leads,proposals}.py-Test-Shims physisch tot (Shim-Inventar 2 → 0) (#39)
 14f0b0f  ops:  T7-D — services/mcp_server.py → app/interfaces/mcp/server.py (Move-not-rewrite, ADR-009 §B-Endpunkt) (#37)
 5dfbbdf  ops:  T7-C — services/linkedin_import.py-Shim sterben lassen (R2 strukturell, 3/3) (#35)
 62e0afe  ops:  T7-B — services/ai.py-Shim sterben lassen (R2 strukturell, 2/3) (#33)
@@ -118,6 +119,27 @@ jetzt vollständig: `services/` enthält keine Interface-Schicht mehr
 (`auth/numbering/pdf/proposals` = Reusable-Kernel, `invoicing/` =
 Compliance-Move-not-rewrite). ADR-017. **R2 strukturell vollständig
 zu** (T7-A + T7-B + T7-C + T7-D); **T7 abgeschlossen**.
+**R2-Final-Cleanup** (PR #39, kein eigenes T-Item — Folge-Cleanup nach
+T7-Abschluss): die zwei verbliebenen `routes/{leads,proposals}.py`-Test-
+Shims physisch tot, 4 Test-Importer in 3 Dateien (`tests/
+characterization/test_{leads,proposals}_routes.py` + `tests/integration/
+test_proposal_from_plan.py`) auf `app.interfaces.web.{leads,proposals}`
+retargeted (Modul-Cache identisch, byte-äquivalente monkeypatch-Naht).
+`routes/`-Paket inkl. leerem `__init__.py` weg; Prod-LOC −27 (14 + 13),
+Tests 0 LOC. **Shim-Inventar 2 → 0** — alle vier T7-Shims jetzt versorgt
+(models / ai / linkedin_import / routes-Doppel). `import-linter`
+`root_packages` von `["services", "routes", "app"]` → `["services",
+"app"]`; Schritt-5-Billing-Regel `forbidden_modules` ohne den jetzt
+trivial-erfüllten `"routes"`-Eintrag. **Fix-forward war nötig**: erster
+CI-Lauf zeigte `lint-imports`-Fehler `Could not find package 'routes'`,
+weil der Recon das `[tool.importlinter]`-Array nicht im Search-Pfad hatte
+(Lektion: bei jedem Paket-Tod künftig `grep -nE 'root_packages|
+source_modules|forbidden_modules' pyproject.toml`). ARCHITECTURE.md +
+CLAUDE.md + pyproject.toml-Kommentare + `services/proposals.py:1`-
+Docstring minimal-invasiv synchronisiert (nur Stellen die durch *diesen*
+PR direkt falsch werden; übrige T7-B/C/D-Folge-Drift in CLAUDE.md
+bewusst deferred → eigener Doku-PR, Scope-Disziplin). Keine neue ADR
+(Mechanismus identisch zu T7-A/B/C; siehe ADR-014/015/016).
 Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
 (Backup-Automatik + Restore-Test on-host), **D3** (Deploy-`verify`-Job
 + Pre-Deploy-Backup-Hook serverseitig), **D4** (immutable `:sha`-Tag
@@ -126,27 +148,27 @@ Erledigte Ops: **D1** (Server-DB-Persistenz belegt), **D2**
 ## Offen
 
 **Track:**
-- *(keiner)* — T7 ist abgeschlossen. Der Remediation-Track hat keine
-  offenen T-Items mehr.
-- **`routes/{leads,proposals}.py`** — die zwei `app.interfaces.web.*.router`-
-  Re-Export-Shims. Nicht in T7 als eigenes Item geführt; sterben mit der
-  nächsten Char-Test-Reorganisation (Test-Importer `from routes import
-  leads as leads_route` ablegen). Inventar-Zähler-Ziel: 0.
+- *(keiner)* — T7 ist abgeschlossen und der R2-Final-Cleanup (#39) hat
+  die letzten beiden `routes/{leads,proposals}.py`-Test-Shims versorgt.
+  **Shim-Inventar = 0.** Der Remediation-Track hat keine offenen
+  T-Items mehr.
 
 **Ops:**
-- **D2b** — Off-Host-Backup-Automatik. Heute fehlt am Server jedes
-  Tooling (kein rclone/restic/aws/gsutil/b2) **und** ein Ziel.
-  Echte Infra-Entscheidung (zweiter Host via scp/rsync-Key, oder
-  Objekt-Storage-Bucket + Creds). Interim deckt: Pre-Deploy-Hook +
-  Timer + der manuelle Off-Host-Snapshot in lokalem `.secrets/`.
+- **D2b** — **out-of-scope für dieses Projekt.** Off-Host-Backup wird
+  separat in einem anderen Projekt server-weit eingerichtet (User-
+  Entscheidung 2026-05-21). Der bestehende On-Host-Setup (täglicher
+  systemd-Timer + Pre-Deploy-Backup-Hook auf `adm.agentic-reach.com`)
+  deckt den unmittelbaren „Code-Umstellung schiefgegangen"-Fall ab.
 - **D5** (optional) — Staging-Umgebung (gleiches Image, Kopie der DB)
   für riskante Migrations-Proben ohne Prod-Risiko.
 
 **Empfohlene Reihenfolge (mein Vorschlag, nicht bindend):**
-D2b sobald die Ziel-Infra entschieden ist (P1, Wertbeitrag = echte
-Off-Host-DR-Garantie); D5 falls eine größere Schema-Änderung ansteht
-(P2, optional). Die `routes/*.py`-Test-Shims können bei nächster Char-
-Test-Reorganisation mitgenommen werden — kein eigenes T-Item.
+D5 falls eine größere Schema-Änderung ansteht (P2, optional). Sonst
+hat der Remediation-Track keine offenen Items — die nächste Session
+ist freie Wahl (Feature-Arbeit, weitere Doku-Sweeps, oder Pause).
+Optionaler Doku-Sweep: die übrigen Stale-Pfad-Erwähnungen in
+`CLAUDE.md` (Z. 106-109/127/129) aus den T7-B/C/D-Folge-Drifts —
+nicht-blockierend, kein Live-Stand-Drift im Code, kein Doc-Gate-Bruch.
 
 ## Stehendes Mandat (Track-PRs eigenständig mergen)
 
@@ -155,7 +177,7 @@ Branch löschen — analog zu Sessions vom 2026-05-20/21 (T4b PR #24 +
 NEXT-SESSION-PROMPT-Folge PR #25; T5 PR #27 + Folge-Doku PR #28; T6
 PR #29 + Folge-Doku PR #30; T7-A PR #31 + Folge-Doku PR #32;
 T7-B PR #33 + Folge-Doku PR #34; T7-C PR #35 + Folge-Doku PR #36;
-T7-D PR #37 + Folge-Doku).
+T7-D PR #37 + Folge-Doku PR #38; R2-Final-Cleanup PR #39 + Folge-Doku).
 Begründung: jede Track-PR-Iteration
 ist klein, byte-äquivalent geprüft (`make verify` inkl. Char-Tests +
 90 %-Invoicing-Suite + import-linter + Doc-Gate + Probe-Lint), und der
@@ -230,7 +252,11 @@ zuerst, jede Mutation mit `.bak` vorher.
 Verifiziere den Status (`git status`, `git log --oneline -5`,
 `docs/remediation-backlog.md` lesen, Doc-Gate + Probe-Lint grün prüfen,
 `gh pr list --state open`), kläre mit dem User welches Item als
-nächstes (Vorschlag D2b sobald die Ziel-Infra geklärt ist — echte
-Infra-Entscheidung, deshalb mit dem User abklären), und arbeite es als
-eigenen PR ab — schemaneutral, byte-äquivalent wo Move, sealed bleibt
-sealed, Kennzahlen im selben Change syncen.
+nächstes. **Track-Stand 2026-05-21 nach R2-Final-Cleanup:** keine
+offenen T-Items, Shim-Inventar = 0; D2b out-of-scope (eigenes
+Server-Backup-Projekt deckt das). Freie Wahl: D5 falls Migrations-
+Risiko, oder Feature-Arbeit, oder optionaler `CLAUDE.md`-Stale-Pfad-
+Doku-Sweep (T7-B/C/D-Folge-Drift in Z. 106-109/127/129; nicht-blockierend).
+Arbeite das gewählte Item als eigenen PR ab — schemaneutral, byte-
+äquivalent wo Move, sealed bleibt sealed, Kennzahlen im selben Change
+syncen.
