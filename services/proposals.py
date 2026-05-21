@@ -1,4 +1,4 @@
-"""Shared by routes/proposals.py (web UI) and services/mcp_server.py (MCP tools)."""
+"""Shared by app/interfaces/{web,mcp}/{proposals,server}.py (web UI + MCP tools)."""
 from datetime import datetime
 from typing import Optional
 

@@ -105,7 +105,7 @@ services/
   auth.py        — password hashing, NeedsLoginException
   ai.py          — Claude API integration (prompts hardcoded, ===MARKER=== parsing)
   linkedin_import.py — LinkedIn-PDF → Lead extraction
-  proposals.py   — shared create/mark-sent helpers (used by routes/proposals.py and MCP)
+  proposals.py   — shared create/mark-sent helpers (used by app/interfaces/web/proposals.py and MCP)
   mcp_server.py  — FastMCP server + 16 tools (leads/notes/proposals/invoices)
   invoicing/     — compliance core (heavily tested): finalize, VAT, VIES,
                    hashchain, immutability, archive, numbering, integrity
@@ -118,7 +118,7 @@ generated_pdfs/  — PDF output, gitignored, persisted via Docker volume
 
 **Form-based mutations:** All state changes (create, update, delete, stage change) use `POST` forms with `RedirectResponse`. There are no JSON-returning UI routes — those live exclusively under `/api`.
 
-**Jinja2 globals:** `routes/leads.py` injects `STAGE_LABELS`, `SOURCE_LABELS`, `STAGE_ORDER`, `LeadStage`, `LeadSource`, `PROPOSAL_STATUS_LABELS` into the template environment so templates can reference them directly without per-route injection.
+**Jinja2 globals:** `app/interfaces/web/leads.py` injects `STAGE_LABELS`, `SOURCE_LABELS`, `STAGE_ORDER`, `LeadStage`, `LeadSource`, `PROPOSAL_STATUS_LABELS` into the template environment so templates can reference them directly without per-route injection.
 
 **JSON fields on Lead:** `tags` and `agent_metadata` are stored as JSON strings in SQLite (not a JSON column). Always `json.dumps()` before write and `json.loads()` before use.
 

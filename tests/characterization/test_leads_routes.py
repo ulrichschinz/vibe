@@ -13,8 +13,8 @@ from sqlmodel import Session, select
 from app.core.ai_settings import AiSettings
 from app.domains.leads.models import Lead, LeadStage
 from app.domains.proposals.models import Proposal
-from routes import leads as leads_route
-from routes import proposals as proposals_route
+from app.interfaces.web import leads as leads_route
+from app.interfaces.web import proposals as proposals_route
 from tests.characterization.conftest import build_minimal_app
 from tests.fixtures.factories import make_lead_de_b2b
 

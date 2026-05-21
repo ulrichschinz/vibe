@@ -13,10 +13,10 @@
 
 | Metrik | Wert | Beleg |
 |---|---|---|
-| Python LOC gesamt | 12.254 | `find -name '*.py'` |
-| davon Produktivcode | 8.646 | ohne `tests/` |
+| Python LOC gesamt | 12.227 | `find -name '*.py'` |
+| davon Produktivcode | 8.619 | ohne `tests/` |
 | davon Tests | 3.608 | `tests/` |
-| Test/Prod-Verhältnis | ~42 % | Remediation-Track **T7-D** (`services/mcp_server.py` → `app/interfaces/mcp/server.py` Move-not-rewrite, ADR-017): Prod +10 LOC / Tests +4 LOC / Total +14 LOC — physischer Move des 363-LOC-FastMCP-Servers (16 Tools + modul-globaler `engine`-Seam). 2 Prod-Importer (`app/interfaces/mcp/{__init__,mount}.py`) + 1 Test-Importer (`tests/characterization/conftest.py::mcp_module`) auf neuen Pfad retargeted; `import services.mcp_server as m` → `import app.interfaces.mcp.server as m`; `monkeypatch.setattr(m, "engine", …)` byte-identisch (Modul-Cache → selbes `sys.modules`-Objekt). Import-Linter-Regel umbenannt (`source_modules = ["app.interfaces.mcp.server"]` + `name`-String synchron zur Struktur-Verträge-Tabelle). ADR-009 §B-Endpunkt eingelöst (frozen `m.engine`-Seam ist mitgezogen; im selben PR — der einzige Lifecycle-konforme Zeitpunkt). Shim-Inventar unverändert (mcp_server ist keine Re-Export-Shim — Body enthält Funktions-Definitionen; T6-AST-Walk klassifiziert korrekt als Nicht-Shim → Inventar bleibt bei 2 `routes/*.py`-Test-Shims). Datei-eigenes Docstring auf neuen Mount-Pfad korrigiert (referenzierte vorher `routes/mcp.py`, seit Schritt 8 weg — Stale-Korrektur). LOC-Drift +14 (Prod +10 / Tests +4): Naht-Docstring-Erweiterungen in `app/interfaces/mcp/{__init__,server}.py` + `tests/characterization/conftest.py::mcp_module` (analog T7-B's +7-Test-LOC) plus `ruff format`-Konformitäts-Bump (+6 prod LOC: Leerzeilen nach Section-Komment-Bannern + 2 Mehrzeilen-Aufrufe in `finalize_invoice`/`create_storno` — rein kosmetisch; Format-conformance auf der neuen `app/`-Soll-Surface). Eine `app/interfaces/mcp/server.py = ["E402"]`-per-file-ignore in `pyproject.toml` deckt die deliberaten Late-Imports der Invoice-Tool-Gruppe (Schritt-8-Schema, analog `web/*`/`api/*`-Layout-Debt). Doc-Gate-Skript `scripts/check_architecture_metrics.py::m_mcp_tools` zählt jetzt am neuen Pfad. Vorgängerzeile **T7-C** (`services/linkedin_import.py`-Shim physisch tot, ADR-016): Prod −28 LOC (28-Zeilen-Shim gelöscht; `app/domains/leads/service.py` Docstring-/Kommentar-Retarget line-neutral; lazy `from services import linkedin_import as _li` → `from app.core import ai as _li`; `app/interfaces/web/leads.py` 1-Zeilen-Importer-Swap), Tests 0 LOC (`tests/characterization/test_leads_routes.py`: zwei 1-Zeilen-Importer-Swaps `import services.linkedin_import as li` → `from app.core import ai as li`; monkeypatch-Naht byte-identisch — `monkeypatch.setattr(li, "extract_lead_from_pdf", …)` greift jetzt direkt auf das `app.core.ai`-Modul-Objekt). Kein Sonderfall analog T7-B/`generate_proposal_drafts` — alle 4 re-exportierten Symbole (`SYSTEM_PROMPT`, `LinkedInImportError`, `_parse_json_block`, `extract_lead_from_pdf`) leben tatsächlich in `app/core/ai.py`. Vorgängerzeile **T7-B** (`services/ai.py`-Shim physisch tot, ADR-015): Prod −36 LOC, Tests +7 LOC (`tests/unit/test_ai_proposal_drafts.py`: Docstring auf „T7-B / ADR-015"-Diagnose erweitert + zusätzlicher Import `from app.domains.proposals.service import generate_proposal_drafts`; 2 Aufrufstellen `ai.generate_proposal_drafts(...)` → `generate_proposal_drafts(...)`; die zwei anderen Importer — `tests/characterization/test_proposals_routes.py` + `tests/integration/test_proposal_from_plan.py` — sind reine 1-Zeilen-Importer-Swaps. monkeypatch-Naht unverändert (`monkeypatch.setattr(ai, "chat_with_context", …)` greift jetzt direkt auf das `app.core.ai`-Modul-Objekt). Vorgängerzeile **T7-A** bleibt sachlich gültig: `models.py`-Shim physisch tot, Aggregations-Rolle in `db_tables.register_tables()` umgezogen (top-level — `core ↛ domains` zwingt es aus `app.core` raus — ADR-014). Vorgängerzeile **T4b** bleibt sachlich gültig: `tests/e2e/conftest.py` überschreibt das geteilte `engine`-Fixture für die e2e-Suite und baut das Schema via `app.core.db_migrate.run_migrations` statt `create_all` + Helfer (Alembic-Pfad in jedem CI-Lauf real exerciert; schemaneutral per T4a). Vorgängerzeile **T4a** bleibt: `tests/test_db_migration_parity.py` vergleicht `create_all`-Schema vs. `run_migrations`-Schema strukturell (`sqlite_master` + `PRAGMA`) → fängt künftige Drift Modell ↔ Alembic-Revision (Schritt-9-Vertrag) |
+| Test/Prod-Verhältnis | ~42 % | **R2-Final-Cleanup** (`routes/{leads,proposals}.py`-Test-Shims physisch tot — kein eigenes T-Item, Folge-Cleanup nach T7-Abschluss): Prod −27 LOC (14 + 13 — die zwei Test-zugewandten Re-Export-Shims aus Schritt 8; das leere `routes/__init__.py` wandert mit, das ganze `routes/`-Paket ist weg), Tests 0 LOC (4 Test-Importer-Swaps in 3 Dateien — `tests/characterization/test_{leads,proposals}_routes.py` + `tests/integration/test_proposal_from_plan.py`: `from routes import {leads,proposals} as …_route` → `from app.interfaces.web import {leads,proposals} as …_route`, Modul-Cache identisch). Shim-Inventar fällt **2 → 0**. Vorgängerzeile **T7-D** (`services/mcp_server.py` → `app/interfaces/mcp/server.py` Move-not-rewrite, ADR-017): Prod +10 LOC / Tests +4 LOC / Total +14 LOC — physischer Move des 363-LOC-FastMCP-Servers (16 Tools + modul-globaler `engine`-Seam). 2 Prod-Importer (`app/interfaces/mcp/{__init__,mount}.py`) + 1 Test-Importer (`tests/characterization/conftest.py::mcp_module`) auf neuen Pfad retargeted; `import services.mcp_server as m` → `import app.interfaces.mcp.server as m`; `monkeypatch.setattr(m, "engine", …)` byte-identisch (Modul-Cache → selbes `sys.modules`-Objekt). Import-Linter-Regel umbenannt (`source_modules = ["app.interfaces.mcp.server"]` + `name`-String synchron zur Struktur-Verträge-Tabelle). ADR-009 §B-Endpunkt eingelöst (frozen `m.engine`-Seam ist mitgezogen; im selben PR — der einzige Lifecycle-konforme Zeitpunkt). Shim-Inventar unverändert (mcp_server ist keine Re-Export-Shim — Body enthält Funktions-Definitionen; T6-AST-Walk klassifiziert korrekt als Nicht-Shim → Inventar bleibt bei 2 `routes/*.py`-Test-Shims). Datei-eigenes Docstring auf neuen Mount-Pfad korrigiert (referenzierte vorher `routes/mcp.py`, seit Schritt 8 weg — Stale-Korrektur). LOC-Drift +14 (Prod +10 / Tests +4): Naht-Docstring-Erweiterungen in `app/interfaces/mcp/{__init__,server}.py` + `tests/characterization/conftest.py::mcp_module` (analog T7-B's +7-Test-LOC) plus `ruff format`-Konformitäts-Bump (+6 prod LOC: Leerzeilen nach Section-Komment-Bannern + 2 Mehrzeilen-Aufrufe in `finalize_invoice`/`create_storno` — rein kosmetisch; Format-conformance auf der neuen `app/`-Soll-Surface). Eine `app/interfaces/mcp/server.py = ["E402"]`-per-file-ignore in `pyproject.toml` deckt die deliberaten Late-Imports der Invoice-Tool-Gruppe (Schritt-8-Schema, analog `web/*`/`api/*`-Layout-Debt). Doc-Gate-Skript `scripts/check_architecture_metrics.py::m_mcp_tools` zählt jetzt am neuen Pfad. Vorgängerzeile **T7-C** (`services/linkedin_import.py`-Shim physisch tot, ADR-016): Prod −28 LOC (28-Zeilen-Shim gelöscht; `app/domains/leads/service.py` Docstring-/Kommentar-Retarget line-neutral; lazy `from services import linkedin_import as _li` → `from app.core import ai as _li`; `app/interfaces/web/leads.py` 1-Zeilen-Importer-Swap), Tests 0 LOC (`tests/characterization/test_leads_routes.py`: zwei 1-Zeilen-Importer-Swaps `import services.linkedin_import as li` → `from app.core import ai as li`; monkeypatch-Naht byte-identisch — `monkeypatch.setattr(li, "extract_lead_from_pdf", …)` greift jetzt direkt auf das `app.core.ai`-Modul-Objekt). Kein Sonderfall analog T7-B/`generate_proposal_drafts` — alle 4 re-exportierten Symbole (`SYSTEM_PROMPT`, `LinkedInImportError`, `_parse_json_block`, `extract_lead_from_pdf`) leben tatsächlich in `app/core/ai.py`. Vorgängerzeile **T7-B** (`services/ai.py`-Shim physisch tot, ADR-015): Prod −36 LOC, Tests +7 LOC (`tests/unit/test_ai_proposal_drafts.py`: Docstring auf „T7-B / ADR-015"-Diagnose erweitert + zusätzlicher Import `from app.domains.proposals.service import generate_proposal_drafts`; 2 Aufrufstellen `ai.generate_proposal_drafts(...)` → `generate_proposal_drafts(...)`; die zwei anderen Importer — `tests/characterization/test_proposals_routes.py` + `tests/integration/test_proposal_from_plan.py` — sind reine 1-Zeilen-Importer-Swaps. monkeypatch-Naht unverändert (`monkeypatch.setattr(ai, "chat_with_context", …)` greift jetzt direkt auf das `app.core.ai`-Modul-Objekt). Vorgängerzeile **T7-A** bleibt sachlich gültig: `models.py`-Shim physisch tot, Aggregations-Rolle in `db_tables.register_tables()` umgezogen (top-level — `core ↛ domains` zwingt es aus `app.core` raus — ADR-014). Vorgängerzeile **T4b** bleibt sachlich gültig: `tests/e2e/conftest.py` überschreibt das geteilte `engine`-Fixture für die e2e-Suite und baut das Schema via `app.core.db_migrate.run_migrations` statt `create_all` + Helfer (Alembic-Pfad in jedem CI-Lauf real exerciert; schemaneutral per T4a). Vorgängerzeile **T4a** bleibt: `tests/test_db_migration_parity.py` vergleicht `create_all`-Schema vs. `run_migrations`-Schema strukturell (`sqlite_master` + `PRAGMA`) → fängt künftige Drift Modell ↔ Alembic-Revision (Schritt-9-Vertrag) |
 | SQLModel-Tabellen | 13 | `table=True`-Klassen in `app/**/models.py` + `app/core/{identity,ai_settings}.py`; Registry-Bootstrap (T7-A): `db_tables.register_tables()` (top-level — `core ↛ domains` zwingt es aus `app.core` raus) importiert sie deterministisch (kernel → leads → proposals → billing). Schritt 4 korrigiert: vorher 14 durch eine mitgezählte Kommentarzeile in `models.py`, real 13 Entitäten |
 | HTTP-Endpoints | 72 | `@router.(get\|post\|...)` in `app/interfaces/{web,api}/` (Schritt 8: aus `routes/` dorthin verschoben) |
 | Route-Module | 7 | `app/interfaces/{web,api}/*.py` ohne `__init__.py` (register) u. `mount.py` (MCP-ASGI-Mount) |
@@ -38,7 +38,9 @@ SQLModel, Jinja2-UI + WeasyPrint-PDF, Claude-Anbindung, plus REST- und
 MCP-Schnittstelle für Agenten. Seit Schritt 8 läuft die Delivery-Schicht
 über `app/interfaces/{web,api,mcp}` (register-Auto-Discovery + zentraler
 RFC-7807-Mapper); Domänen-Logik in `app/domains/*`, Kern in `app/core/*`.
-`routes/` ist nur noch test-zugewandter Re-Export-Shim (leads, proposals).
+Das frühere `routes/`-Paket ist seit dem R2-Final-Cleanup physisch tot
+(die letzten zwei Test-Shims versorgt; Char-/Integration-Tests importieren
+jetzt direkt `app.interfaces.web.{leads,proposals}`).
 Seit Schritt 9 wird das Schema durch zwei getrennt versionierte Alembic-
 Bäume (CRM + Billing, eigene version_table je Baum) etabliert — keine
 impliziten `create_all`-Schema-Änderungen mehr.
@@ -73,10 +75,6 @@ vibe/
 │                                    = altes create_all-Schema (delegiert,
 │                                    byte-gleich). Nicht in import-linter-
 │                                    /mypy-/ruff-Scope (nur Doc-Gate-LOC)
-├── routes/                      ~30  Schritt 8: nur noch test-zugewandte
-│   ├── __init__.py               0   Re-Export-Shims (frozen Char-/
-│   ├── leads.py                 ~13  Integration-Tests importieren
-│   └── proposals.py             ~13  `from routes import {leads,proposals}`)
 ├── services/                  2377  Reusable-Kernel + Compliance-Kern
 │   │                                (seit T7-D ohne Interface-Schicht;
 │   │                                FastMCP-Server zog nach app/interfaces/mcp/
@@ -391,10 +389,20 @@ Der Doc-Gate (T6) zählt sie AST-präzise (Body = `Import`/`ImportFrom` ±
 der sie deklariert sind: AST-Fund ≠ Tabelle → CI-Rot. Damit ist auch das
 Sterbe-Inventar für Remediation-Track T7 selbst-verifizierend.
 
+**Status: Inventar leer.** T7 hat alle vier Shims versorgt
+(`models.py` ⇒ T7-A/ADR-014; `services/ai.py` ⇒ T7-B/ADR-015;
+`services/linkedin_import.py` ⇒ T7-C/ADR-016; `services/mcp_server.py`
+ist physisch nach `app/interfaces/mcp/server.py` umgezogen ⇒ T7-D/ADR-017,
+kein Shim-Tod, sondern Move-not-rewrite — siehe Kennzahl `MCP-Tools`),
+der **R2-Final-Cleanup** (Folge-Cleanup nach T7-Abschluss, kein eigenes
+T-Item) hat die zwei verbliebenen `routes/{leads,proposals}.py`-Test-Shims
+physisch entfernt und ihre vier Test-Importer auf `app.interfaces.web.*`
+retargeted (Modul-Cache identisch, monkeypatch-Naht der Char-/Integration-
+Tests byte-äquivalent). Tabelle bleibt als Mechanismus für etwaige
+künftige Move-not-rewrite-Shims; aktuell zählt der AST-Walk **0**.
+
 | Pfad | LOC | Naht / Aufgabe |
 |------|-----|----------------|
-| `routes/leads.py` | 14 | Test-Shim. Re-exportiert `app.interfaces.web.leads.router`. Stirbt, sobald die Char-Tests `from routes import leads as leads_route` ablegen. |
-| `routes/proposals.py` | 13 | Test-Shim. Re-exportiert `app.interfaces.web.proposals.router`. Stirbt, sobald die Char-Tests `from routes import proposals as proposals_route` ablegen. |
 
 ## Invoicing↔CRM-Naht (Vertrags-Schnitt — Schritt 5 gekappt)
 
@@ -429,9 +437,9 @@ direkte CRM-Reach existiert nicht mehr:
   Lead-Löschung lässt finalisierte Rechnungen unberührt.
 
 Erzwungen durch die geschärfte `import-linter`-Regel
-„`services.invoicing` ↛ `routes`/`app.domains.leads`/
-`app.domains.proposals`" (`pyproject.toml`; der `models`-Shim ist über
-die transitive `forbidden`-Erkennung mit abgedeckt — Rationale
+„`services.invoicing` ↛ `app.domains.{leads,proposals}` / `app.interfaces`"
+(`pyproject.toml`; der `models`-Shim war bis T7-A über die transitive
+`forbidden`-Erkennung mit abgedeckt, ist seit T7-A physisch tot — Rationale
 `docs/adr/007-billing-order-contract.md`; in Schritt 8 um `app.interfaces`
 als verbotenes Ziel ergänzt). Geteiltes `get_session`/`engine`
 (`database.py`) bleibt bewusst geteilt (Single-Process; DB-Split erst
