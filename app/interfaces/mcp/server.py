@@ -9,7 +9,7 @@ characterization-test `m.engine` seam (ADR-008/ADR-009 §B) followed.
 from typing import Optional
 import json
 
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from mcp.server.fastmcp import FastMCP
 

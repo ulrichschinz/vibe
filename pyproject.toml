@@ -61,6 +61,14 @@ select = ["E4", "E7", "E9", "F"]
 # (app.core.errors, app.domains.billing.service) are fully linted.
 "app/interfaces/web/*" = ["E712", "E741"]
 "app/interfaces/api/*" = ["E712", "E741"]
+# T7-D (ADR-017): mcp_server.py moved verbatim from services/ (which was
+# outside the ruff scope) into app/interfaces/mcp/server.py. The file uses
+# late module-level imports as a logical section break between Lead/Note/
+# Proposal tools and the Invoice-Tool-Group (line 253 onward) — deliberate
+# layout, not a defect. Restyling is a behaviour-adjacent rewrite owned by
+# no step (same rationale as the web/api per-file-ignores above; F401 stays
+# active — `select` was dropped as genuinely dead).
+"app/interfaces/mcp/server.py" = ["E402"]
 
 [tool.ruff.format]
 # Format enforcement (`ruff format --check`, see `make format-check`) is
